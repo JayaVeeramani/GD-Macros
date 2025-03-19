@@ -1,0 +1,48 @@
+Sub formula_fill()
+
+
+'declare the the worksheet and workbook
+
+Dim wb As Workbook
+Dim WS As Worksheet
+
+'define the workbook and worksheet
+
+Set wb = ThisWorkbook
+Set WS = wb.Worksheets("Summary")
+Set ws1 = wb.Worksheets("TOP LEVEL")
+
+'define the last row
+ws1.Activate
+
+lr = Cells.Find("*", Cells(1, 1), xlFormulas, xlPart, xlByRows, xlPrevious, False).Row
+ 
+ws1.Range("H3").Value = " Final QTY "
+ws1.Range("D4:D" & lr).Copy
+ws1.Range("H4:H" & lr).PasteSpecial (xlPasteValues)
+
+'woksheet loop starts
+
+ For i = 3 To wb.Worksheets.Count 'loop range sheet 3 to total count of workbook
+ 
+ wb.Worksheets(i).Activate   'activate the worksheet
+ 
+ lr = Cells.Find("*", Cells(1, 1), xlFormulas, xlPart, xlByRows, xlPrevious, False).Row  'define the last row
+ 
+  Range("H3").Value = " Final QTY " 'adding text(heading) ON "H3" cell
+ 
+ 'formula for finding final quantity and define the starting range as "H4" cell
+ 
+ Range("H4").Formula = "=IF(ISNUMBER(A4),IF(INT(A4)=A4,D4*VLOOKUP($A$1,'TOP LEVEL'!$B$4:$D$64,3,0),(VLOOKUP(INT(A4),$A$4:$D$86,4,0)*D4)*VLOOKUP($A$1,'TOP LEVEL'!$B$4:$D$64,3,0)),""FIND MANUALLY"")"
+ 
+ 'autofill range "H4" to last row of that sheet and starting range as "H4" cell
+ 
+ Range("H4").Autofill Range("H4:H" & lr)
+ 
+ Next i
+ 
+'after performing formulas and fill again come to "summary sheet"
+
+ wb.Worksheets("Summary").Activate
+  
+End Sub

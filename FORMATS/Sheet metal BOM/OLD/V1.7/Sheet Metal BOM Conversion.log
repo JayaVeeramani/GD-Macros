@@ -1,0 +1,436 @@
+2021-03-08 14:30:52,453; ERROR; P.No: P01552 - Error happened during bom_txt2excel function.
+2021-03-08 14:32:36,224; INFO; P01520 Sheet Metal ESTIMATION and BOM 20200806.xlsx - Sorting Program Successful
+2021-03-08 16:30:51,428; ERROR; P.No: P01527 - Error happened during bom_txt2excel function.
+2021-03-08 16:30:57,452; ERROR; P.No: P01527 - Error happened during bom_txt2excel function.
+2021-03-08 16:31:25,460; ERROR; P.No: P01527 - Error happened during bom_txt2excel function.
+2021-03-08 16:34:54,813; ERROR; P.No: P01527 - Error happened during bom_txt2excel function.
+2021-03-08 16:35:40,392; ERROR; P.No: P01527 - Error happened during bom_txt2excel function.
+2021-03-09 15:35:18,224; ERROR; P.No: P01556 - Error happened during bom_txt2excel function.
+2021-03-09 15:35:38,846; ERROR; P.No: P01556 - Error happened during bom_txt2excel function.
+2021-03-09 15:36:45,320; ERROR; P.No: P01556 - Error happened during bom_txt2excel function.
+2021-03-09 15:37:16,670; ERROR; P.No: P01556 - Error happened during bom_txt2excel function.
+2021-03-09 15:38:06,571; ERROR; P.No: P01556 - Error happened during bom_txt2excel function.
+2021-03-09 15:39:08,427; ERROR; P.No: P01556 - Error happened during bom_txt2excel function.
+2021-03-09 15:41:02,156; ERROR; P.No: P01556 - Error happened during bom_txt2excel function.
+2021-03-09 15:41:57,140; ERROR; P.No: P01556 - Error happened during bom_txt2excel function.
+2021-03-09 15:44:14,317; ERROR; P.No: P01556 - Error happened during bom_txt2excel function.
+2021-03-09 17:13:47,674; ERROR; P.No: P01556 - Error happened during bom_txt2excel function.
+2021-03-09 17:14:17,312; ERROR; P.No: P01556 - Error happened during bom_txt2excel function.
+2021-03-09 18:32:49,044; INFO; P01550 SHEET METAL BOM.xlsx - Sorting Program Successful
+2021-03-10 12:42:26,893; ERROR; C:/Users/SAIN-2/Desktop/20210310 P01460  Sheet Metal BOM.xlsx - Error happened during sort function.
+2021-03-10 12:42:37,704; ERROR; C:/Users/SAIN-2/Desktop/20210310 P01460  Sheet Metal BOM.xlsx - Error happened during sort function.
+2021-03-10 12:43:09,225; ERROR; C:/Users/SAIN-2/Desktop/20210310 P01460  Sheet Metal BOM.xlsx - Error happened during sort function.
+2021-03-10 12:43:23,103; ERROR; C:/Users/SAIN-2/Desktop/20210310 P01460  Sheet Metal BOM.xlsx - Error happened during sort function.
+2021-03-10 13:00:11,462; ERROR; C:/Users/SAIN-2/Desktop/P01460  Sheet Metal BOM.xlsx - Error happened during sort function.
+2021-03-10 13:02:29,823; ERROR; C:/Users/SAIN-2/Desktop/20210310 P01460  Sheet Metal BOM.xlsx - Error happened during sort function.
+2021-03-10 13:07:29,609; ERROR; D:/Louis/Python/Sheet Metal BOM/V1.7/dist/20210310 P01460  Sheet Metal BOM.xlsx - Error happened during sort function.
+2021-03-10 13:08:30,456; INFO; P.No: P01479 - Conversion Program Successful
+2021-03-10 13:09:09,799; ERROR; D:/Louis/Python/Sheet Metal BOM/V1.7/P01479 SHEET METAL BOM 20210310.xlsx - Error happened during sort function.
+2021-03-10 13:20:27,111; ERROR; C:/Users/PRAN-3/Desktop/20210310 P01460  Sheet Metal BOM.xlsx - Error happened during sort function.
+2021-03-10 13:21:54,815; ERROR; C:/Users/PRAN-3/Desktop/20210310 P01460  Sheet Metal BOM.xlsx - Error happened during sort function.
+2021-03-10 13:34:14,085; INFO; 20210310 P01460  Sheet Metal BOM (1).xlsx - Sorting Program Successful
+2021-03-10 13:34:47,691; INFO; P.No: P01479 - Conversion Program Successful
+2021-03-10 13:34:53,841; INFO; P.No: P01479 - Conversion Program Successful
+2021-03-10 13:35:28,476; INFO; P01479 SHEET METAL BOM 20210310.xlsx - Sorting Program Successful
+2021-03-10 18:00:01,052; INFO; 20210310 P01460  Sheet Metal BOM.xlsx - Sorting Program Successful
+2021-03-11 12:58:30,178; INFO; P.No: P01453 - Conversion Program Successful
+2021-03-11 16:27:48,990; INFO; P01453 SHEET METAL BOM 20210311.xlsx - Sorting Program Successful
+2021-03-11 16:56:29,058; INFO; P01453 SHEET METAL BOM 20210311.xlsx - Sorting Program Successful
+2021-03-11 17:12:42,433; INFO; P01453 SHEET METAL BOM 20210311.xlsx - Sorting Program Successful
+2021-03-12 12:28:00,047; INFO; 20201208_P01453  Sheet Metal BOM.xlsx - Sorting Program Successful
+2021-03-12 12:32:16,363; INFO; 20201208_P01453  Sheet Metal BOM.xlsx - Sorting Program Successful
+2021-03-12 12:39:22,157; INFO; P01453 SHEET METAL BOM 20210311.xlsx - Sorting Program Successful
+2021-03-15 12:12:02,471; INFO; P01453 SHEET METAL BOM 20210311.xlsx - Sorting Program Successful
+2021-03-15 13:15:39,659; INFO; P01550 SHEET METAL BOM .xlsx - Sorting Program Successful
+2021-03-18 14:48:36,256; INFO; P01453 SHEET METAL BOM 20210318.xlsx - Sorting Program Successful
+2021-03-18 15:09:07,789; INFO; P01453 SHEET METAL BOM 20210318.xlsx - Sorting Program Successful
+2021-03-22 13:21:30,955; INFO; P.No: P01560 - Conversion Program Successful
+2021-03-22 18:09:25,715; INFO; P01453 SHEET METAL BOM 20210318.xlsx - Sorting Program Successful
+2021-03-25 10:34:55,533; INFO; P.No: P01560 - Conversion Program Successful
+2021-03-25 11:59:20,869; INFO; P.No: P01558 - Conversion Program Successful
+2021-03-25 13:26:24,187; ERROR; P.No: p01558 - Error happened during bom_txt2excel function.
+2021-03-25 13:33:01,212; ERROR; P.No: p01558 - Error happened during bom_txt2excel function.
+2021-03-25 13:51:11,895; INFO; P01558 SHEET METAL BOM 20210325.xlsx - Sorting Program Successful
+2021-03-25 14:07:52,067; INFO; P01558  WALL ASSEMBLY.xlsx - Sorting Program Successful
+2021-03-25 14:25:02,337; INFO; P01558  Sheet Metal BOM Estimation.xlsx - Sorting Program Successful
+2021-03-25 16:01:34,246; INFO; P.No: XXXYYY - Conversion Program Successful
+2021-03-25 16:01:59,413; INFO; XXXYYY SHEET METAL BOM 20210325.xlsx - Sorting Program Successful
+2021-03-25 16:02:05,746; INFO; XXXYYY SHEET METAL BOM 20210325.xlsx - Sorting Program Successful
+2021-03-25 16:02:43,312; INFO; XXXYYY SHEET METAL BOM 20210325.xlsx - Sorting Program Successful
+2021-03-25 16:06:40,318; INFO; P01560 SHEET METAL BOM 20210325.xlsx - Sorting Program Successful
+2021-03-26 11:20:46,943; INFO; P01558  Sheet Metal BOM Estimation (20210326).xlsx - Sorting Program Successful
+2021-03-26 13:19:50,817; INFO; P01530 SHEET METAL BOM CMD1 REV1 20210326.xlsx - Sorting Program Successful
+2021-03-26 13:20:03,654; INFO; P01530 SHEET METAL BOM END CAP 20210326.xlsx - Sorting Program Successful
+2021-03-26 13:20:16,183; INFO; P01530 SHEET METAL BOM END CAP 20210326.xlsx - Sorting Program Successful
+2021-03-26 13:20:28,976; INFO; P01530 SHEET METAL BOM TEL2 20210326.xlsx - Sorting Program Successful
+2021-03-26 13:38:39,545; INFO; P01530 SHEET METAL BOM P&C3 20210326.xlsx - Sorting Program Successful
+2021-03-29 11:09:48,554; INFO; P.No: P01547 - Conversion Program Successful
+2021-03-29 15:17:00,648; INFO; P01560 SHEET METAL BOM 20210329.xlsx - Sorting Program Successful
+2021-03-29 15:17:06,804; INFO; P01560 SHEET METAL BOM 20210329.xlsx - Sorting Program Successful
+2021-03-29 15:17:13,049; INFO; P01560 SHEET METAL BOM 20210329.xlsx - Sorting Program Successful
+2021-03-30 11:35:24,966; INFO; P.No: Practice - Conversion Program Successful
+2021-03-30 11:42:39,091; INFO; P.No: Practice - Conversion Program Successful
+2021-03-30 12:48:15,638; INFO; P.No: Sheetmetalbom - Conversion Program Successful
+2021-03-30 13:20:37,636; INFO; Sheetmetalbom SHEET METAL BOM 20210330.xlsx - Sorting Program Successful
+2021-03-30 14:17:21,350; ERROR; D:/Dropbox/FBD/P01547 - Crescent Power - Kinder Morgan Bear Creek Bldg1 - Bienville, LA/FAB SET/SHEET METAL/P01547 SHEET METAL ESTIMATION 20210329.xlsx - Error happened during sort function.
+2021-03-30 14:17:36,252; ERROR; D:/Dropbox/FBD/P01547 - Crescent Power - Kinder Morgan Bear Creek Bldg1 - Bienville, LA/FAB SET/SHEET METAL/P01547 SHEET METAL ESTIMATION 20210329.xlsx - Error happened during sort function.
+2021-03-30 14:17:50,285; ERROR; D:/Dropbox/FBD/P01547 - Crescent Power - Kinder Morgan Bear Creek Bldg1 - Bienville, LA/FAB SET/SHEET METAL/P01547 SHEET METAL ESTIMATION 20210329.xlsx - Error happened during sort function.
+2021-03-30 14:19:57,288; ERROR; C:/Users/SIVAK-3/Dropbox/FBD/P01547 - Crescent Power - Kinder Morgan Bear Creek Bldg1 - Bienville, LA/FAB SET/SHEET METAL/P01547 SHEET METAL ESTIMATION 20210329.xlsx - Error happened during sort function.
+2021-03-30 15:27:06,171; ERROR; C:/Users/USER-50/Dropbox/FBD/P01547 - Crescent Power - Kinder Morgan Bear Creek Bldg1 - Bienville, LA/FAB SET/SHEET METAL/P01547 SHEET METAL ESTIMATION 20210329.xlsx - Error happened during sort function.
+2021-03-31 10:06:05,364; INFO; P.No: P01548 - Conversion Program Successful
+2021-03-31 11:35:49,129; INFO; P01548 SHEET METAL BOM 20210331.xlsx - Sorting Program Successful
+2021-04-01 16:57:38,591; INFO; P.No: G01072 - Conversion Program Successful
+2021-04-01 18:17:46,879; INFO; G01072 SHEET METAL BOM 20210401.xlsx - Sorting Program Successful
+2021-04-01 18:20:21,231; ERROR; D:/Dropbox/FBD-GENSET/G01072 - MTU - Facebook - NCG5-6/FAB SET/SHEET METAL/TXT FILE/G01072 SHEET METAL BOM 20210401.xlsx - Error happened during sort function.
+2021-04-01 18:20:29,928; ERROR; D:/Dropbox/FBD-GENSET/G01072 - MTU - Facebook - NCG5-6/FAB SET/SHEET METAL/TXT FILE/G01072 SHEET METAL BOM 20210401.xlsx - Error happened during sort function.
+2021-04-01 18:20:40,473; ERROR; D:/Dropbox/FBD-GENSET/G01072 - MTU - Facebook - NCG5-6/FAB SET/SHEET METAL/TXT FILE/G01072 SHEET METAL BOM 20210401.xlsx - Error happened during sort function.
+2021-04-01 18:22:39,669; INFO; G01072 SHEET METAL BOM 20210401.xlsx - Sorting Program Successful
+2021-04-01 18:33:02,045; INFO; G01072 SHEET METAL BOM 20210401.xlsx - Sorting Program Successful
+2021-04-01 18:36:13,929; INFO; G01072 SHEET METAL BOM 20210401.xlsx - Sorting Program Successful
+2021-04-09 11:55:42,506; INFO; P.No: P01549 - Conversion Program Successful
+2021-04-12 10:26:37,827; INFO; P01549 SHEET METAL BOM 20210409.xlsx - Sorting Program Successful
+2021-04-12 11:58:24,801; ERROR; P.No: G01072 - Error happened during bom_txt2excel function.
+2021-04-12 11:58:33,256; ERROR; P.No: G01072 - Error happened during bom_txt2excel function.
+2021-04-12 12:09:31,192; ERROR; P.No: G01072 - Error happened during bom_txt2excel function.
+2021-04-12 12:23:18,393; ERROR; P.No: G01072 - Error happened during bom_txt2excel function.
+2021-04-12 12:24:03,080; ERROR; P.No: G01072 - Error happened during bom_txt2excel function.
+2021-04-12 12:24:28,577; INFO; P.No: G01072 - Conversion Program Successful
+2021-04-12 15:20:37,071; INFO; P01558 Consolidated Sheet Metal BOM (20210412).xlsx - Sorting Program Successful
+2021-04-14 10:15:25,551; INFO; P01549 SHEET METAL BOM 20210409.xlsx - Sorting Program Successful
+2021-04-15 20:03:00,315; INFO; P.No: P01540 - Conversion Program Successful
+2021-04-15 20:37:28,298; INFO; P01540 SHEET METAL BOM 20210415.xlsx - Sorting Program Successful
+2021-04-15 21:06:26,948; ERROR; C:/Users/USER-49/Desktop/P01540 SHEET METAL BOM 20210415.xlsx - Error happened during sort function.
+2021-04-15 21:06:33,658; ERROR; C:/Users/USER-49/Desktop/P01540 SHEET METAL BOM 20210415.xlsx - Error happened during sort function.
+2021-04-15 21:07:35,616; ERROR; C:/Users/USER-49/Desktop/P01540 SHEET METAL BOM 20210415.xlsx - Error happened during sort function.
+2021-04-15 21:09:25,870; ERROR; C:/Users/USER-49/Desktop/P01540 SHEET METAL BOM 20210415.xlsx - Error happened during sort function.
+2021-04-19 11:43:35,454; ERROR; P.No: P01550 - Error happened during bom_txt2excel function.
+2021-04-19 11:44:14,534; INFO; P.No: 550 - Conversion Program Successful
+2021-04-19 12:07:00,646; ERROR; P.No: G01072 - Error happened during bom_txt2excel function.
+2021-04-19 12:07:46,686; ERROR; P.No: G01072 - Error happened during bom_txt2excel function.
+2021-04-19 12:10:06,608; ERROR; P.No: G01072 - Error happened during bom_txt2excel function.
+2021-04-19 12:16:41,631; ERROR; P.No: G72 - Error happened during bom_txt2excel function.
+2021-04-19 12:20:22,141; INFO; P.No: G72 - Conversion Program Successful
+2021-04-19 12:20:41,606; INFO; P.No: G72 - Conversion Program Successful
+2021-04-19 12:21:01,568; INFO; P.No: G72 - Conversion Program Successful
+2021-04-19 12:21:11,698; ERROR; P.No: G72 - Error happened during bom_txt2excel function.
+2021-04-19 12:22:18,535; ERROR; P.No: G72 - Error happened during bom_txt2excel function.
+2021-04-19 12:26:31,766; ERROR; P.No: G72 - Error happened during bom_txt2excel function.
+2021-04-19 12:27:56,779; INFO; P.No: G72 - Conversion Program Successful
+2021-04-19 12:30:13,337; ERROR; P.No: G72 - Error happened during bom_txt2excel function.
+2021-04-19 12:30:45,783; ERROR; P.No: G72 - Error happened during bom_txt2excel function.
+2021-04-19 12:36:44,412; ERROR; P.No: G72 - Error happened during bom_txt2excel function.
+2021-04-19 15:16:09,005; INFO; 550 SHEET METAL BOM 20210419.xlsx - Sorting Program Successful
+2021-04-19 15:19:35,728; INFO; P01550 SHEET METAL BOM 20210419.xlsx - Sorting Program Successful
+2021-04-19 16:02:12,408; INFO; P.No: P01561 - Conversion Program Successful
+2021-04-19 16:07:05,522; INFO; P.No: 550 - Conversion Program Successful
+2021-04-19 16:07:43,891; INFO; 550 SHEET METAL BOM 20210419.xlsx - Sorting Program Successful
+2021-04-20 10:38:28,320; INFO; P01561 SHEET METAL ESTIMATION 20210419.xlsx - Sorting Program Successful
+2021-04-20 12:18:10,366; INFO; P01550 SHEET METAL BOM 20210420.xlsx - Sorting Program Successful
+2021-04-20 12:35:37,345; INFO; P.No: 550 - Conversion Program Successful
+2021-04-20 12:37:48,913; INFO; 550 SHEET METAL BOM 20210420.xlsx - Sorting Program Successful
+2021-04-20 16:49:48,879; INFO; P01550 SHEET METAL BOM 20210420.xlsx - Sorting Program Successful
+2021-04-20 18:19:32,525; INFO; P01561 SHEET METAL ESTIMATION 20210419.xlsx - Sorting Program Successful
+2021-04-22 11:42:00,531; ERROR; P.No: G60 - Error happened during bom_txt2excel function.
+2021-04-22 11:42:15,669; ERROR; P.No: G60 - Error happened during bom_txt2excel function.
+2021-04-22 11:42:27,006; ERROR; P.No: G60 - Error happened during bom_txt2excel function.
+2021-04-22 11:42:59,009; ERROR; P.No: G60 - Error happened during bom_txt2excel function.
+2021-04-22 11:43:47,067; ERROR; P.No: G60 - Error happened during bom_txt2excel function.
+2021-04-22 11:44:37,072; ERROR; P.No: G60 - Error happened during bom_txt2excel function.
+2021-04-22 11:47:09,785; INFO; P.No: G60 - Conversion Program Successful
+2021-04-22 11:48:20,750; ERROR; P.No: G60 - Error happened during bom_txt2excel function.
+2021-04-22 11:58:20,301; ERROR; P.No: G60 - Error happened during bom_txt2excel function.
+2021-04-22 11:58:29,238; ERROR; P.No: G60 - Error happened during bom_txt2excel function.
+2021-04-22 11:58:36,421; ERROR; P.No: G60 - Error happened during bom_txt2excel function.
+2021-04-22 11:59:02,549; ERROR; P.No: G60 - Error happened during bom_txt2excel function.
+2021-04-22 12:31:20,767; INFO; P.No: G60 - Conversion Program Successful
+2021-04-22 18:37:49,754; INFO; 20210421  P01560 SHEET METAL BOM .xlsx - Sorting Program Successful
+2021-04-26 11:26:37,981; INFO; P.No: 559 - Conversion Program Successful
+2021-04-26 15:08:14,601; INFO; P.No: 559 - Conversion Program Successful
+2021-04-26 17:12:17,279; INFO; 559 P&C 3.xlsx - Sorting Program Successful
+2021-04-26 17:49:38,480; INFO; P01559 END CAP  Sheet Metal BOM 20210426.xlsx - Sorting Program Successful
+2021-04-27 11:07:37,866; INFO; P.No: 559 - Conversion Program Successful
+2021-04-27 12:26:58,314; INFO; P01559  Sheet Metal BOM P&C 3 (20210427).xlsx - Sorting Program Successful
+2021-04-27 15:30:42,190; INFO; P01559 Sheet Metal BOM TEL2.xlsx - Sorting Program Successful
+2021-04-27 18:45:45,840; INFO; P01559  Sheet Metal BOM P&C 3 (20210426).xlsx - Sorting Program Successful
+2021-04-30 10:56:47,963; INFO; P01559  Sheet Metal BOM CMD1 REV1 (20210503).xlsx - Sorting Program Successful
+2021-04-30 11:31:47,565; INFO; P01559  Sheet Metal BOM CMD1 REV1 (20210503).xlsx - Sorting Program Successful
+2021-04-30 17:00:09,161; ERROR; P.No: G01057 - Error happened during bom_txt2excel function.
+2021-04-30 17:04:17,384; ERROR; P.No: G01057 - Error happened during bom_txt2excel function.
+2021-04-30 17:05:33,894; ERROR; P.No: G01057 - Error happened during bom_txt2excel function.
+2021-04-30 17:07:24,168; ERROR; P.No: G57 - Error happened during bom_txt2excel function.
+2021-04-30 17:07:32,691; INFO; P.No: G57 - Conversion Program Successful
+2021-04-30 17:09:26,990; ERROR; P.No: G57 - Error happened during bom_txt2excel function.
+2021-05-03 16:45:05,440; INFO; G01057 CONSOLIDATED SHEET METAL ESTIMATION (20210503).xlsx - Sorting Program Successful
+2021-05-03 16:51:29,278; INFO; G01057 CONSOLIDATED SHEET METAL ESTIMATION (20210503).xlsx - Sorting Program Successful
+2021-05-03 17:19:56,014; INFO; GO1057 CONSOLIDATED Sheet Metal Estimation (20210503).xlsx - Sorting Program Successful
+2021-05-03 17:22:26,218; INFO; P.No: G01057 - Conversion Program Successful
+2021-05-03 17:22:35,541; INFO; P.No: G01057 - Conversion Program Successful
+2021-05-03 17:23:23,684; INFO; G01057 SHEET METAL BOM 20210503.xlsx - Sorting Program Successful
+2021-05-03 18:13:35,962; INFO; G01057 CONSOLIDATED Sheet Metal Estimation (20210503).xlsx - Sorting Program Successful
+2021-05-10 10:41:19,679; ERROR; C:/Users/KIRA-4/Downloads/P01552 SME.xlsx - Error happened during sort function.
+2021-05-10 10:41:25,441; ERROR; C:/Users/KIRA-4/Downloads/P01552 SME.xlsx - Error happened during sort function.
+2021-05-10 10:45:02,162; INFO; P.No: P01563 - Conversion Program Successful
+2021-05-10 10:58:04,706; ERROR; C:/Users/KIRA-4/Desktop/P01552  Sheet Metal BOM.xlsx - Error happened during sort function.
+2021-05-10 11:13:24,186; INFO; P01552  Sheet Metal BOM.xlsx - Sorting Program Successful
+2021-05-10 13:48:31,510; INFO; P01563 Sheet Metal ESTIMATION 20210510.xlsx - Sorting Program Successful
+2021-05-11 14:58:21,766; INFO; P.No: P01552 - Conversion Program Successful
+2021-05-11 16:38:12,629; INFO; P01552  Sheet Metal Estimation.xlsx - Sorting Program Successful
+2021-05-12 10:40:50,330; INFO; P.No: P01562 - Conversion Program Successful
+2021-05-12 10:50:32,461; INFO; P.No: P01562 - Conversion Program Successful
+2021-05-12 11:00:18,757; INFO; P.No: P01562 - Conversion Program Successful
+2021-05-12 14:54:22,209; INFO; P01562 SHEET METAL BOM 20210512.xlsx - Sorting Program Successful
+2021-05-12 16:09:14,308; INFO; P01562 SHEET METAL BOM BUILDING-A 20210512.xlsx - Sorting Program Successful
+2021-05-12 16:23:43,320; INFO; P01562 SHEET METAL BOM BUILDING-A 20210512.xlsx - Sorting Program Successful
+2021-05-12 17:05:19,245; INFO; P01562 SHEET METAL BOM BUILDING-A 20210512 - Source.xlsx - Sorting Program Successful
+2021-05-12 17:13:07,805; INFO; P01561 SHEET METAL BOM 20210512.xlsx - Sorting Program Successful
+2021-05-13 15:09:45,203; INFO; P01562 SHEET METAL BOM BUILDING-B 20210512.xlsx - Sorting Program Successful
+2021-05-13 17:26:40,930; INFO; P01558 Consolidated Sheet Metal BOM (20210513).xlsx - Sorting Program Successful
+2021-05-13 19:54:07,396; INFO; P01561 SHEET METAL BOM 20210513.xlsx - Sorting Program Successful
+2021-05-13 21:19:11,989; INFO; P01552  Sheet Metal Estimation.xlsx - Sorting Program Successful
+2021-05-14 16:28:57,225; INFO; P01559 Sheet Metal BOM END CAP (20210514).xlsx - Sorting Program Successful
+2021-05-14 16:40:24,994; INFO; P01559  Sheet Metal BOM P&C 3 (20210514).xlsx - Sorting Program Successful
+2021-05-14 16:46:26,924; INFO; P01559 Sheet Metal BOM TEL2 (20210514).xlsx - Sorting Program Successful
+2021-05-14 16:52:30,675; INFO; P01559  Sheet Metal BOM CMD1 REV1 (20210514).xlsx - Sorting Program Successful
+2021-05-14 20:21:45,100; INFO; P01558 Consolidated Sheet Metal BOM (20210513).xlsx - Sorting Program Successful
+2021-05-18 18:38:02,526; INFO; P.No: P01561 - Conversion Program Successful
+2021-05-18 19:27:24,099; INFO; P01561 SHEET METAL BOM 20210518.xlsx - Sorting Program Successful
+2021-05-21 11:19:52,429; INFO; P01559  Sheet Metal BOM P&C 3 (20210521).xlsx - Sorting Program Successful
+2021-05-21 11:50:02,595; INFO; P01559  Sheet Metal BOM CMD1 REV1 (20210521).xlsx - Sorting Program Successful
+2021-05-28 12:13:39,097; INFO; G01072 SHEET METAL BOM 20210528.xlsx - Sorting Program Successful
+2021-06-03 11:19:45,756; INFO; P.No: P01564 - Conversion Program Successful
+2021-06-03 12:36:14,735; INFO; P01561 SHEET METAL BOM 20210603.xlsx - Sorting Program Successful
+2021-06-11 11:56:31,920; INFO; P.No: P01527. - Conversion Program Successful
+2021-06-11 12:04:46,757; ERROR; C:/Raja/RAJA/s.bom/New folder/P01527. SHEET METAL BOM 20210611.xlsx - Error happened during sort function.
+2021-06-11 12:04:56,701; ERROR; C:/Raja/RAJA/s.bom/New folder/P01527. SHEET METAL BOM 20210611.xlsx - Error happened during sort function.
+2021-06-11 12:05:38,068; ERROR; C:/Raja/RAJA/s.bom/New folder/P01527. SHEET METAL BOM 20210611.xlsx - Error happened during sort function.
+2021-06-15 13:11:54,460; ERROR; P.No: P01555 - Error happened during bom_txt2excel function.
+2021-06-15 13:12:10,359; INFO; P.No: P01555 - Conversion Program Successful
+2021-06-15 16:29:01,253; INFO; P.No: P01574 - Conversion Program Successful
+2021-06-15 18:25:33,954; ERROR; P.No: G01069 - Error happened during bom_txt2excel function.
+2021-06-15 18:25:48,619; ERROR; P.No: G01069 - Error happened during bom_txt2excel function.
+2021-06-15 18:29:12,060; ERROR; P.No: G01069 - Error happened during bom_txt2excel function.
+2021-06-15 18:31:26,360; ERROR; P.No: G01069 - Error happened during bom_txt2excel function.
+2021-06-15 18:32:57,472; ERROR; P.No: G01069 - Error happened during bom_txt2excel function.
+2021-06-15 18:33:07,304; ERROR; P.No: G01069 - Error happened during bom_txt2excel function.
+2021-06-15 18:34:08,958; INFO; P.No: G01069 - Conversion Program Successful
+2021-06-16 16:27:17,119; INFO; P01574 SHEET METAL BOM 20210615.xlsx - Sorting Program Successful
+2021-06-16 16:35:51,059; INFO; P01574 SHEET METAL BOM 20210616.xlsx - Sorting Program Successful
+2021-07-05 11:29:42,472; INFO; P.No: P01575 - Conversion Program Successful
+2021-07-05 14:54:35,586; INFO; P01575 SHEET METAL ESTIMATION 07072021.xlsx - Sorting Program Successful
+2021-07-05 15:00:27,182; INFO; P01575 SHEET METAL ESTIMATION 07072021.xlsx - Sorting Program Successful
+2021-07-05 15:08:03,028; INFO; P01575 SHEET METAL ESTIMATION 07072021.xlsx - Sorting Program Successful
+2021-07-06 14:02:08,860; INFO; P01575 SHEET METAL ESTIMATION 07072021.xlsx - Sorting Program Successful
+2021-07-12 11:28:18,413; INFO; P.No: P01573 - Conversion Program Successful
+2021-07-12 11:35:31,434; INFO; P.No: P01573 - Conversion Program Successful
+2021-07-12 12:13:00,203; INFO; P.No: P01527 - Conversion Program Successful
+2021-07-12 12:13:12,899; ERROR; P.No: P01527 - Error happened during bom_txt2excel function.
+2021-07-12 12:13:25,934; INFO; P.No: P01527 - Conversion Program Successful
+2021-07-12 12:14:26,302; ERROR; C:/Raja/RAJA/s.bom/12-07-2021/sheet metal bom/P01527 SHEET METAL BOM 20210712.xlsx - Error happened during sort function.
+2021-07-12 12:14:34,987; ERROR; C:/Raja/RAJA/s.bom/12-07-2021/sheet metal bom/P01527 SHEET METAL BOM 20210712.xlsx - Error happened during sort function.
+2021-07-12 17:23:36,059; INFO; P01573  Sheet Metal BOM (20210712).xlsx - Sorting Program Successful
+2021-07-13 10:14:51,711; INFO; P.No: P01570 - Conversion Program Successful
+2021-07-13 12:25:46,813; ERROR; C:/Users/USER-49/Dropbox/QC/P01570/FAB SET/SHEET METAL BOM/P01570 SHEET METAL BOM 20210713.xlsx - Error happened during sort function.
+2021-07-13 12:25:54,443; ERROR; C:/Users/USER-49/Dropbox/QC/P01570/FAB SET/SHEET METAL BOM/P01570 SHEET METAL BOM 20210713.xlsx - Error happened during sort function.
+2021-07-13 12:26:02,486; ERROR; C:/Users/USER-49/Dropbox/QC/P01570/FAB SET/SHEET METAL BOM/P01570 SHEET METAL BOM 20210713.xlsx - Error happened during sort function.
+2021-07-13 12:29:00,058; ERROR; C:/Users/USER-49/Dropbox/QC/P01570/FAB SET/SHEET METAL BOM/P01570 SHEET METAL BOM 20210713.xlsx - Error happened during sort function.
+2021-07-13 12:31:22,949; ERROR; C:/Users/USER-49/Dropbox/QC/P01570/FAB SET/SHEET METAL BOM/P01570 SHEET METAL BOM 20210713.xlsx - Error happened during sort function.
+2021-07-13 12:34:11,754; ERROR; C:/Users/USER-49/Dropbox/QC/P01570/FAB SET/SHEET METAL BOM/P01570 SHEET METAL BOM 20210713.xlsx - Error happened during sort function.
+2021-07-13 15:40:30,521; ERROR; C:/Users/USER-49/Dropbox/QC/P01570/FAB SET/SHEET METAL BOM/P01570 SHEET METAL BOM 20210713.xlsx - Error happened during sort function.
+2021-07-13 15:42:17,221; INFO; P01570 SHEET METAL BOM 20210713.xlsx - Sorting Program Successful
+2021-07-16 16:44:35,910; INFO; P01574 SHEET METAL BOM 20210617.xlsx - Sorting Program Successful
+2021-07-21 12:50:39,658; ERROR; C:/Users/User-44/Desktop/P565 SHEETMETAL BOM.xlsx - Error happened during sort function.
+2021-07-21 12:50:46,179; ERROR; C:/Users/User-44/Desktop/P565 SHEETMETAL BOM.xlsx - Error happened during sort function.
+2021-07-21 15:08:10,768; INFO; P01565 SHEET METAL TABULATED BOM 07222021.xlsx - Sorting Program Successful
+2021-07-21 16:49:13,664; ERROR; C:/Users/User-44/Desktop/P01565 SHEET METAL TABULATED BOM 07222021.xlsx - Error happened during sort function.
+2021-07-21 16:49:23,289; ERROR; C:/Users/User-44/Desktop/P01565 SHEET METAL TABULATED BOM 07222021.xlsx - Error happened during sort function.
+2021-07-21 16:51:26,366; ERROR; C:/Users/User-44/Desktop/P01565 SHEET METAL TABULATED BOM 07222021.xlsx - Error happened during sort function.
+2021-07-21 16:53:58,149; ERROR; C:/Users/User-44/Desktop/P01565 SHEET METAL TABULATED BOM 07222021.xlsx - Error happened during sort function.
+2021-07-23 16:09:43,318; INFO; P.No: P01564 - Conversion Program Successful
+2021-07-23 17:53:21,202; INFO; P.No: 564 - Conversion Program Successful
+2021-07-26 15:36:10,608; INFO; P.No: P01564 - Conversion Program Successful
+2021-07-26 19:11:12,397; INFO; P01564  Sheet Metal BOM (20210726).xlsx - Sorting Program Successful
+2021-07-27 12:20:02,196; INFO; P01564  Sheet Metal BOM (20210727).xlsx - Sorting Program Successful
+2021-07-27 15:31:57,444; INFO; P01552  Sheet Metal Estimation (20210727).xlsx - Sorting Program Successful
+2021-07-27 16:00:30,420; INFO; P.No: xxx - Conversion Program Successful
+2021-07-27 16:03:04,550; INFO; xxx SHEET METAL BOM 20210727.xlsx - Sorting Program Successful
+2021-07-29 10:42:24,917; INFO; P.No: D11430 - Conversion Program Successful
+2021-07-29 19:01:35,516; INFO; D11430 SHEET METAL BOM 20210729.xlsx - Sorting Program Successful
+2021-08-13 12:56:26,985; INFO; P.No: P561testing - Conversion Program Successful
+2021-08-13 14:36:26,484; INFO; P561testing SHEET METAL BOM 20210813.xlsx - Sorting Program Successful
+2021-08-13 15:15:27,607; INFO; P01547 SHEET METAL ESTIMATION 20210812.xlsx - Sorting Program Successful
+2021-08-16 10:29:42,482; INFO; P.No: P01556 - Conversion Program Successful
+2021-08-16 17:41:01,387; INFO; P01564  Sheet Metal (20210825).xlsx - Sorting Program Successful
+2021-08-16 17:43:35,585; INFO; P.No: 564 - Conversion Program Successful
+2021-08-17 10:24:58,498; INFO; P.No: P01564 - Conversion Program Successful
+2021-08-17 10:58:10,444; INFO; P.No: P01583 - Conversion Program Successful
+2021-08-17 13:49:31,453; INFO; P01583 SHEET METAL ESTIMATION 20210817.xlsx - Sorting Program Successful
+2021-08-17 18:47:11,486; ERROR; C:/Users/User-1/Dropbox/QC/P01583/FAB SET/SHEET METAL/P01583 SHEET METAL ESTIMATION 20210817.xlsx - Error happened during sort function.
+2021-08-17 18:47:24,985; ERROR; C:/Users/User-1/Dropbox/QC/P01583/FAB SET/SHEET METAL/P01583 SHEET METAL ESTIMATION 20210817.xlsx - Error happened during sort function.
+2021-08-18 12:19:56,961; INFO; P01564  Sheet Metal BOM (20210825).xlsx - Sorting Program Successful
+2021-08-25 15:26:04,001; ERROR; C:/Users/SC8U4/Dropbox/QC/P01581/FAB SET/SHEET METAL BOM/20210825/REFERENCE/P01581 sheet metal estimation.xlsx - Error happened during sort function.
+2021-08-25 15:33:03,149; INFO; P01581  Sheet Metal BOM.xlsx - Sorting Program Successful
+2021-08-27 11:24:57,656; INFO; P01552 Sheet Metal BOM (20210728).xlsx - Sorting Program Successful
+2021-08-31 15:47:11,614; ERROR; C:/Users/SC8U4/Dropbox/QC/P01582/FAB SET/SHEET METAL/2021-08-31/P01582  Sheet Metal BOM (20210831).xlsx - Error happened during sort function.
+2021-08-31 15:48:51,137; INFO; P01582  Sheet Metal BOM (20210831).xlsx - Sorting Program Successful
+2021-08-31 15:58:39,351; INFO; P01582  Sheet Metal BOM (20210831).xlsx - Sorting Program Successful
+2021-09-01 10:31:56,135; INFO; P.No: P01590 - Conversion Program Successful
+2021-09-01 10:32:14,732; INFO; P01590 SHEET METAL BOM 20210901.xlsx - Sorting Program Successful
+2021-09-01 10:37:00,753; INFO; P01582  Sheet Metal BOM (20210831).xlsx - Sorting Program Successful
+2021-09-06 13:18:10,141; INFO; P.No: P01591 - Conversion Program Successful
+2021-09-06 14:50:09,977; ERROR; P.No: P01580 - Error happened during bom_txt2excel function.
+2021-09-06 14:50:29,263; ERROR; P.No: P01580 - Error happened during bom_txt2excel function.
+2021-09-06 14:51:41,118; ERROR; P.No: P01580 - Error happened during bom_txt2excel function.
+2021-09-06 16:51:54,552; INFO; P01591 SHEET METAL BOM 20210906.xlsx - Sorting Program Successful
+2021-09-06 16:58:39,243; INFO; P01591 SHEET METAL BOM 20210906.xlsx - Sorting Program Successful
+2021-09-07 16:48:19,945; INFO; P.No: P01580 - Conversion Program Successful
+2021-09-08 12:39:31,539; INFO; P01580 BUILDING-A SHEET METAL BOM (20210908).xlsx - Sorting Program Successful
+2021-09-08 16:11:19,230; INFO; P01580 BUILDING-A SHEET METAL BOM (20210908).xlsx - Sorting Program Successful
+2021-09-08 16:25:46,309; INFO; P01XXX  Sheet Metal BOM.xlsx - Sorting Program Successful
+2021-09-09 10:47:36,268; INFO; P.No: P01573 - Conversion Program Successful
+2021-09-09 11:54:09,244; INFO; P01580 SHEETMETAL BOM BUILDING-B (20210909).xlsx - Sorting Program Successful
+2021-09-09 12:22:37,990; INFO; P01573  Sheet Metal BOM (20210909).xlsx - Sorting Program Successful
+2021-09-09 15:36:01,446; INFO; P01580 BUILDING-A SHEET METAL BOM (20210908).xlsx - Sorting Program Successful
+2021-09-13 11:16:42,167; INFO; P.No: P01580 - Conversion Program Successful
+2021-09-13 14:29:37,354; INFO; P01580 BUILDING-A SHEET METAL BOM (20210913).xlsx - Sorting Program Successful
+2021-09-13 15:15:04,815; INFO; P01580 BUILDING-C SHEET METAL BOM 20210914.xlsx - Sorting Program Successful
+2021-09-14 16:11:12,032; INFO; P01580 BUILDING-D SHEET METAL BOM (20210906).xlsx - Sorting Program Successful
+2021-09-14 17:46:24,433; INFO; P01580 BUILDING-D SHEET METAL BOM (20210906).xlsx - Sorting Program Successful
+2021-09-14 17:49:03,713; INFO; P01580 BUILDING-D SHEET METAL BOM (20210906).xlsx - Sorting Program Successful
+2021-09-14 17:49:12,696; INFO; P01580 BUILDING-D SHEET METAL BOM (20210906).xlsx - Sorting Program Successful
+2021-09-14 17:49:16,561; INFO; P01580 BUILDING-D SHEET METAL BOM (20210906).xlsx - Sorting Program Successful
+2021-09-14 17:54:43,976; ERROR; D:/Dropbox/QC/P01580/FAB SET/SHEET METAL/BUILDING-D/P01580 BUILDING-D SHEET METAL BOM (20210906).xlsx - Error happened during sort function.
+2021-09-14 17:54:46,631; ERROR; D:/Dropbox/QC/P01580/FAB SET/SHEET METAL/BUILDING-D/P01580 BUILDING-D SHEET METAL BOM (20210906).xlsx - Error happened during sort function.
+2021-09-14 17:54:54,874; INFO; P01580 BUILDING-D SHEET METAL BOM (20210916).xlsx - Sorting Program Successful
+2021-09-14 19:22:09,461; ERROR; C:/Users/KIRA-1/Dropbox/QC/P01580/FAB SET/SHEET METAL/BUILDING-B/P01580 BUILDING-B SHEETMETAL BOM (20210914).xlsx - Error happened during sort function.
+2021-09-14 19:22:53,798; ERROR; C:/Users/KIRA-1/Dropbox/QC/P01580/FAB SET/SHEET METAL/BUILDING-B/P01580 BUILDING-B SHEETMETAL BOM (20210914).xlsx - Error happened during sort function.
+2021-09-14 19:22:57,949; ERROR; C:/Users/KIRA-1/Dropbox/QC/P01580/FAB SET/SHEET METAL/BUILDING-B/P01580 BUILDING-B SHEETMETAL BOM (20210914).xlsx - Error happened during sort function.
+2021-09-14 19:24:04,957; ERROR; C:/Users/KIRA-1/Dropbox/QC/P01580/FAB SET/SHEET METAL/BUILDING-B/P01580 BUILDING-B SHEETMETAL BOM (20210914).xlsx - Error happened during sort function.
+2021-09-14 19:24:09,709; ERROR; C:/Users/KIRA-1/Dropbox/QC/P01580/FAB SET/SHEET METAL/BUILDING-B/P01580 BUILDING-B SHEETMETAL BOM (20210914).xlsx - Error happened during sort function.
+2021-09-14 19:26:14,758; ERROR; C:/Users/KIRA-1/Dropbox/QC/P01580/FAB SET/SHEET METAL/BUILDING-B/P01580 BUILDING-B SHEETMETAL BOM (20210914).xlsx - Error happened during sort function.
+2021-09-14 19:30:53,749; ERROR; C:/Users/KIRA-1/Dropbox/QC/P01580/FAB SET/SHEET METAL/BUILDING-B/P01580 BUILDING-B SHEETMETAL BOM (20210914).xlsx - Error happened during sort function.
+2021-09-15 18:32:04,768; ERROR; C:/Users/KIRA-1/Dropbox/QC/P01580/FAB SET/SHEET METAL/BUILDING-C/P01580 BUILDING-C SHEET METAL BOM 20210915.xlsx - Error happened during sort function.
+2021-09-15 18:47:15,430; ERROR; C:/Users/SC8U4/Dropbox/QC/P01580/FAB SET/SHEET METAL/BUILDING-C/P01580 BUILDING-C SHEET METAL BOM (20210915).xlsx - Error happened during sort function.
+2021-09-15 19:03:33,437; ERROR; C:/Users/KIRA-1/Dropbox/FBD/P01580 - Eaton - Targa Legacy MV - Midland, TX/FAB SET/SHEET METAL/BUILDING-B/20210914/P01580 BUILDING-B SHEETMETAL BOM (20210914).xlsx - Error happened during sort function.
+2021-09-17 15:44:00,893; INFO; P01580 BUILDING-D SHEET METAL BOM (20210916).xlsx - Sorting Program Successful
+2021-09-20 11:05:28,427; ERROR; P.No: G67 - Error happened during bom_txt2excel function.
+2021-09-20 11:16:21,772; ERROR; P.No: G01067 - Error happened during bom_txt2excel function.
+2021-09-20 11:27:09,183; ERROR; P.No: G01067 - Error happened during bom_txt2excel function.
+2021-09-20 11:27:19,771; ERROR; P.No: G01067 - Error happened during bom_txt2excel function.
+2021-09-20 11:30:01,956; ERROR; P.No: G01067 - Error happened during bom_txt2excel function.
+2021-09-20 11:30:59,046; INFO; P.No: G01067 - Conversion Program Successful
+2021-09-20 11:38:56,551; ERROR; P.No: G01067 - Error happened during bom_txt2excel function.
+2021-09-20 11:39:17,667; ERROR; P.No: G01067 - Error happened during bom_txt2excel function.
+2021-09-20 11:39:44,421; ERROR; P.No: G01067 - Error happened during bom_txt2excel function.
+2021-09-20 11:41:06,324; ERROR; P.No: G01067 - Error happened during bom_txt2excel function.
+2021-09-20 11:41:33,056; ERROR; P.No: G01067 - Error happened during bom_txt2excel function.
+2021-09-20 11:48:15,478; INFO; P.No: G01067 - Conversion Program Successful
+2021-09-20 11:53:09,639; INFO; P.No: G01067 - Conversion Program Successful
+2021-09-20 12:48:32,251; ERROR; P.No: P01584 - Error happened during bom_txt2excel function.
+2021-09-20 12:48:41,736; INFO; P.No: P01584 - Conversion Program Successful
+2021-09-20 14:01:47,619; INFO; P.No: P0584 - Conversion Program Successful
+2021-09-20 14:38:47,639; INFO; P.No: P01584 - Conversion Program Successful
+2021-09-20 14:42:39,241; INFO; P.No: P01584 - Conversion Program Successful
+2021-09-20 15:37:37,881; ERROR; P.No: G01073 - Error happened during bom_txt2excel function.
+2021-09-20 15:37:49,906; INFO; P.No: G01073 - Conversion Program Successful
+2021-09-20 15:38:02,113; INFO; P.No: G01073 - Conversion Program Successful
+2021-09-20 15:38:35,676; INFO; P.No: G01073 - Conversion Program Successful
+2021-09-20 15:38:50,457; ERROR; P.No: G01073 - Error happened during bom_txt2excel function.
+2021-09-20 15:51:40,409; ERROR; P.No: G01073 - Error happened during bom_txt2excel function.
+2021-09-20 16:48:15,813; ERROR; C:/Users/KIRA-3/Desktop/584/P01584 CEILING.xlsx C:/Users/KIRA-3/Desktop/584/P01584 ROOF.xlsx C:/Users/KIRA-3/Desktop/584/P01584 WALL.xlsx - Error happened during sort function.
+2021-09-20 16:48:40,997; ERROR; C:/Users/KIRA-3/Desktop/584/P01584 CEILING.xlsx C:/Users/KIRA-3/Desktop/584/P01584 ROOF.xlsx C:/Users/KIRA-3/Desktop/584/P01584 WALL.xlsx - Error happened during sort function.
+2021-09-20 16:49:41,336; INFO; P01584 CEILING.xlsx - Sorting Program Successful
+2021-09-20 16:50:26,337; INFO; P01584 WALL.xlsx - Sorting Program Successful
+2021-09-20 17:23:01,692; INFO; P01584 WALL.xlsx - Sorting Program Successful
+2021-09-20 17:27:07,818; INFO; P01584 SHEET METAL BOM (20210920).xlsx - Sorting Program Successful
+2021-09-20 17:41:32,440; INFO; P01579  SHEET METAL ESTIMATION (20210920).xlsx - Sorting Program Successful
+2021-09-21 16:02:26,413; INFO; P.No: P01564 - Conversion Program Successful
+2021-09-22 10:19:32,262; INFO; P.No: P01564 - Conversion Program Successful
+2021-09-22 12:45:10,059; ERROR; D:/Dropbox/Dropbox/FBD-GENSET/G01067 - MTU - Facebook - SKU - 1MW - 75 dBA @ 23'/FAB SET/SHEET METAL/G01067 SHEET METAL BOM 20210920_ESTIMATION.xlsx - Error happened during sort function.
+2021-09-22 12:47:10,091; ERROR; D:/Dropbox/Dropbox/FBD-GENSET/G01067 - MTU - Facebook - SKU - 1MW - 75 dBA @ 23'/FAB SET/SHEET METAL/G01067 SHEET METAL BOM 20210920_ESTIMATION.xlsx - Error happened during sort function.
+2021-09-22 12:50:38,662; ERROR; D:/Dropbox/Dropbox/FBD-GENSET/G01067 - MTU - Facebook - SKU - 1MW - 75 dBA @ 23'/FAB SET/SHEET METAL/G01067 SHEET METAL BOM 20210920_ESTIMATION.xlsx - Error happened during sort function.
+2021-09-22 15:03:20,664; ERROR; C:/Users/SAI-3/Desktop/P01564  Sheet Metal BOM 20210922.xlsx - Error happened during sort function.
+2021-09-22 15:03:46,977; ERROR; C:/Users/SAI-3/Desktop/P01564  Sheet Metal BOM 20210922.xlsx - Error happened during sort function.
+2021-09-23 20:06:13,325; ERROR; C:/Users/KIRA-1/Dropbox/FBD/P01580 - Eaton - Targa Legacy MV - Midland, TX/FAB SET/SHEET METAL/BUILDING-D/20200923/P01580 BUILDING-D SHEET METAL BOM (20210923).xlsx - Error happened during sort function.
+2021-10-05 10:28:02,288; ERROR; P.No: P01593 - Error happened during bom_txt2excel function.
+2021-10-18 10:05:44,732; ERROR; P.No: P01602 - Error happened during bom_txt2excel function.
+2021-10-18 10:05:57,359; ERROR; P.No: P01602 - Error happened during bom_txt2excel function.
+2021-10-18 10:06:02,500; ERROR; P.No: P01602 - Error happened during bom_txt2excel function.
+2021-10-18 10:13:53,248; ERROR; P.No: 602 - Error happened during bom_txt2excel function.
+2021-10-18 10:16:08,526; ERROR; P.No: p01577 - Error happened during bom_txt2excel function.
+2021-10-18 10:30:25,644; INFO; P.No: p01577 - Conversion Program Successful
+2021-10-18 10:35:31,211; INFO; P.No: P01578 - Conversion Program Successful
+2021-10-18 12:24:32,808; ERROR; C:/Users/SIVAK-2/Desktop/p01577 SHEET METAL BOM 20211018.xlsx - Error happened during sort function.
+2021-10-18 13:35:32,748; INFO; P01578 SHEET METAL BOM 20211018.xlsx - Sorting Program Successful
+2021-10-18 13:36:31,929; INFO; P01577 SHEET METAL BOM 20211018.xlsx - Sorting Program Successful
+2021-10-18 14:45:26,843; INFO; p01577 SHEET METAL BOM 20211018.xlsx - Sorting Program Successful
+2021-10-21 15:36:26,295; INFO; P01600Sheet Metal BOM (20211019).xlsx - Sorting Program Successful
+2021-10-28 17:12:27,165; INFO; P01586 Sheet Metal BOM (20211026).xlsx - Sorting Program Successful
+2021-11-03 11:26:14,809; INFO; P.No: P01576 - Conversion Program Successful
+2021-11-03 11:26:36,527; INFO; P01576 SHEET METAL BOM 20211103.xlsx - Sorting Program Successful
+2021-11-03 13:34:43,846; INFO; P.No: P01576 - Conversion Program Successful
+2021-11-03 13:35:23,465; INFO; P01576 SHEET METAL BOM 20211103.xlsx - Sorting Program Successful
+2021-11-03 13:48:35,363; INFO; P.No: P016XX - Conversion Program Successful
+2021-11-03 13:48:42,005; ERROR; P.No: P016XX - Error happened during bom_txt2excel function.
+2021-11-03 13:49:57,043; INFO; P.No: P01576 - Conversion Program Successful
+2021-11-03 13:50:06,646; INFO; P01576 SHEET METAL BOM 20211103.xlsx - Sorting Program Successful
+2021-11-03 14:43:53,444; INFO; P01576  Sheet Metal Estimation.xlsx - Sorting Program Successful
+2021-11-03 14:45:58,019; INFO; P.No: P016XX - Conversion Program Successful
+2021-11-03 14:46:35,644; INFO; P.No: P016XX - Conversion Program Successful
+2021-11-03 14:59:43,267; INFO; P.No: P016XX - Conversion Program Successful
+2021-11-03 14:59:51,944; INFO; P016XX SHEET METAL BOM 20211103.xlsx - Sorting Program Successful
+2021-11-03 15:17:20,876; ERROR; P.No: P016XX - Error happened during bom_txt2excel function.
+2021-11-03 15:17:44,693; INFO; P.No: P016XX - Conversion Program Successful
+2021-11-03 15:17:56,750; INFO; P016XX SHEET METAL BOM 20211103.xlsx - Sorting Program Successful
+2021-11-03 16:01:53,283; INFO; P.No: P016XX - Conversion Program Successful
+2021-11-03 16:02:01,435; INFO; P016XX SHEET METAL BOM 20211103.xlsx - Sorting Program Successful
+2021-11-03 16:19:12,019; INFO; P.No: P016XX - Conversion Program Successful
+2021-11-03 16:21:16,417; INFO; P016XX SHEET METAL BOM 20211103.xlsx - Sorting Program Successful
+2021-11-08 10:39:25,344; INFO; P.No: P016XX - Conversion Program Successful
+2021-11-08 10:39:34,903; INFO; P016XX SHEET METAL BOM 20211108.xlsx - Sorting Program Successful
+2021-11-08 11:29:01,822; INFO; P.No: P016XX - Conversion Program Successful
+2021-11-08 11:29:09,366; INFO; P016XX SHEET METAL BOM 20211108.xlsx - Sorting Program Successful
+2021-11-08 11:44:40,559; INFO; P.No: P016XX - Conversion Program Successful
+2021-11-08 11:44:47,132; INFO; P016XX SHEET METAL BOM 20211108.xlsx - Sorting Program Successful
+2021-11-08 11:51:16,930; INFO; P.No: P016XX - Conversion Program Successful
+2021-11-08 11:51:22,415; INFO; P016XX SHEET METAL BOM 20211108.xlsx - Sorting Program Successful
+2021-11-10 10:59:51,006; INFO; P.No: P01591 - Conversion Program Successful
+2021-11-10 14:23:39,930; INFO; P01591 SHEET METAL BOM 20211110.xlsx - Sorting Program Successful
+2021-11-11 18:41:35,633; INFO; P.No: XXXXX - Conversion Program Successful
+2021-11-16 17:02:34,447; INFO; P.No: P01554 - Conversion Program Successful
+2021-11-16 17:02:39,429; ERROR; P.No: P01554 - Error happened during bom_txt2excel function.
+2021-11-16 18:02:57,396; INFO; P01554 SHEET METAL BOM 20211116.xlsx - Sorting Program Successful
+2021-11-16 18:05:04,005; INFO; P01554 SHEET METAL BOM 20211116.xlsx - Sorting Program Successful
+2021-11-18 10:26:12,602; INFO; P01578 SHEET METAL BOM 20211118.xlsx - Sorting Program Successful
+2021-11-18 10:46:53,850; INFO; P01577 SHEET METAL BOM 20211118.xlsx - Sorting Program Successful
+2021-11-25 10:51:49,430; INFO; P.No: P01609 - Conversion Program Successful
+2021-11-25 11:01:58,609; INFO; P.No: P01609 - Conversion Program Successful
+2021-11-25 11:02:03,717; ERROR; P.No: P01609 - Error happened during bom_txt2excel function.
+2021-11-25 11:45:07,791; INFO; P.No: P01609 - Conversion Program Successful
+2021-11-25 13:14:43,348; INFO; P01609 SHEET METAL BOM 20211125.xlsx - Sorting Program Successful
+2021-11-25 15:24:48,195; INFO; P01609 SHEET METAL BOM 20211125.xlsx - Sorting Program Successful
+2021-11-25 16:06:11,030; INFO; P.No: P01609 - Conversion Program Successful
+2021-11-25 18:05:07,108; INFO; P.No: P01609 - Conversion Program Successful
+2021-11-25 18:05:19,925; ERROR; P.No: P01609 - Error happened during bom_txt2excel function.
+2021-11-26 11:15:48,786; INFO; P01609 END CAP SHEET METAL BOM 20211125.xlsx - Sorting Program Successful
+2021-11-26 11:19:14,523; INFO; P01609 END CAP SHEET METAL BOM 20211125.xlsx - Sorting Program Successful
+2021-11-26 15:55:41,671; INFO; P01609 CMD1 REV1 SHEET METAL BOM 20211125.xlsx - Sorting Program Successful
+2021-11-26 17:12:12,247; INFO; P01609 CMD1 REV1 SHEET METAL BOM 20211126.xlsx - Sorting Program Successful
+2021-12-01 10:29:32,569; INFO; P.No: P01613 - Conversion Program Successful
+2021-12-01 10:30:22,109; INFO; P01613 SHEET METAL BOM 20211201.xlsx - Sorting Program Successful
+2021-12-01 10:35:38,121; INFO; P.No: P01613 - Conversion Program Successful
+2021-12-01 10:37:25,389; INFO; P01613 SHEET METAL BOM 20211201.xlsx - Sorting Program Successful
+2021-12-01 11:19:55,710; INFO; P.No: P01613 - Conversion Program Successful
+2021-12-01 11:21:31,686; INFO; P.No: P01613 - Conversion Program Successful
+2021-12-01 15:10:26,297; INFO; P01578 SHEET METAL BOM 20211201.xlsx - Sorting Program Successful
+2021-12-02 10:40:33,291; INFO; P01613 SHEET METAL BOM 20211202.xlsx - Sorting Program Successful
+2021-12-06 15:13:35,803; ERROR; P.No: P01589 - Error happened during bom_txt2excel function.
+2021-12-06 15:15:07,451; ERROR; P.No: P01589 - Error happened during bom_txt2excel function.
+2021-12-06 15:19:02,281; INFO; P.No: P01589 - Conversion Program Successful
+2021-12-06 19:36:17,264; INFO; P01589  Sheet Metal BOM(07-12-2021).xlsx - Sorting Program Successful
+2021-12-07 10:33:40,757; INFO; P01589  Sheet Metal BOM(07-12-2021).xlsx - Sorting Program Successful
+2021-12-07 14:32:24,979; INFO; P01589  Sheet Metal BOM(07-12-2021).xlsx - Sorting Program Successful
+2021-12-07 14:32:29,593; INFO; P01589  Sheet Metal BOM(07-12-2021).xlsx - Sorting Program Successful
+2021-12-07 14:32:33,736; INFO; P01589  Sheet Metal BOM(07-12-2021).xlsx - Sorting Program Successful
+2021-12-10 11:25:36,910; INFO; P01589 Sheet Metal ESTIMATION (20211207).xlsx - Sorting Program Successful
+2021-12-20 15:08:09,098; INFO; P01594  Sheet Metal Estimation (2021-12-22).xlsx - Sorting Program Successful
+2021-12-20 16:31:44,292; INFO; P01591 SHEET METAL BOM 20211120.xlsx - Sorting Program Successful
