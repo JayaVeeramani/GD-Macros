@@ -14,6 +14,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+
 Option Explicit
 
 Dim swMathUtility As SldWorks.MathUtility
@@ -138,7 +139,14 @@ Private Sub CreateButton_Click()
     DetailedCompList = GetComponentsSortedWithXPosition(CompList.Items, FlatCompList, swFrontView, MaxCompHeight)
 
     Dim vConsolidatedList As Variant
-    vConsolidatedList = GetConsolidatedList(DetailedCompList)
+    
+    Dim HVACList As IArrListObject
+    Set HVACList = New IArrListObject
+    
+    Dim DoorList As IArrListObject
+    Set DoorList = New IArrListObject
+    
+    vConsolidatedList = GetConsolidatedList(DetailedCompList, DoorList, HVACList)
     
     swDrawing.ActivateView swFrontView.Name
     
@@ -158,22 +166,75 @@ Private Sub CreateButton_Click()
     Dim FlatCompDict As Scripting.Dictionary
     Dim CompNoDict As New Scripting.Dictionary
     Set FlatCompDict = GetCompDictionary(FlatCompList, CompNoDict)
-
+    
+    Dim SubAssyList As IArrListObject
     If Not IsEmpty(subAssyEndComponents) Then
         
+        Dim vSubAssyComponentsIdx As Variant
+        vSubAssyComponentsIdx = GetSubAssyComponentsIndexSorted(subAssyEndComponents, CompNoDict)
+   
+        Set SubAssyList = AddSplitLines(vSubAssyComponentsIdx, swDrawing, swFrontView, FlatCompDict, CompNoDict, True, swLeftEdge, swRightEdge, False)
+        Call AddDimensionNames(SubAssyList, wallName)
         
-        Call AddSplitLines(subAssyEndComponents, swDrawing, swFrontView, FlatCompDict, CompNoDict, True, swLeftEdge, swRightEdge)
-        Call AddSplitLines(subAssyEndComponents, swDrawing, swBottomView, FlatCompDict, CompNoDict, False, swLeftEdge, swRightEdge)
-            
+        Call AddSplitLines(vSubAssyComponentsIdx, swDrawing, swBottomView, FlatCompDict, CompNoDict, False, swLeftEdge, swRightEdge)
+   
     End If
     
     Unload Me
 
 End Sub
 
-Private Sub AddSplitLines(subAssyEndComponents As Variant, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
+Private Sub AddDimensionNames(SubAssyList As IArrListObject, wallName As String)
+    
+    Dim CloneList As IArrListObject
+    Set CloneList = New IArrListObject
+    
+    Set CloneList = SubAssyList.Clone
+
+    If InStr(wallName, "Wall") > 0 Then
+        
+        CloneList.SortItems "AssyLength"
+    
+    End If
+    
+    Dim i As Integer
+    Dim vSubAssy As Variant
+    vSubAssy = CloneList.Items
+    
+    For i = LBound(vSubAssy) To UBound(vSubAssy)
+    
+        Dim oSubAssy As ISubAssy
+        Set oSubAssy = vSubAssy(i)
+        
+        Dim swDisplayDim As SldWorks.DisplayDimension
+        Set swDisplayDim = oSubAssy.Dimension
+        
+        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, UCase(wallName) & i + 1 & vbCrLf & "(XX.XX sq.ft)"
+    
+    Next i
+    
+End Sub
+
+Private Function GetSubAssyComponentsIndexSorted(vComps As Variant, CompNoDict As Scripting.Dictionary)
+    
+    Dim vIdxArr As IArrList
+    Set vIdxArr = New IArrList
+    
+    Dim i As Integer
+    For i = LBound(vComps) To UBound(vComps)
+    
+        vIdxArr.AddtoList CompNoDict(vComps(i).Name2)
+        
+    Next i
+    
+    vIdxArr.SortItems False
+    GetSubAssyComponentsIndexSorted = vIdxArr.Items
+
+End Function
+
+Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
         CompDict As Scripting.Dictionary, CompNoDict As Scripting.Dictionary, IsFrontView As Boolean, _
-        swLeftEdge As SldWorks.Edge, swRightEdge As SldWorks.Edge)
+        swLeftEdge As SldWorks.Edge, swRightEdge As SldWorks.Edge, Optional VisibleEdgesOnly As Boolean = True) As IArrListObject
 
     swDrawing.ActivateView swView.Name
     
@@ -183,18 +244,18 @@ Private Sub AddSplitLines(subAssyEndComponents As Variant, swDrawing As SldWorks
     Dim i As Integer
     Dim NextAssyStartEdge As SldWorks.Edge
     
-    For i = LBound(subAssyEndComponents) To UBound(subAssyEndComponents)
+    Dim SubAssyList As IArrListObject
+    Set SubAssyList = New IArrListObject
+    
+    For i = LBound(vCompsIdx) To UBound(vCompsIdx)
     
         Dim xMin As Double
         Dim yMin As Double
         Dim xMax As Double
         Dim yMax As Double
-        
-        Dim swComp As SldWorks.Component2
-        Set swComp = subAssyEndComponents(i)
-        
+
         Dim oComp As IComp
-        Set oComp = CompDict.Item(swComp.Name2)
+        Set oComp = CompDict.Items(vCompsIdx(i))
             
         Call GetViewMaxMinPoints(oComp, swView, xMin, xMax, yMin, yMax)
         
@@ -207,41 +268,139 @@ Private Sub AddSplitLines(subAssyEndComponents As Variant, swDrawing As SldWorks
         Call AddSplitLineNote(swSketchSegment, swDrawing, swView)
         
         Dim swEdge As SldWorks.Edge
-        Set swEdge = GetEdgeInView(oComp.GetComponent, xMax, swView, False, False)
+        Set swEdge = GetEdgeInView(oComp.GetComponent, xMax, swView, False, VisibleEdgesOnly)
         
         Call AddCollinearRelation(swDrawing, swEdge, swSketchSegment, swView)
         
+        Dim oSubAssy As ISubAssy
+        Dim swDisplayDim As SldWorks.DisplayDimension
+    
         If IsFrontView Then
             
-            Dim swDisplayDim As SldWorks.DisplayDimension
+            If i = LBound(vCompsIdx) Then
             
-            If i = LBound(subAssyEndComponents) Then
-            
+                Set oSubAssy = New ISubAssy
                 Set swDisplayDim = SelectAndAddDimension(swLeftEdge, swEdge, swDrawing, _
-                                oComp.xMin - 0.01, vOutline(1) - 0.005, swView)
-            Else
+                                oComp.xMin - 0.01, vOutline(1) - 0.015, swView)
+                                
+                Set oSubAssy.StartEdge = swLeftEdge
+                Set oSubAssy.EndEdge = swEdge
+                Set oSubAssy.Dimension = swDisplayDim
+                oSubAssy.AssyLength = swDisplayDim.GetDimension2(0).Value
+                oSubAssy.StartIdx = 0
+                oSubAssy.EndIdx = vCompsIdx(i)
                 
+                SubAssyList.AddtoList oSubAssy
+                
+            Else
+            
+                Set oSubAssy = New ISubAssy
                 Set swDisplayDim = SelectAndAddDimension(NextAssyStartEdge, swEdge, swDrawing, _
-                                oComp.xMin - 0.01, vOutline(1) - 0.005, swView)
+                                oComp.xMin - 0.01, vOutline(1) - 0.015, swView)
+                                
+                Set oSubAssy.StartEdge = NextAssyStartEdge
+                Set oSubAssy.EndEdge = swEdge
+                Set oSubAssy.Dimension = swDisplayDim
+                oSubAssy.AssyLength = swDisplayDim.GetDimension2(0).Value
+                oSubAssy.StartIdx = vCompsIdx(i - 1) + 1
+                oSubAssy.EndIdx = vCompsIdx(i)
+                
+                SubAssyList.AddtoList oSubAssy
 
             End If
             
             Dim NextAssyComp As IComp
-            Set NextAssyComp = CompDict.Items(CompNoDict(swComp.Name2) + 1)
+            Set NextAssyComp = CompDict.Items(vCompsIdx(i) + 1)
             
             Call GetViewMaxMinPoints(NextAssyComp, swView, xMin, xMax, yMin, yMax)
             Set NextAssyStartEdge = GetEdgeInView(NextAssyComp.GetComponent, xMin, swView, False, False)
             
-        
+            If i = UBound(vCompsIdx) Then
+            
+                Set oSubAssy = New ISubAssy
+                Set swDisplayDim = SelectAndAddDimension(swRightEdge, NextAssyStartEdge, swDrawing, _
+                            NextAssyComp.xMax + 0.01, vOutline(1) - 0.015, swView)
+                            
+                Set oSubAssy.StartEdge = NextAssyStartEdge
+                Set oSubAssy.EndEdge = swRightEdge
+                Set oSubAssy.Dimension = swDisplayDim
+                oSubAssy.AssyLength = swDisplayDim.GetDimension2(0).Value
+                oSubAssy.StartIdx = vCompsIdx(i) + 1
+
+                oSubAssy.EndIdx = (CompNoDict.Count) - 1
+                
+                SubAssyList.AddtoList oSubAssy
+                            
+            End If
+            
+        Else
+            
+            Dim TempComp As IComp
+            Dim vPoint(2) As Double
+            Dim vSheetPoint As Variant
+    
+            If i = LBound(vCompsIdx) Then
+                
+                Set TempComp = CompDict.Items(0)
+                Call GetViewMaxMinPoints(TempComp, swView, xMin, xMax, yMin, yMax)
+                vPoint(0) = xMin
+                vPoint(1) = yMin
+                vPoint(2) = 0
+                
+                vSheetPoint = GetSketchPointInSheetSpace(swView, vPoint)
+                
+                Set swLeftEdge = GetEdgeInView(TempComp.GetComponent, xMin, swView, False)
+                
+                Set oSubAssy = New ISubAssy
+                Set swDisplayDim = SelectAndAddDimension(swLeftEdge, swEdge, swDrawing, _
+                                oComp.xMin - 0.01, vSheetPoint(1) - 0.005, swView)
+                                
+                Set oSubAssy.StartEdge = swLeftEdge
+                Set oSubAssy.EndEdge = swEdge
+                Set oSubAssy.Dimension = swDisplayDim
+                
+                SubAssyList.AddtoList oSubAssy
+                
+            Else
+            
+                Set oSubAssy = New ISubAssy
+                Set swDisplayDim = SelectAndAddDimension(SubAssyList.Items(UBound(SubAssyList.Items)).EndEdge, swEdge, swDrawing, _
+                                oComp.xMin - 0.01, vSheetPoint(1) - 0.005, swView)
+                                
+                Set oSubAssy.StartEdge = SubAssyList.Items(UBound(SubAssyList.Items)).EndEdge
+                Set oSubAssy.EndEdge = swEdge
+                Set oSubAssy.Dimension = swDisplayDim
+                
+                SubAssyList.AddtoList oSubAssy
+
+            End If
+            
+            
+            If i = UBound(vCompsIdx) Then
+            
+                Set TempComp = CompDict.Items(UBound(CompDict.Items))
+                Call GetViewMaxMinPoints(TempComp, swView, xMin, xMax, yMin, yMax)
+                Set swRightEdge = GetEdgeInView(TempComp.GetComponent, xMax, swView, False)
+            
+                Set oSubAssy = New ISubAssy
+                Set swDisplayDim = SelectAndAddDimension(swEdge, swRightEdge, swDrawing, _
+                            oComp.xMax + 0.01, vSheetPoint(1) - 0.005, swView)
+                            
+                Set oSubAssy.StartEdge = swEdge
+                Set oSubAssy.EndEdge = swRightEdge
+                Set oSubAssy.Dimension = swDisplayDim
+                
+                SubAssyList.AddtoList oSubAssy
+                            
+            End If
+            
         End If
         
     Next i
     
-
-    Set swDisplayDim = SelectAndAddDimension(swRightEdge, NextAssyStartEdge, swDrawing, _
-                            (vOutline(0) + vOutline(2)) / 2, vOutline(1) - 0.005, swView)
-
-End Sub
+    Set AddSplitLines = SubAssyList
+    
+End Function
 
 Private Sub AddSplitLineNote(swSketchSegment As SldWorks.SketchLine, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
 
@@ -259,7 +418,7 @@ Private Sub AddSplitLineNote(swSketchSegment As SldWorks.SketchLine, swDrawing A
     Dim vPointInSheet As Variant
     vPointInSheet = GetSketchPointInSheetSpace(swView, vSketchPoint)
     
-    Call AddNoteToView(swDrawing, "SPLIT LINE", vPointInSheet(0) + 0.005, vPointInSheet(1) + 0.01)
+    Call AddNoteToView(swDrawing, "SPLIT LINE", vPointInSheet(0) + 0.005, vPointInSheet(1) + 0.00625)
 
 End Sub
 
@@ -305,7 +464,11 @@ Function GetSelectedComponents() As Variant
         
     End If
     
-    GetSelectedComponents = CompDict.Items
+    If Not (CompDict.Count = 0) Then
+    
+        GetSelectedComponents = CompDict.Items
+        
+    End If
 
 End Function
 Private Sub ActivateDrawingDocument(swModel As SldWorks.ModelDoc2)
@@ -432,7 +595,7 @@ Private Sub AddDimensionInFrontView(swView As SldWorks.View, FlatCompList As Var
 
     Dim swBottomDim As SldWorks.DisplayDimension
     Set swBottomDim = SelectAndAddDimension(swLeftEdge, swRightEdge, swDrawing, _
-                                (vOutline(0) + vOutline(2)) / 2, vOutline(1) - 0.005, swView)
+                                (vOutline(0) + vOutline(2)) / 2, vOutline(1) - 0.025, swView)
     
     Dim swBottomLeftEdge As SldWorks.Edge
     Set swBottomLeftEdge = GetEdgeInView(LeftComp.GetComponent, LeftYMin, swView, True)
@@ -502,9 +665,12 @@ Private Function SelectAndAddDimension(swEdge1 As SldWorks.Edge, swEdge2 As SldW
         Call SelectEntity(swEdge2, True, swView)
         
         Set SelectAndAddDimension = swDrawing.AddHorizontalDimension2(xPos, yPos, 0)
+        
+        If Not SelectAndAddDimension Is Nothing Then
+            SelectAndAddDimension.CenterText = True
+            SelectAndAddDimension.SetDual2 False, False
             
-        SelectAndAddDimension.CenterText = True
-        SelectAndAddDimension.SetDual2 False, False
+        End If
     
     End If
 
@@ -538,12 +704,12 @@ Private Sub AddStructuralNotes(swDrawing As SldWorks.DrawingDoc, swSheet As SldW
         Set swStructuralNote = swDrawing.CreateText2("<FONT size=10PTS style=B>NOTES:" & vbCrLf & _
             "<FONT size=8PTS style=R>1. ALL CIRCLED PANELS ARE 12GA." & vbCrLf & _
          "2. RIB TO RIB #14 TEK SCREW @12" & Chr(34) & " O.C., UNLESS OTHERWISE SPECIFIED RIBS." & vbCrLf & _
-         "3. DIMENSION FROM BOTTOM OF WALL PANEL TO BOTTOM OF CEILING PANELS, USE FOR CEILING L-ANGLE PLACEMENT.", 1.99241243641486E-02, 7.72464210842187E-02, 0, 0, 0)
+         "3. DIMENSION FROM BOTTOM OF WALL PANEL TO BOTTOM OF CEILING PANELS, USE FOR CEILING L-ANGLE PLACEMENT.", 1.99241243641486E-02, 6.92464210842187E-02, 0, 0, 0)
 
     Else
         
         Set swStructuralNote = swDrawing.CreateText2("<FONT size=10PTS style=B> NOTES:" & vbCrLf & _
-            "<FONT size=8PTS style=R> 1. RIB TO RIB #14 TEK SCREW @12" & Chr(34) & " O.C., UNLESS OTHERWISE SPECIFIED RIBS." & vbCrLf & _
+            "<FONT size=8PTS style=R>1. RIB TO RIB #14 TEK SCREW @12" & Chr(34) & " O.C., UNLESS OTHERWISE SPECIFIED RIBS." & vbCrLf & _
          "2. DIMENSION FROM BOTTOM OF WALL PANEL TO BOTTOM OF CEILING PANELS, USE FOR CEILING L-ANGLE PLACEMENT.", 1.99241243641486E-02, 7.72464210842187E-02, 0, 0, 0)
          
      End If
@@ -631,7 +797,7 @@ Private Sub CleanUpActivateAndAddViewLabel(swDrawing As SldWorks.ModelDoc2, swVi
     Dim swLabelNote As SldWorks.Note
 
     Set swLabelNote = swDrawing.CreateText2("<FONT size=10PTS style=B> $PRP:" & Chr(34) & "SHEET DESCRIPTION" & Chr(34) & _
-         vbCrLf & "<FONT size=8PTS style=R> (INTERIOR VIEW)", (vOutline(0) + vOutline(2)) / 2, vOutline(1) - 0.01, 0, 0, 0)
+         vbCrLf & "<FONT size=8PTS style=R> (INTERIOR VIEW)", (vOutline(0) + vOutline(2)) / 2, vOutline(1) - 0.03, 0, 0, 0)
     swLabelNote.SetTextJustification swTextJustification_e.swTextJustificationCenter
     
     swDrawing.Extension.Rebuild swRebuildOptions_e.swCurrentSheetDisp
@@ -1658,22 +1824,28 @@ Private Function GetDetailedCompList(CompWithPosDict As Scripting.Dictionary, By
     
 End Function
 
-Private Function GetConsolidatedList(vCompsOfComps As Variant) As Variant
+Private Function GetConsolidatedList(vCompsOfComps As Variant, ByRef DoorList As IArrListObject, ByRef HVACList As IArrListObject) As Variant
 
     Dim vConsolidatedLists As Variant
     Dim List As IConsolidatedList
 
     Dim IsInit As Boolean
     IsInit = True
+
+    Dim HVACSubAssy As IDoorOrHVACAssy
     
-    Dim IdxList As IArrList
-    Set IdxList = New IArrList
+    Dim IsHVACStarted As Boolean
+    IsHVACStarted = False
     
-    Dim IsStarted As Boolean
-    IsStarted = False
+    Dim DoorSubAssy As IDoorOrHVACAssy
+    
+    Dim IsDoorStarted As Boolean
+    IsDoorStarted = False
     
     Dim StartIndex As Integer
     Dim EndIndex As Integer
+    
+    Dim LastComp As IComp
         
     Dim i As Integer
     
@@ -1684,11 +1856,12 @@ Private Function GetConsolidatedList(vCompsOfComps As Variant) As Variant
         
         If UBound(vComps) = 0 Then
         
-            If IsStarted Then
+            If IsHVACStarted Then
             
-                IsStarted = False
+                IsHVACStarted = False
+                Set HVACSubAssy.EndComp = vComps(0)
                 EndIndex = i - 1
-                IdxList.AddtoList i - 1
+                HVACList.AddtoList HVACSubAssy
                 Call UpdatedConsolidatedList(vConsolidatedLists, IsInit, StartIndex, EndIndex, vCompsOfComps)
                 
             End If
@@ -1724,16 +1897,44 @@ Private Function GetConsolidatedList(vCompsOfComps As Variant) As Variant
                     Set vConsolidatedLists(UBound(vConsolidatedLists)) = List
     
                 End If
-            
+                
             End If
+            
+            If Not LastComp Is Nothing Then
+            
+                If Not Abs(LastComp.yMin - oComp.yMin) <= 0.00001 Then
+
+                    If IsDoorStarted Then
+                
+                        IsDoorStarted = False
+                        Set DoorSubAssy.EndComp = oComp
+                        DoorSubAssy.DoororHVACWidth = oComp.xMin - DoorSubAssy.StartComp.xMax
+                        DoorSubAssy.DoororHVACLength = Abs(LastComp.yMin - oComp.yMin)
+                        
+                        DoorList.AddtoList DoorSubAssy
+                        
+                    Else
+                    
+                        IsDoorStarted = True
+                        Set DoorSubAssy = New IDoorOrHVACAssy
+                        Set DoorSubAssy.StartComp = LastComp
+
+                    End If
+                    
+                End If
+                
+            End If
+        
+            Set LastComp = vComps(0)
 
         Else
             
-            If False = IsStarted Then
-            
-                IsStarted = True
+            If False = IsHVACStarted Then
+                
+                IsHVACStarted = True
                 StartIndex = i
-                IdxList.AddtoList i
+                Set HVACSubAssy = New IDoorOrHVACAssy
+                Set HVACSubAssy.StartComp = vCompsOfComps(i - 1)(0)
                 
             End If
 
@@ -1825,8 +2026,6 @@ Private Sub UpdatedConsolidatedList(ByRef vConsolidatedLists As Variant, IsInit 
     Next k
 
 End Sub
-
-
 
 Function GetComponentPointInSheetSpace(swComp As SldWorks.Component2, _
                 vPoint As Variant, swView As SldWorks.View)
