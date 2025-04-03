@@ -167,14 +167,18 @@ Private Sub CreateButton_Click()
     Dim CompNoDict As New Scripting.Dictionary
     Set FlatCompDict = GetCompDictionary(FlatCompList, CompNoDict)
     
-    Dim SubAssyList As IArrListObject
+    Dim subAssylist As IArrListObject
     If Not IsEmpty(subAssyEndComponents) Then
         
         Dim vSubAssyComponentsIdx As Variant
         vSubAssyComponentsIdx = GetSubAssyComponentsIndexSorted(subAssyEndComponents, CompNoDict)
    
-        Set SubAssyList = AddSplitLines(vSubAssyComponentsIdx, swDrawing, swFrontView, FlatCompDict, CompNoDict, True, swLeftEdge, swRightEdge, False)
-        Call AddDimensionNames(SubAssyList, wallName)
+        Set subAssylist = AddSplitLines(vSubAssyComponentsIdx, swDrawing, swFrontView, FlatCompDict, CompNoDict, True, swLeftEdge, swRightEdge, False)
+        Call CheckAndAddDoorOrHVACAssy(subAssylist, DoorList, CompNoDict, True)
+        Call CheckAndAddDoorOrHVACAssy(subAssylist, HVACList, CompNoDict, False)
+        
+        Call AddDimensionNames(subAssylist, wallName)
+        
         
         Call AddSplitLines(vSubAssyComponentsIdx, swDrawing, swBottomView, FlatCompDict, CompNoDict, False, swLeftEdge, swRightEdge)
    
@@ -184,12 +188,54 @@ Private Sub CreateButton_Click()
 
 End Sub
 
-Private Sub AddDimensionNames(SubAssyList As IArrListObject, wallName As String)
+Private Sub CheckAndAddDoorOrHVACAssy(subAssylist As IArrListObject, DoororHVACList As IArrListObject, CompNoDict As Scripting.Dictionary, IsDoor As Boolean)
+    
+    Dim vSubAssemblies As Variant
+    vSubAssemblies = subAssylist.Items
+    
+    Dim vDoororHVACItems As Variant
+    vDoororHVACItems = DoororHVACList.Items
+    
+    Dim i As Integer
+    Dim j As Integer
+    
+    Dim LastSubAssyIdx As Integer
+    LastSubAssyIdx = 0
+    
+    For i = LBound(vDoororHVACItems) To UBound(vDoororHVACItems)
+    
+        Dim oDoorOrHVACAssy As IDoorOrHVACAssy
+        Set oDoorOrHVACAssy = vDoororHVACItems(i)
+        
+        Dim AssyIdx As Integer
+        AssyIdx = CompNoDict.Item(oDoorOrHVACAssy.EndComp.GetComponent.Name2)
+        
+        For j = LastSubAssyIdx To UBound(vSubAssemblies)
+        
+            Dim oSubAssy As ISubAssy
+            Set oSubAssy = vSubAssemblies(i)
+            
+            If AssyIdx <= oSubAssy.EndIdx Then
+                
+                Call oSubAssy.AddDoororHVACAssy(oDoorOrHVACAssy, IsDoor)
+                Exit For
+                
+            End If
+            
+            LastSubAssyIdx = j
+        
+       Next j
+
+    Next i
+    
+End Sub
+
+Private Sub AddDimensionNames(subAssylist As IArrListObject, wallName As String)
     
     Dim CloneList As IArrListObject
     Set CloneList = New IArrListObject
     
-    Set CloneList = SubAssyList.Clone
+    Set CloneList = subAssylist.Clone
 
     If InStr(wallName, "Wall") > 0 Then
         
@@ -244,8 +290,8 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
     Dim i As Integer
     Dim NextAssyStartEdge As SldWorks.Edge
     
-    Dim SubAssyList As IArrListObject
-    Set SubAssyList = New IArrListObject
+    Dim subAssylist As IArrListObject
+    Set subAssylist = New IArrListObject
     
     For i = LBound(vCompsIdx) To UBound(vCompsIdx)
     
@@ -282,15 +328,18 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 Set oSubAssy = New ISubAssy
                 Set swDisplayDim = SelectAndAddDimension(swLeftEdge, swEdge, swDrawing, _
                                 oComp.xMin - 0.01, vOutline(1) - 0.015, swView)
-                                
+                             
+                Set oSubAssy.StartComp = CompDict.Items(0)
+                Set oSubAssy.EndComp = CompDict.Items(vCompsIdx(i))
+                
                 Set oSubAssy.StartEdge = swLeftEdge
                 Set oSubAssy.EndEdge = swEdge
                 Set oSubAssy.Dimension = swDisplayDim
-                oSubAssy.AssyLength = swDisplayDim.GetDimension2(0).Value
+                'oSubAssy.AssyLength = swDisplayDim.GetDimension2(0).Value
                 oSubAssy.StartIdx = 0
                 oSubAssy.EndIdx = vCompsIdx(i)
                 
-                SubAssyList.AddtoList oSubAssy
+                subAssylist.AddtoList oSubAssy
                 
             Else
             
@@ -298,14 +347,17 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 Set swDisplayDim = SelectAndAddDimension(NextAssyStartEdge, swEdge, swDrawing, _
                                 oComp.xMin - 0.01, vOutline(1) - 0.015, swView)
                                 
+                Set oSubAssy.StartComp = CompDict.Items(vCompsIdx(i - 1) + 1)
+                Set oSubAssy.EndComp = CompDict.Items(vCompsIdx(i))
+                                
                 Set oSubAssy.StartEdge = NextAssyStartEdge
                 Set oSubAssy.EndEdge = swEdge
                 Set oSubAssy.Dimension = swDisplayDim
-                oSubAssy.AssyLength = swDisplayDim.GetDimension2(0).Value
+                'oSubAssy.AssyLength = swDisplayDim.GetDimension2(0).Value
                 oSubAssy.StartIdx = vCompsIdx(i - 1) + 1
                 oSubAssy.EndIdx = vCompsIdx(i)
                 
-                SubAssyList.AddtoList oSubAssy
+                subAssylist.AddtoList oSubAssy
 
             End If
             
@@ -321,15 +373,18 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 Set swDisplayDim = SelectAndAddDimension(swRightEdge, NextAssyStartEdge, swDrawing, _
                             NextAssyComp.xMax + 0.01, vOutline(1) - 0.015, swView)
                             
+                Set oSubAssy.StartComp = CompDict.Items(vCompsIdx(i) + 1)
+                Set oSubAssy.EndComp = CompDict.Items(UBound(CompDict.Items))
+                
                 Set oSubAssy.StartEdge = NextAssyStartEdge
                 Set oSubAssy.EndEdge = swRightEdge
                 Set oSubAssy.Dimension = swDisplayDim
-                oSubAssy.AssyLength = swDisplayDim.GetDimension2(0).Value
+                'oSubAssy.AssyLength = swDisplayDim.GetDimension2(0).Value
+                
                 oSubAssy.StartIdx = vCompsIdx(i) + 1
-
                 oSubAssy.EndIdx = (CompNoDict.Count) - 1
                 
-                SubAssyList.AddtoList oSubAssy
+                subAssylist.AddtoList oSubAssy
                             
             End If
             
@@ -359,19 +414,19 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 Set oSubAssy.EndEdge = swEdge
                 Set oSubAssy.Dimension = swDisplayDim
                 
-                SubAssyList.AddtoList oSubAssy
+                subAssylist.AddtoList oSubAssy
                 
             Else
             
                 Set oSubAssy = New ISubAssy
-                Set swDisplayDim = SelectAndAddDimension(SubAssyList.Items(UBound(SubAssyList.Items)).EndEdge, swEdge, swDrawing, _
+                Set swDisplayDim = SelectAndAddDimension(subAssylist.Items(UBound(subAssylist.Items)).EndEdge, swEdge, swDrawing, _
                                 oComp.xMin - 0.01, vSheetPoint(1) - 0.005, swView)
                                 
-                Set oSubAssy.StartEdge = SubAssyList.Items(UBound(SubAssyList.Items)).EndEdge
+                Set oSubAssy.StartEdge = subAssylist.Items(UBound(subAssylist.Items)).EndEdge
                 Set oSubAssy.EndEdge = swEdge
                 Set oSubAssy.Dimension = swDisplayDim
                 
-                SubAssyList.AddtoList oSubAssy
+                subAssylist.AddtoList oSubAssy
 
             End If
             
@@ -390,7 +445,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 Set oSubAssy.EndEdge = swRightEdge
                 Set oSubAssy.Dimension = swDisplayDim
                 
-                SubAssyList.AddtoList oSubAssy
+                subAssylist.AddtoList oSubAssy
                             
             End If
             
@@ -398,7 +453,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
         
     Next i
     
-    Set AddSplitLines = SubAssyList
+    Set AddSplitLines = subAssylist
     
 End Function
 
