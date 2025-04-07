@@ -140,27 +140,25 @@ Private Sub CreateButton_Click()
 
     Dim vConsolidatedList As Variant
     
-    Dim HVACList As IArrListObject
-    Set HVACList = New IArrListObject
-    
-    Dim DoorList As IArrListObject
-    Set DoorList = New IArrListObject
-    
-    vConsolidatedList = GetConsolidatedList(DetailedCompList, DoorList, HVACList)
+    Dim DoororHVACList As IArrListObject
+    Set DoororHVACList = New IArrListObject
+
+    vConsolidatedList = GetConsolidatedList(DetailedCompList, DoororHVACList)
     
     swDrawing.ActivateView swFrontView.Name
     
     Dim IsMakeUpExists As Boolean
-    'Call AddCallouts(vConsolidatedList, swDrawing, swFrontView, MaxCompHeight, IsMakeUpExists)
+    Call AddCallouts(vConsolidatedList, swDrawing, swFrontView, MaxCompHeight, IsMakeUpExists)
 
     Dim Is12GAPanelExists As Boolean
-    'Is12GAPanelExists = Add12GACircles(FlatCompList, swDrawing, swBottomView)
+    Is12GAPanelExists = Add12GACircles(FlatCompList, swDrawing, swBottomView)
 
     Call UpdateBottomViewPosition(FlatCompList, swDrawing, swBottomView)
     Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists)
     
     Dim swLeftEdge As SldWorks.Edge
     Dim swRightEdge As SldWorks.Edge
+
     Call AddDimensionInFrontView(swFrontView, FlatCompList, DetailedCompList, swDrawing, MaxHeightComp, swLeftEdge, swRightEdge)
     
     Dim FlatCompDict As Scripting.Dictionary
@@ -168,33 +166,142 @@ Private Sub CreateButton_Click()
     Set FlatCompDict = GetCompDictionary(FlatCompList, CompNoDict)
     
     Dim subAssylist As IArrListObject
+    Set subAssylist = New IArrListObject
+    
     If Not IsEmpty(subAssyEndComponents) Then
         
         Dim vSubAssyComponentsIdx As Variant
         vSubAssyComponentsIdx = GetSubAssyComponentsIndexSorted(subAssyEndComponents, CompNoDict)
-   
+        
         Set subAssylist = AddSplitLines(vSubAssyComponentsIdx, swDrawing, swFrontView, FlatCompDict, CompNoDict, True, swLeftEdge, swRightEdge, False)
-        Call CheckAndAddDoorOrHVACAssy(subAssylist, DoorList, CompNoDict, True)
-        Call CheckAndAddDoorOrHVACAssy(subAssylist, HVACList, CompNoDict, False)
-        
-        Call AddDimensionNames(subAssylist, wallName)
-        
-        
         Call AddSplitLines(vSubAssyComponentsIdx, swDrawing, swBottomView, FlatCompDict, CompNoDict, False, swLeftEdge, swRightEdge)
-   
+
+        Call CheckAndAddDoorOrHVACAssy(subAssylist, DoororHVACList, CompNoDict)
+  
     End If
+    
+    Dim oSubAssy As ISubAssy
+    Set oSubAssy = New ISubAssy
+    
+    Set oSubAssy.StartComp = FlatCompDict.Items(0)
+    Set oSubAssy.EndComp = FlatCompDict.Items(UBound(FlatCompDict.Items))
+    Set oSubAssy.StartEdge = swLeftEdge
+    Set oSubAssy.EndEdge = swRightEdge
+    oSubAssy.StartIdx = 0
+    oSubAssy.EndIdx = UBound(FlatCompDict.Items)
+    Call oSubAssy.AddDoororHVACList(DoororHVACList)
+    
+    subAssylist.AddtoList oSubAssy
+    
+    Dim MaxClearance As Double
+    Call AddDimensionsForDoororHVACInEachSubAssy(subAssylist, swDrawing, swFrontView, MaxClearance)
+    Call AddDimensionNames(subAssylist, wallName, swFrontView)
     
     Unload Me
 
 End Sub
 
-Private Sub CheckAndAddDoorOrHVACAssy(subAssylist As IArrListObject, DoororHVACList As IArrListObject, CompNoDict As Scripting.Dictionary, IsDoor As Boolean)
+Private Sub AddDimensionsForDoororHVACInEachSubAssy(subAssylist As IArrListObject, swDrawing As SldWorks.DrawingDoc, _
+            swView As SldWorks.View, MaxClearance As Double)
+
+    Dim vSubAssy As Variant
+    vSubAssy = subAssylist.Items
+
+    MaxClearance = 0
+    
+    Dim i As Integer
+    For i = LBound(vSubAssy) To UBound(vSubAssy)
+    
+        Dim oSubAssy As ISubAssy
+        Set oSubAssy = vSubAssy(i)
+        
+        Dim Clearance As Double
+        Clearance = 0.005
+        
+        If (UBound(vSubAssy)) = 0 Or i < UBound(vSubAssy) Then
+            
+            Call AddDimensionsForDoororHVAC(oSubAssy.GetDoorOrHVACAssemblies, oSubAssy, swDrawing, swView, Clearance)
+            
+        Else
+            
+            Call AddOverallDimension(oSubAssy, swDrawing, swView, MaxClearance + 0.007)
+            
+        End If
+
+        
+        If Clearance > MaxClearance Then
+        
+            MaxClearance = Clearance
+            
+        End If
+    
+    Next i
+
+End Sub
+
+Private Sub AddOverallDimension(oSubAssy As ISubAssy, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, Clearance As Double)
+
+    Dim swDisplayDim As SldWorks.DisplayDimension
+    Set swDisplayDim = SelectAndAddDimension(oSubAssy.StartEdge, oSubAssy.EndEdge, swDrawing, _
+                oSubAssy.EndComp.xMin - 0.01, oSubAssy.EndComp.yMin - Clearance, swView)
+    Set oSubAssy.Dimension = swDisplayDim
+    
+End Sub
+
+Private Sub AddDimensionsForDoororHVAC(vDoorOrHVACItems As Variant, oSubAssy As ISubAssy, swDrawing As SldWorks.DrawingDoc, _
+                    swView As SldWorks.View, ByRef Clearance As Double, Optional IsDoor As Boolean = True)
+
+    Dim j As Integer
+    
+    If Not IsEmpty(vDoorOrHVACItems) Then
+    
+        Dim swDisplayDim As SldWorks.DisplayDimension
+        
+        For j = LBound(vDoorOrHVACItems) To UBound(vDoorOrHVACItems)
+                
+            Dim oDoorOrHVACAssy As IDoorOrHVACAssy
+            Set oDoorOrHVACAssy = vDoorOrHVACItems(j)
+
+            Dim oStartComp As IComp
+            Set oStartComp = oDoorOrHVACAssy.StartComp
+                
+            Dim swDoorOrHVACStartEdge As SldWorks.Edge
+            Set swDoorOrHVACStartEdge = GetEdgeInView(oStartComp, swView, False, True)
+
+            Set swDisplayDim = SelectAndAddDimension(oSubAssy.StartEdge, swDoorOrHVACStartEdge, swDrawing, _
+                        oStartComp.xMin - 0.01, oStartComp.yMin - Clearance, swView, False)
+                        
+            If oDoorOrHVACAssy.IsDoor Then
+            
+                Dim oEndComp As IComp
+                Set oEndComp = oDoorOrHVACAssy.EndComp
+                
+                Dim swDoorOrHVACEndEdge As SldWorks.Edge
+                Set swDoorOrHVACEndEdge = GetEdgeInView(oEndComp, swView, False, False)
+                
+                Set swDisplayDim = SelectAndAddDimension(swDoorOrHVACStartEdge, swDoorOrHVACEndEdge, swDrawing, _
+                        oEndComp.xMin - 0.01, oStartComp.yMin - Clearance, swView, False)
+            
+            End If
+            
+            Clearance = Clearance + 0.005
+                
+        Next j
+            
+    End If
+    
+    Clearance = Clearance + 0.004
+    Call AddOverallDimension(oSubAssy, swDrawing, swView, Clearance)
+
+End Sub
+
+Private Sub CheckAndAddDoorOrHVACAssy(subAssylist As IArrListObject, DoororHVACList As IArrListObject, CompNoDict As Scripting.Dictionary)
     
     Dim vSubAssemblies As Variant
     vSubAssemblies = subAssylist.Items
     
-    Dim vDoororHVACItems As Variant
-    vDoororHVACItems = DoororHVACList.Items
+    Dim vDoorOrHVACItems As Variant
+    vDoorOrHVACItems = DoororHVACList.Items
     
     Dim i As Integer
     Dim j As Integer
@@ -202,10 +309,10 @@ Private Sub CheckAndAddDoorOrHVACAssy(subAssylist As IArrListObject, DoororHVACL
     Dim LastSubAssyIdx As Integer
     LastSubAssyIdx = 0
     
-    For i = LBound(vDoororHVACItems) To UBound(vDoororHVACItems)
+    For i = LBound(vDoorOrHVACItems) To UBound(vDoorOrHVACItems)
     
         Dim oDoorOrHVACAssy As IDoorOrHVACAssy
-        Set oDoorOrHVACAssy = vDoororHVACItems(i)
+        Set oDoorOrHVACAssy = vDoorOrHVACItems(i)
         
         Dim AssyIdx As Integer
         AssyIdx = CompNoDict.Item(oDoorOrHVACAssy.EndComp.GetComponent.Name2)
@@ -213,51 +320,68 @@ Private Sub CheckAndAddDoorOrHVACAssy(subAssylist As IArrListObject, DoororHVACL
         For j = LastSubAssyIdx To UBound(vSubAssemblies)
         
             Dim oSubAssy As ISubAssy
-            Set oSubAssy = vSubAssemblies(i)
+            Set oSubAssy = vSubAssemblies(j)
             
             If AssyIdx <= oSubAssy.EndIdx Then
                 
-                Call oSubAssy.AddDoororHVACAssy(oDoorOrHVACAssy, IsDoor)
+                Call oSubAssy.AddDoororHVACAssy(oDoorOrHVACAssy)
+                LastSubAssyIdx = j
                 Exit For
                 
             End If
             
-            LastSubAssyIdx = j
-        
        Next j
 
     Next i
     
 End Sub
 
-Private Sub AddDimensionNames(subAssylist As IArrListObject, wallName As String)
-    
-    Dim CloneList As IArrListObject
-    Set CloneList = New IArrListObject
-    
-    Set CloneList = subAssylist.Clone
+Private Sub AddDimensionNames(subAssylist As IArrListObject, wallName As String, swView As SldWorks.View)
 
-    If InStr(wallName, "Wall") > 0 Then
+
+    
+        Dim CloneList As IArrListObject
+        Set CloneList = New IArrListObject
         
-        CloneList.SortItems "AssyLength"
+        Set CloneList = subAssylist.Clone
     
-    End If
-    
-    Dim i As Integer
-    Dim vSubAssy As Variant
-    vSubAssy = CloneList.Items
-    
-    For i = LBound(vSubAssy) To UBound(vSubAssy)
-    
-        Dim oSubAssy As ISubAssy
-        Set oSubAssy = vSubAssy(i)
+        If InStr(wallName, "Wall") > 0 Then
+            
+            CloneList.SortItems "AssyLength"
         
-        Dim swDisplayDim As SldWorks.DisplayDimension
-        Set swDisplayDim = oSubAssy.Dimension
+        End If
         
-        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, UCase(wallName) & i + 1 & vbCrLf & "(XX.XX sq.ft)"
-    
-    Next i
+
+        
+        Dim i As Integer
+        Dim vSubAssy As Variant
+        vSubAssy = CloneList.Items
+        
+        For i = LBound(vSubAssy) To UBound(vSubAssy)
+        
+            Dim oSubAssy As ISubAssy
+            Set oSubAssy = vSubAssy(i)
+            
+            Dim swDisplayDim As SldWorks.DisplayDimension
+            Set swDisplayDim = oSubAssy.Dimension
+            
+            Dim AreaInSqft As Double
+            AreaInSqft = ((oSubAssy.EndComp.xMax - oSubAssy.StartComp.xMin) * oSubAssy.GetMaxLength) - oSubAssy.TotalDoorArea
+            AreaInSqft = Round((AreaInSqft / (swView.ScaleDecimal * swView.ScaleDecimal)) * 10.7639, 2)
+            
+            If i = UBound(vSubAssy) Then
+            
+                swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "(" & AreaInSqft & " sq.ft)"
+            
+            Else
+            
+                swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, UCase(wallName) & i + 1 & vbCrLf & "(" & AreaInSqft & " sq.ft)"
+                
+            End If
+        
+        Next i
+        
+
     
 End Sub
 
@@ -280,7 +404,7 @@ End Function
 
 Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
         CompDict As Scripting.Dictionary, CompNoDict As Scripting.Dictionary, IsFrontView As Boolean, _
-        swLeftEdge As SldWorks.Edge, swRightEdge As SldWorks.Edge, Optional VisibleEdgesOnly As Boolean = True) As IArrListObject
+        ByVal swLeftEdge As SldWorks.Edge, ByVal swRightEdge As SldWorks.Edge, Optional VisibleEdgesOnly As Boolean = True) As IArrListObject
 
     swDrawing.ActivateView swView.Name
     
@@ -314,7 +438,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
         Call AddSplitLineNote(swSketchSegment, swDrawing, swView)
         
         Dim swEdge As SldWorks.Edge
-        Set swEdge = GetEdgeInView(oComp.GetComponent, xMax, swView, False, VisibleEdgesOnly)
+        Set swEdge = GetEdgeInView(oComp, swView, False, True, VisibleEdgesOnly)
         
         Call AddCollinearRelation(swDrawing, swEdge, swSketchSegment, swView)
         
@@ -326,7 +450,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
             If i = LBound(vCompsIdx) Then
             
                 Set oSubAssy = New ISubAssy
-                Set swDisplayDim = SelectAndAddDimension(swLeftEdge, swEdge, swDrawing, _
+                'Set swDisplayDim = SelectAndAddDimension(swLeftEdge, swEdge, swDrawing, _
                                 oComp.xMin - 0.01, vOutline(1) - 0.015, swView)
                              
                 Set oSubAssy.StartComp = CompDict.Items(0)
@@ -334,7 +458,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 
                 Set oSubAssy.StartEdge = swLeftEdge
                 Set oSubAssy.EndEdge = swEdge
-                Set oSubAssy.Dimension = swDisplayDim
+                'Set oSubAssy.Dimension = swDisplayDim
                 'oSubAssy.AssyLength = swDisplayDim.GetDimension2(0).Value
                 oSubAssy.StartIdx = 0
                 oSubAssy.EndIdx = vCompsIdx(i)
@@ -344,7 +468,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
             Else
             
                 Set oSubAssy = New ISubAssy
-                Set swDisplayDim = SelectAndAddDimension(NextAssyStartEdge, swEdge, swDrawing, _
+                'Set swDisplayDim = SelectAndAddDimension(NextAssyStartEdge, swEdge, swDrawing, _
                                 oComp.xMin - 0.01, vOutline(1) - 0.015, swView)
                                 
                 Set oSubAssy.StartComp = CompDict.Items(vCompsIdx(i - 1) + 1)
@@ -352,7 +476,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                                 
                 Set oSubAssy.StartEdge = NextAssyStartEdge
                 Set oSubAssy.EndEdge = swEdge
-                Set oSubAssy.Dimension = swDisplayDim
+                'Set oSubAssy.Dimension = swDisplayDim
                 'oSubAssy.AssyLength = swDisplayDim.GetDimension2(0).Value
                 oSubAssy.StartIdx = vCompsIdx(i - 1) + 1
                 oSubAssy.EndIdx = vCompsIdx(i)
@@ -365,12 +489,12 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
             Set NextAssyComp = CompDict.Items(vCompsIdx(i) + 1)
             
             Call GetViewMaxMinPoints(NextAssyComp, swView, xMin, xMax, yMin, yMax)
-            Set NextAssyStartEdge = GetEdgeInView(NextAssyComp.GetComponent, xMin, swView, False, False)
+            Set NextAssyStartEdge = GetEdgeInView(NextAssyComp, swView, False, False, False)
             
             If i = UBound(vCompsIdx) Then
             
                 Set oSubAssy = New ISubAssy
-                Set swDisplayDim = SelectAndAddDimension(swRightEdge, NextAssyStartEdge, swDrawing, _
+                'Set swDisplayDim = SelectAndAddDimension(swRightEdge, NextAssyStartEdge, swDrawing, _
                             NextAssyComp.xMax + 0.01, vOutline(1) - 0.015, swView)
                             
                 Set oSubAssy.StartComp = CompDict.Items(vCompsIdx(i) + 1)
@@ -378,7 +502,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 
                 Set oSubAssy.StartEdge = NextAssyStartEdge
                 Set oSubAssy.EndEdge = swRightEdge
-                Set oSubAssy.Dimension = swDisplayDim
+                'Set oSubAssy.Dimension = swDisplayDim
                 'oSubAssy.AssyLength = swDisplayDim.GetDimension2(0).Value
                 
                 oSubAssy.StartIdx = vCompsIdx(i) + 1
@@ -404,7 +528,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 
                 vSheetPoint = GetSketchPointInSheetSpace(swView, vPoint)
                 
-                Set swLeftEdge = GetEdgeInView(TempComp.GetComponent, xMin, swView, False)
+                Set swLeftEdge = GetEdgeInView(TempComp, swView, False, False)
                 
                 Set oSubAssy = New ISubAssy
                 Set swDisplayDim = SelectAndAddDimension(swLeftEdge, swEdge, swDrawing, _
@@ -435,7 +559,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
             
                 Set TempComp = CompDict.Items(UBound(CompDict.Items))
                 Call GetViewMaxMinPoints(TempComp, swView, xMin, xMax, yMin, yMax)
-                Set swRightEdge = GetEdgeInView(TempComp.GetComponent, xMax, swView, False)
+                Set swRightEdge = GetEdgeInView(TempComp, swView, False, True)
             
                 Set oSubAssy = New ISubAssy
                 Set swDisplayDim = SelectAndAddDimension(swEdge, swRightEdge, swDrawing, _
@@ -613,7 +737,7 @@ End Sub
 
 Private Sub AddDimensionInFrontView(swView As SldWorks.View, FlatCompList As Variant, _
             DetailedCompList As Variant, swDrawing As SldWorks.ModelDoc2, MaxHeightComp As IComp, _
-            ByRef swLeftEdge As SldWorks.Edge, ByRef swRightEdge As SldWorks.Edge)
+            ByRef swLeftEdge As SldWorks.Edge, ByRef swRightEdge As SldWorks.Edge) 'As SldWorks.DisplayDimension
             
     Dim vOutline As Variant
     vOutline = swView.GetOutline
@@ -624,106 +748,64 @@ Private Sub AddDimensionInFrontView(swView As SldWorks.View, FlatCompList As Var
     Dim RightComp As IComp
     Set RightComp = FlatCompList(UBound(FlatCompList))
     
-    Dim LeftxMin As Double
-    Dim LeftxMax As Double
-    Dim LeftYMin As Double
-    Dim LeftYMax As Double
-    Call GetViewMaxMinPoints(LeftComp, swView, LeftxMin, LeftxMax, LeftYMin, LeftYMax)
-    
-    Set swLeftEdge = GetEdgeInView(LeftComp.GetComponent, LeftxMin, swView, False)
+    Set swLeftEdge = GetEdgeInView(LeftComp, swView, False, False)
+    Set swRightEdge = GetEdgeInView(RightComp, swView, False, True)
 
-    Dim RightxMin As Double
-    Dim RightxMax As Double
-    Dim RightYMin As Double
-    Dim RightYMax As Double
-    Call GetViewMaxMinPoints(RightComp, swView, RightxMin, RightxMax, RightYMin, RightYMax)
-    
-    
-    Dim MaxCompXMin As Double
-    Dim MaxCompXMax As Double
-    Dim MaxCompYMin As Double
-    Dim MaxCompXYMax As Double
-    
-    Call GetViewMaxMinPoints(MaxHeightComp, swView, MaxCompXMin, MaxCompXMax, MaxCompYMin, MaxCompXYMax)
-    
-    Set swRightEdge = GetEdgeInView(RightComp.GetComponent, RightxMax, swView, False)
-
-    Dim swBottomDim As SldWorks.DisplayDimension
-    Set swBottomDim = SelectAndAddDimension(swLeftEdge, swRightEdge, swDrawing, _
-                                (vOutline(0) + vOutline(2)) / 2, vOutline(1) - 0.025, swView)
-    
     Dim swBottomLeftEdge As SldWorks.Edge
-    Set swBottomLeftEdge = GetEdgeInView(LeftComp.GetComponent, LeftYMin, swView, True)
+    Set swBottomLeftEdge = GetEdgeInView(LeftComp, swView, True, False)
 
     Dim swTopLeftEdge As SldWorks.Edge
-    
-'    Dim TotalArea As Double
     Dim swLeftDim As SldWorks.DisplayDimension
 
     If (Abs(LeftComp.yMax - RightComp.yMax) <= 0.5 * 0.0254 * swView.ScaleDecimal) Then
     
-        Set swTopLeftEdge = GetEdgeInView(MaxHeightComp.GetComponent, MaxCompXYMax, swView, True)
+        Set swTopLeftEdge = GetEdgeInView(MaxHeightComp, swView, True, True)
         Set swLeftDim = SelectAndAddDimension(swTopLeftEdge, swBottomLeftEdge, _
                     swDrawing, vOutline(0) - 0.005, (vOutline(1) + vOutline(3)) / 2, swView)
         
-'        If Not (swLeftDim Is Nothing) And Not (swBottomDim Is Nothing) Then
-'
-'            TotalArea = Round((swLeftDim.GetDimension2(0).Value * swBottomDim.GetDimension2(0).Value) / 144, 2)
-'
-'        End If
-        
     Else
     
-        Set swTopLeftEdge = GetEdgeInView(LeftComp.GetComponent, LeftYMax, swView, True)
+        Set swTopLeftEdge = GetEdgeInView(LeftComp, swView, True, True)
         Set swLeftDim = SelectAndAddDimension(swTopLeftEdge, _
             swBottomLeftEdge, swDrawing, vOutline(0) - 0.005, (vOutline(1) + vOutline(3)) / 2, swView)
         
-'        Dim LeftDimValue As Double
-'        LeftDimValue = swLeftDim.GetDimension2(0).Value
         
         Dim swTopRightEdge As SldWorks.Edge
-        Set swTopRightEdge = GetEdgeInView(RightComp.GetComponent, RightYMax, swView, True)
+        Set swTopRightEdge = GetEdgeInView(RightComp, swView, True, True)
 
         Dim swBottomRightEdge As SldWorks.Edge
-        Set swBottomRightEdge = GetEdgeInView(RightComp.GetComponent, RightYMin, swView, True)
+        Set swBottomRightEdge = GetEdgeInView(RightComp, swView, True, False)
         
         Dim swRightDim As SldWorks.DisplayDimension
         Set swRightDim = SelectAndAddDimension(swTopRightEdge, _
                         swBottomRightEdge, swDrawing, vOutline(2) + 0.005, (vOutline(1) + vOutline(3)) / 2, swView)
-        
-'        Dim RightDimValue As Double
-'        RightDimValue = swRightDim.GetDimension2(0).Value
-'
-'        If RightDimValue > LeftDimValue Then
-'
-'            TotalArea = Round((RightDimValue * swBottomDim.GetDimension2(0).Value) / 144, 2)
-'
-'        Else
-'
-'            TotalArea = Round((LeftDimValue * swBottomDim.GetDimension2(0).Value) / 144, 2)
-'
-'        End If
+
         
     End If
     
-    swBottomDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "(XX.XX sq.ft)"
 
-    
 End Sub
 
 Private Function SelectAndAddDimension(swEdge1 As SldWorks.Edge, swEdge2 As SldWorks.Edge, swDrawing As SldWorks.ModelDoc2, _
-            xPos As Double, yPos As Double, swView As SldWorks.View) As SldWorks.DisplayDimension
+            xPos As Double, yPos As Double, swView As SldWorks.View, Optional IsDual As Boolean = True) As SldWorks.DisplayDimension
     
     If Not (swEdge1 Is Nothing) And Not (swEdge2 Is Nothing) Then
-    
+        
+        swDrawing.ClearSelection2 True
         Call SelectEntity(swEdge1, False, swView)
         Call SelectEntity(swEdge2, True, swView)
         
         Set SelectAndAddDimension = swDrawing.AddHorizontalDimension2(xPos, yPos, 0)
         
         If Not SelectAndAddDimension Is Nothing Then
+        
             SelectAndAddDimension.CenterText = True
-            SelectAndAddDimension.SetDual2 False, False
+            
+            If IsDual Then
+            
+                SelectAndAddDimension.SetDual2 False, False
+                
+            End If
             
         End If
     
@@ -980,7 +1062,7 @@ Private Sub AddRibSketchAndNote(oComp As IComp, swView As SldWorks.View, swSketc
         Call AddNoteToView(swDrawing, "CASTING BED", vSketchPoint(0) + 0.0075, vSketchPoint(1) - 0.005)
         
         Dim swEdge As SldWorks.Edge
-        Set swEdge = GetEdgeInView(oComp.GetComponent, yMin, swView, True)
+        Set swEdge = GetEdgeInView(oComp, swView, True, False)
         
         Call AddCollinearRelation(swDrawing, swEdge, swSketchSegment, swView)
 
@@ -1001,18 +1083,53 @@ Private Sub AddCollinearRelation(swDrawing As SldWorks.DrawingDoc, swEdge As Sld
     
 End Sub
 
-Function GetEdgeInView(swComp As SldWorks.Component2, ValToMatch As Double, swView As SldWorks.View, _
-    IsHorizontal As Boolean, Optional CheckAllVisibleEdgesOnly As Boolean = True) As SldWorks.Edge
+Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
+    IsHorizontal As Boolean, IsMax As Boolean, Optional CheckAllVisibleEdgesOnly As Boolean = True) As SldWorks.Edge
+    
+    
+    Dim xMin As Double
+    Dim yMin As Double
+    Dim xMax As Double
+    Dim yMax As Double
+    Call GetViewMaxMinPoints(oComp, swView, xMin, xMax, yMin, yMax)
     
     Dim idx As Integer
+    Dim ValToMatch As Double
     If IsHorizontal Then
         
         idx = 1
+        If IsMax Then
+        
+            ValToMatch = yMax
+            
+        Else
+        
+             ValToMatch = yMin
+             
+        End If
+        
     Else
     
         idx = 0
         
+        If IsMax Then
+        
+            ValToMatch = xMax
+            
+        Else
+        
+             ValToMatch = xMin
+             
+        End If
+        
     End If
+    
+    Dim swComp As SldWorks.Component2
+    Set swComp = oComp.GetComponent
+    
+
+            
+        
 
     Dim vEnts As Variant
     If CheckAllVisibleEdgesOnly Then
@@ -1034,7 +1151,7 @@ Function GetEdgeInView(swComp As SldWorks.Component2, ValToMatch As Double, swVi
             Set swEdge = vEnts(i)
             
             Dim IsSelected As Boolean
-            IsSelected = SelectEntity(swEdge, False, swView)
+            'IsSelected = SelectEntity(swEdge, False, swView)
             
             Dim swCurve As SldWorks.Curve
             Set swCurve = swEdge.GetCurve
@@ -1315,6 +1432,13 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
                 Dim swAnn As SldWorks.Annotation
                 Set swAnn = swNote.GetAnnotation
                 swAnn.SetPosition2 AnnXPos, AnnYPos, 0
+                
+                Dim HeadStyle As Integer
+                
+                swAnn.SetLeader3 swLeaderStyle_e.swAlwaysAttachToBalloon + swLeaderStyle_e.swSTRAIGHT, swLeaderSide_e.swLS_SMART, False, False, True, False
+                HeadStyle = swAnn.SetArrowHeadStyleAtIndex(0, swArrowStyle_e.swCLOSED_ARROWHEAD)
+                
+                'Debug.Print HeadStyle
                 
                 If oComp.IsTop Then
                 
@@ -1879,7 +2003,7 @@ Private Function GetDetailedCompList(CompWithPosDict As Scripting.Dictionary, By
     
 End Function
 
-Private Function GetConsolidatedList(vCompsOfComps As Variant, ByRef DoorList As IArrListObject, ByRef HVACList As IArrListObject) As Variant
+Private Function GetConsolidatedList(vCompsOfComps As Variant, ByRef DoororHVACList As IArrListObject) As Variant
 
     Dim vConsolidatedLists As Variant
     Dim List As IConsolidatedList
@@ -1887,12 +2011,10 @@ Private Function GetConsolidatedList(vCompsOfComps As Variant, ByRef DoorList As
     Dim IsInit As Boolean
     IsInit = True
 
-    Dim HVACSubAssy As IDoorOrHVACAssy
+    Dim DoororHVACSubAssy As IDoorOrHVACAssy
     
     Dim IsHVACStarted As Boolean
     IsHVACStarted = False
-    
-    Dim DoorSubAssy As IDoorOrHVACAssy
     
     Dim IsDoorStarted As Boolean
     IsDoorStarted = False
@@ -1914,9 +2036,10 @@ Private Function GetConsolidatedList(vCompsOfComps As Variant, ByRef DoorList As
             If IsHVACStarted Then
             
                 IsHVACStarted = False
-                Set HVACSubAssy.EndComp = vComps(0)
+                Set DoororHVACSubAssy.EndComp = vComps(0)
+                DoororHVACSubAssy.IsDoor = False
                 EndIndex = i - 1
-                HVACList.AddtoList HVACSubAssy
+                DoororHVACList.AddtoList DoororHVACSubAssy
                 Call UpdatedConsolidatedList(vConsolidatedLists, IsInit, StartIndex, EndIndex, vCompsOfComps)
                 
             End If
@@ -1962,17 +2085,19 @@ Private Function GetConsolidatedList(vCompsOfComps As Variant, ByRef DoorList As
                     If IsDoorStarted Then
                 
                         IsDoorStarted = False
-                        Set DoorSubAssy.EndComp = oComp
-                        DoorSubAssy.DoororHVACWidth = oComp.xMin - DoorSubAssy.StartComp.xMax
-                        DoorSubAssy.DoororHVACLength = Abs(LastComp.yMin - oComp.yMin)
+                        Set DoororHVACSubAssy.EndComp = oComp
+                        DoororHVACSubAssy.DoororHVACWidth = oComp.xMin - DoororHVACSubAssy.StartComp.xMax
+                        DoororHVACSubAssy.DoororHVACLength = Abs(LastComp.yMin - oComp.yMin)
                         
-                        DoorList.AddtoList DoorSubAssy
+                        DoororHVACSubAssy.IsDoor = True
+                        
+                        DoororHVACList.AddtoList DoororHVACSubAssy
                         
                     Else
                     
                         IsDoorStarted = True
-                        Set DoorSubAssy = New IDoorOrHVACAssy
-                        Set DoorSubAssy.StartComp = LastComp
+                        Set DoororHVACSubAssy = New IDoorOrHVACAssy
+                        Set DoororHVACSubAssy.StartComp = LastComp
 
                     End If
                     
@@ -1988,8 +2113,8 @@ Private Function GetConsolidatedList(vCompsOfComps As Variant, ByRef DoorList As
                 
                 IsHVACStarted = True
                 StartIndex = i
-                Set HVACSubAssy = New IDoorOrHVACAssy
-                Set HVACSubAssy.StartComp = vCompsOfComps(i - 1)(0)
+                Set DoororHVACSubAssy = New IDoorOrHVACAssy
+                Set DoororHVACSubAssy.StartComp = vCompsOfComps(i - 1)(0)
                 
             End If
 
