@@ -91,6 +91,8 @@ Sub AddDoororHVACList(DoororHVACList As IArrListObject)
     Dim vDoorOrHVACItems As Variant
     vDoorOrHVACItems = DoororHVACList.Items
     
+    If Not IsEmpty(vDoorOrHVACItems) Then
+    
     For i = LBound(vDoorOrHVACItems) To UBound(vDoorOrHVACItems)
     
         Dim oDoorOrHVACAssy As IDoorOrHVACAssy
@@ -99,6 +101,8 @@ Sub AddDoororHVACList(DoororHVACList As IArrListObject)
         Call AddDoororHVACAssy(oDoorOrHVACAssy)
 
     Next i
+    
+    End If
     
 End Sub
 

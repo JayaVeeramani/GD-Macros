@@ -13,22 +13,13 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-
-
-
-
-
 Option Explicit
-
 
 Private Sub CloseButton_Click()
     
     Unload Me
     
 End Sub
-
-
-
 
 Private Sub UserForm_Initialize()
 

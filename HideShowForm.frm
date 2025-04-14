@@ -15,6 +15,7 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
 
+
 Option Explicit
 
 Dim swMathUtility As SldWorks.MathUtility
@@ -131,8 +132,6 @@ Private Sub CreateButton_Click()
     Dim swBottomView As SldWorks.View
     Set swBottomView = ScaleAndInsertBottomView(swDrawing, swFrontView, ViewWidth, ViewHeight)
     
-    Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName)
-    
     Dim FlatCompList As Variant
     Dim DetailedCompList As Variant
     Dim MaxCompHeight As Double
@@ -151,15 +150,18 @@ Private Sub CreateButton_Click()
     Call AddCallouts(vConsolidatedList, swDrawing, swFrontView, MaxCompHeight, IsMakeUpExists)
 
     Dim Is12GAPanelExists As Boolean
-    Is12GAPanelExists = Add12GACircles(FlatCompList, swDrawing, swBottomView)
+    'Is12GAPanelExists = Add12GACircles(FlatCompList, swDrawing, swBottomView)
 
     Call UpdateBottomViewPosition(FlatCompList, swDrawing, swBottomView)
-    Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists)
+    
+    Dim NoteCount As Integer
+    Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists, IsZChannelExists, NoteCount, wallName)
     
     Dim swLeftEdge As SldWorks.Edge
     Dim swRightEdge As SldWorks.Edge
-
-    Call AddDimensionInFrontView(swFrontView, FlatCompList, DetailedCompList, swDrawing, MaxHeightComp, swLeftEdge, swRightEdge)
+    
+    Dim swBottomEdge As SldWorks.Edge
+    Set swBottomEdge = AddDimensionInFrontView(swFrontView, FlatCompList, DetailedCompList, swDrawing, MaxHeightComp, swLeftEdge, swRightEdge)
     
     Dim FlatCompDict As Scripting.Dictionary
     Dim CompNoDict As New Scripting.Dictionary
@@ -196,10 +198,183 @@ Private Sub CreateButton_Click()
     Dim MaxClearance As Double
     Call AddDimensionsForDoororHVACInEachSubAssy(subAssylist, swDrawing, swFrontView, MaxClearance)
     Call AddDimensionNames(subAssylist, wallName, swFrontView)
+    Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, NoteCount, swBottomEdge, MaxClearance)
+    Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - MaxClearance - 0.0075)
     
+
     Unload Me
 
 End Sub
+
+Private Sub SketchLineForNonCornerPanels(swView As SldWorks.View, wallName As String, _
+        swDrawing As SldWorks.ModelDoc2, oSubAssy As ISubAssy, CeilingNoteIdx As Integer, swBottomEdge As SldWorks.Edge, ByRef MaxClearance As Double)
+    
+    swDrawing.ActivateView swView.Name
+    
+    If InStr(wallName, "Wall") > 0 Then
+    
+        Dim viewDrawComp As SldWorks.DrawingComponent
+        Set viewDrawComp = swView.RootDrawingComponent
+        
+        Dim viewComp As SldWorks.Component2
+        Set viewComp = viewDrawComp.Component
+        
+        Debug.Print viewComp.Name2
+    
+        Dim swControlSketch As SldWorks.Component2
+        Set swControlSketch = GetControlSketch
+
+        Dim PlaneName As String
+        PlaneName = "Ceiling"
+        
+        swDrawing.Extension.SelectByID2 PlaneName & "@" & viewDrawComp.Name & "@" & swView.Name & "/" & swControlSketch.Name & "@" & viewComp.Name2, "PLANE", 0, 0, 0, False, 0, Nothing, 0
+        swView.SelectEntity swBottomEdge, True
+        
+        Dim swCeilingDim As SldWorks.DisplayDimension
+        Set swCeilingDim = swDrawing.AddVerticalDimension2(oSubAssy.StartComp.xMin - 0.01, (oSubAssy.StartComp.yMin + oSubAssy.StartComp.yMax) / 2, 0)
+        swCeilingDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "SEE NOTE " & CeilingNoteIdx
+        
+        Dim swStartSketch As SldWorks.SketchSegment
+        Dim swEndSketch As SldWorks.SketchSegment
+        
+        If Not InStr(oSubAssy.StartComp.GetCustomProperty("Profile"), "CORNER") > 0 Then
+        
+            PlaneName = GetPlaneName(wallName, True)
+            Set swStartSketch = CreateSketchLinesForNonCornerPanels(PlaneName, viewDrawComp, swControlSketch, viewComp, oSubAssy.StartComp, swView, swDrawing)
+            Call AddSplitLineNote(swStartSketch, swDrawing, swView, "EXTERNAL WALL-" & Right(PlaneName, 1), False, 0.035)
+        
+        End If
+        
+        If Not InStr(oSubAssy.EndComp.GetCustomProperty("Profile"), "CORNER") > 0 Then
+        
+            PlaneName = GetPlaneName(wallName, False)
+            Set swEndSketch = CreateSketchLinesForNonCornerPanels(PlaneName, viewDrawComp, swControlSketch, viewComp, oSubAssy.EndComp, swView, swDrawing)
+            Call AddSplitLineNote(swEndSketch, swDrawing, swView, "EXTERNAL WALL-" & Right(PlaneName, 1))
+            
+        End If
+        
+        Dim swDisplayDim As SldWorks.DisplayDimension
+        
+        If Not swStartSketch Is Nothing Then
+        
+            MaxClearance = MaxClearance + 0.008
+            
+            If Not swEndSketch Is Nothing Then
+                
+                swStartSketch.Select4 False, Nothing
+                swEndSketch.Select4 True, Nothing
+
+            Else
+            
+                swStartSketch.Select4 False, Nothing
+                Call SelectEntity(oSubAssy.EndEdge, True, swView)
+    
+            End If
+            
+        Else
+        
+            MaxClearance = MaxClearance + 0.008
+            If Not swEndSketch Is Nothing Then
+            
+                swEndSketch.Select4 False, Nothing
+                Call SelectEntity(oSubAssy.StartEdge, True, swView)
+            
+            End If
+            
+        End If
+        
+        Set swDisplayDim = swDrawing.AddHorizontalDimension2(oSubAssy.StartComp.xMin + 0.01, oSubAssy.EndComp.yMin - MaxClearance, 0)
+        If Not swDisplayDim Is Nothing Then
+
+            swDisplayDim.CenterText = True
+            swDisplayDim.SetDual2 False, False
+            
+            Dim AreaInSqft As Double
+            AreaInSqft = (swDisplayDim.GetDimension2(0).Value * 0.0254 * swView.ScaleDecimal * oSubAssy.GetMaxLength) - oSubAssy.TotalDoorArea
+            AreaInSqft = Round((AreaInSqft / (swView.ScaleDecimal * swView.ScaleDecimal)) * 10.7639, 2)
+            
+            swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "(" & AreaInSqft & " sq.ft)"
+            
+        End If
+
+    End If
+    
+
+End Sub
+
+Private Function CreateSketchLinesForNonCornerPanels(PlaneName As String, viewDrawComp As SldWorks.DrawingComponent, swControlSketch As SldWorks.Component2, _
+                                        viewComp As SldWorks.Component2, oComp As IComp, swView As SldWorks.View, _
+                                        swDrawing As SldWorks.ModelDoc2) As SldWorks.SketchSegment
+                    
+        Dim xMin As Double
+        Dim yMin As Double
+        Dim xMax As Double
+        Dim yMax As Double
+        Call GetViewMaxMinPoints(oComp, swView, xMin, xMax, yMin, yMax)
+        
+        Dim swSketchSegment As SldWorks.SketchSegment
+        Set swSketchSegment = swSketchMgr.CreateLine(xMax, yMax + 16 * 0.0254, _
+                                    0, xMax, yMin - 16 * 0.0254, 0)
+        swSketchSegment.ConstructionGeometry = True
+            
+        swDrawing.Extension.SelectByID2 PlaneName & "@" & viewDrawComp.Name & "@" & swView.Name & "/" & swControlSketch.Name & "@" & viewComp.Name2, "PLANE", 0, 0, 0, False, 0, Nothing, 0
+        swSketchSegment.Select4 True, Nothing
+            
+        swDrawing.SketchAddConstraints "sgCOLINEAR"
+        
+        Set CreateSketchLinesForNonCornerPanels = swSketchSegment
+
+End Function
+
+Private Function GetPlaneName(wallName As String, IsLeftPanel As Boolean) As String
+
+    If IsLeftPanel Then
+        
+        Select Case wallName
+            
+            Case "Wall-A"
+            
+                GetPlaneName = "Outside D"
+            
+            Case "Wall-B"
+            
+                GetPlaneName = "Outside A"
+            
+            Case "Wall-C"
+            
+                GetPlaneName = "Outside B"
+            
+            Case "Wall-D"
+            
+                GetPlaneName = "Outside C"
+
+        End Select
+        
+    Else
+        
+        Select Case wallName
+            
+            Case "Wall-A"
+            
+                GetPlaneName = "Outside B"
+            
+            Case "Wall-B"
+            
+                GetPlaneName = "Outside C"
+            
+            Case "Wall-C"
+            
+                GetPlaneName = "Outside D"
+            
+            Case "Wall-D"
+            
+                GetPlaneName = "Outside A"
+
+        End Select
+        
+    End If
+           
+End Function
 
 Private Sub AddDimensionsForDoororHVACInEachSubAssy(subAssylist As IArrListObject, swDrawing As SldWorks.DrawingDoc, _
             swView As SldWorks.View, MaxClearance As Double)
@@ -309,6 +484,8 @@ Private Sub CheckAndAddDoorOrHVACAssy(subAssylist As IArrListObject, DoororHVACL
     Dim LastSubAssyIdx As Integer
     LastSubAssyIdx = 0
     
+    If Not IsEmpty(vDoorOrHVACItems) Then
+    
     For i = LBound(vDoorOrHVACItems) To UBound(vDoorOrHVACItems)
     
         Dim oDoorOrHVACAssy As IDoorOrHVACAssy
@@ -334,12 +511,12 @@ Private Sub CheckAndAddDoorOrHVACAssy(subAssylist As IArrListObject, DoororHVACL
 
     Next i
     
+    End If
+    
 End Sub
 
 Private Sub AddDimensionNames(subAssylist As IArrListObject, wallName As String, swView As SldWorks.View)
 
-
-    
         Dim CloneList As IArrListObject
         Set CloneList = New IArrListObject
         
@@ -350,8 +527,7 @@ Private Sub AddDimensionNames(subAssylist As IArrListObject, wallName As String,
             CloneList.SortItems "AssyLength"
         
         End If
-        
-
+    
         
         Dim i As Integer
         Dim vSubAssy As Variant
@@ -435,7 +611,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                                 
         swSketchSegment.ConstructionGeometry = True
         
-        Call AddSplitLineNote(swSketchSegment, swDrawing, swView)
+        Call AddSplitLineNote(swSketchSegment, swDrawing, swView, "SPLIT LINE")
         
         Dim swEdge As SldWorks.Edge
         Set swEdge = GetEdgeInView(oComp, swView, False, True, VisibleEdgesOnly)
@@ -488,7 +664,6 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
             Dim NextAssyComp As IComp
             Set NextAssyComp = CompDict.Items(vCompsIdx(i) + 1)
             
-            Call GetViewMaxMinPoints(NextAssyComp, swView, xMin, xMax, yMin, yMax)
             Set NextAssyStartEdge = GetEdgeInView(NextAssyComp, swView, False, False, False)
             
             If i = UBound(vCompsIdx) Then
@@ -558,7 +733,6 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
             If i = UBound(vCompsIdx) Then
             
                 Set TempComp = CompDict.Items(UBound(CompDict.Items))
-                Call GetViewMaxMinPoints(TempComp, swView, xMin, xMax, yMin, yMax)
                 Set swRightEdge = GetEdgeInView(TempComp, swView, False, True)
             
                 Set oSubAssy = New ISubAssy
@@ -581,7 +755,42 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
     
 End Function
 
-Private Sub AddSplitLineNote(swSketchSegment As SldWorks.SketchLine, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+Private Function GetControlSketch() As SldWorks.Component2
+
+    Dim swTopLevelAssy As SldWorks.AssemblyDoc
+    Set swTopLevelAssy = swTopLevelModel
+    
+    Dim vComps As Variant
+    vComps = swTopLevelAssy.GetComponents(True)
+    
+    Dim i As Integer
+    For i = LBound(vComps) To UBound(vComps)
+    
+        Dim swComp As SldWorks.Component2
+        Set swComp = vComps(i)
+        
+        If InStr(swComp.Name2, "CONTROL") > 0 And InStr(swComp.Name2, "SKETCH") > 0 Then
+            
+            Dim vBodies As Variant
+            Dim vBodiesInfo As Variant
+            vBodies = swComp.GetBodies3(swBodyType_e.swSolidBody, vBodiesInfo)
+            
+            If IsEmpty(vBodies) Then
+            
+                Set GetControlSketch = swComp
+                Exit Function
+                
+            End If
+                
+            
+        End If
+
+    Next i
+       
+End Function
+
+Private Sub AddSplitLineNote(swSketchSegment As SldWorks.SketchLine, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
+            NoteText As String, Optional IsRight As Boolean = True, Optional ClearanceVal As Double = 0.005)
 
     Dim swStartPoint As SldWorks.SketchPoint
     Set swStartPoint = swSketchSegment.GetStartPoint2
@@ -597,8 +806,16 @@ Private Sub AddSplitLineNote(swSketchSegment As SldWorks.SketchLine, swDrawing A
     Dim vPointInSheet As Variant
     vPointInSheet = GetSketchPointInSheetSpace(swView, vSketchPoint)
     
-    Call AddNoteToView(swDrawing, "SPLIT LINE", vPointInSheet(0) + 0.005, vPointInSheet(1) + 0.00625)
-
+    If IsRight Then
+    
+        Call AddNoteToView(swDrawing, NoteText, vPointInSheet(0) + ClearanceVal, vPointInSheet(1) + 0.00625)
+        
+    Else
+        
+        Call AddNoteToView(swDrawing, NoteText, vPointInSheet(0) - ClearanceVal, vPointInSheet(1) + 0.00625)
+        
+    End If
+    
 End Sub
 
 Private Function GetCompDictionary(FlatCompList As Variant, CompNoDict As Scripting.Dictionary) As Scripting.Dictionary
@@ -735,9 +952,9 @@ Private Sub AddLegendBlocks(swDrawing As SldWorks.DrawingDoc, swSheet As SldWork
 
 End Sub
 
-Private Sub AddDimensionInFrontView(swView As SldWorks.View, FlatCompList As Variant, _
+Private Function AddDimensionInFrontView(swView As SldWorks.View, FlatCompList As Variant, _
             DetailedCompList As Variant, swDrawing As SldWorks.ModelDoc2, MaxHeightComp As IComp, _
-            ByRef swLeftEdge As SldWorks.Edge, ByRef swRightEdge As SldWorks.Edge) 'As SldWorks.DisplayDimension
+            ByRef swLeftEdge As SldWorks.Edge, ByRef swRightEdge As SldWorks.Edge) As SldWorks.Edge
             
     Dim vOutline As Variant
     vOutline = swView.GetOutline
@@ -761,13 +978,13 @@ Private Sub AddDimensionInFrontView(swView As SldWorks.View, FlatCompList As Var
     
         Set swTopLeftEdge = GetEdgeInView(MaxHeightComp, swView, True, True)
         Set swLeftDim = SelectAndAddDimension(swTopLeftEdge, swBottomLeftEdge, _
-                    swDrawing, vOutline(0) - 0.005, (vOutline(1) + vOutline(3)) / 2, swView)
+                    swDrawing, LeftComp.xMin - 0.03, (vOutline(1) + vOutline(3)) / 2, swView)
         
     Else
     
         Set swTopLeftEdge = GetEdgeInView(LeftComp, swView, True, True)
         Set swLeftDim = SelectAndAddDimension(swTopLeftEdge, _
-            swBottomLeftEdge, swDrawing, vOutline(0) - 0.005, (vOutline(1) + vOutline(3)) / 2, swView)
+            swBottomLeftEdge, swDrawing, LeftComp.xMin - 0.03, (vOutline(1) + vOutline(3)) / 2, swView)
         
         
         Dim swTopRightEdge As SldWorks.Edge
@@ -778,13 +995,14 @@ Private Sub AddDimensionInFrontView(swView As SldWorks.View, FlatCompList As Var
         
         Dim swRightDim As SldWorks.DisplayDimension
         Set swRightDim = SelectAndAddDimension(swTopRightEdge, _
-                        swBottomRightEdge, swDrawing, vOutline(2) + 0.005, (vOutline(1) + vOutline(3)) / 2, swView)
+                        swBottomRightEdge, swDrawing, RightComp.xMax + 0.015, (vOutline(1) + vOutline(3)) / 2, swView)
 
         
     End If
     
+    Set AddDimensionInFrontView = swBottomLeftEdge
 
-End Sub
+End Function
 
 Private Function SelectAndAddDimension(swEdge1 As SldWorks.Edge, swEdge2 As SldWorks.Edge, swDrawing As SldWorks.ModelDoc2, _
             xPos As Double, yPos As Double, swView As SldWorks.View, Optional IsDual As Boolean = True) As SldWorks.DisplayDimension
@@ -826,33 +1044,48 @@ Private Sub GetViewMaxMinPoints(oComp As IComp, swView As SldWorks.View, ByRef x
     Call StrucutralElevation.GetMaxMinPoint(vViewMinPt(1), vViewMaxPt(1), yMin, yMax)
     
 End Sub
-
-Private Sub AddStructuralNotes(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Sheet, Is12GAPanelExists)
+ 
+Private Function AddStructuralNotes(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Sheet, Is12GAPanelExists As Boolean, _
+            IsDoorExists As Boolean, ByRef NoteCount As Integer, wallName As String) As SldWorks.Note
 
     swDrawing.ActivateSheet swSheet.GetName
     
-    Dim NoteCount As Integer
-    NoteCount = 1
-    
     Dim swStructuralNote As SldWorks.Note
+    Dim Note As String
     
     If Is12GAPanelExists Then
-
-        Set swStructuralNote = swDrawing.CreateText2("<FONT size=10PTS style=B>NOTES:" & vbCrLf & _
+    
+        NoteCount = 2
+        Note = "<FONT size=10PTS style=B>NOTES:" & vbCrLf & _
             "<FONT size=8PTS style=R>1. ALL CIRCLED PANELS ARE 12GA." & vbCrLf & _
-         "2. RIB TO RIB #14 TEK SCREW @12" & Chr(34) & " O.C., UNLESS OTHERWISE SPECIFIED RIBS." & vbCrLf & _
-         "3. DIMENSION FROM BOTTOM OF WALL PANEL TO BOTTOM OF CEILING PANELS, USE FOR CEILING L-ANGLE PLACEMENT.", 1.99241243641486E-02, 6.92464210842187E-02, 0, 0, 0)
+         "2. RIB TO RIB #14 TEK SCREW @12" & Chr(34) & " O.C., UNLESS OTHERWISE SPECIFIED."
 
     Else
-        
-        Set swStructuralNote = swDrawing.CreateText2("<FONT size=10PTS style=B> NOTES:" & vbCrLf & _
-            "<FONT size=8PTS style=R>1. RIB TO RIB #14 TEK SCREW @12" & Chr(34) & " O.C., UNLESS OTHERWISE SPECIFIED RIBS." & vbCrLf & _
-         "2. DIMENSION FROM BOTTOM OF WALL PANEL TO BOTTOM OF CEILING PANELS, USE FOR CEILING L-ANGLE PLACEMENT.", 1.99241243641486E-02, 7.72464210842187E-02, 0, 0, 0)
+    
+        NoteCount = 1
+        Note = "<FONT size=10PTS style=B> NOTES:" & vbCrLf & _
+            "<FONT size=8PTS style=R>1. RIB TO RIB #14 TEK SCREW @12" & Chr(34) & " O.C., UNLESS OTHERWISE SPECIFIED."
          
      End If
+     
     
+    If InStr(wallName, "Wall") > 0 Then
+
+        If IsDoorExists Then
+     
+            NoteCount = NoteCount + 1
+            Note = Note & vbCrLf & NoteCount & ". DIMENSION FROM BOTTOM OF WALL PANEL TO BOTTOM HORIZONTAL FACE OF DOOR C-CHANNEL."
+        
+        End If
+        
+        NoteCount = NoteCount + 1
+        Note = Note & vbCrLf & NoteCount & ". DIMENSION FROM BOTTOM OF WALL PANEL TO BOTTOM OF CEILING PANELS, USE FOR CEILING L-ANGLE PLACEMENT."
+        
+    End If
+     
+    Set swStructuralNote = swDrawing.CreateText2(Note, 1.99241243641486E-02, 6.92464210842187E-02, 0, 0, 0)
     swStructuralNote.SetTextJustification swTextJustification_e.swTextJustificationLeft
-End Sub
+End Function
 
 Private Sub InsertSketchBlock(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Sheet, ProjectNo As String)
     
@@ -897,7 +1130,7 @@ Private Sub UpdateBottomViewPosition(vComps As Variant, swDrawing As SldWorks.Dr
     
 End Sub
 
-Private Sub CleanUpActivateAndAddViewLabel(swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View, wallName As String)
+Private Sub CleanUpActivateAndAddViewLabel(swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View, wallName As String, yPos As Double)
 
     swDrawing.SetUserPreferenceToggle swUserPreferenceToggle_e.swDisplayOrigins, False
     swDrawing.SetUserPreferenceToggle swUserPreferenceToggle_e.swDisplayPlanes, False
@@ -934,7 +1167,7 @@ Private Sub CleanUpActivateAndAddViewLabel(swDrawing As SldWorks.ModelDoc2, swVi
     Dim swLabelNote As SldWorks.Note
 
     Set swLabelNote = swDrawing.CreateText2("<FONT size=10PTS style=B> $PRP:" & Chr(34) & "SHEET DESCRIPTION" & Chr(34) & _
-         vbCrLf & "<FONT size=8PTS style=R> (INTERIOR VIEW)", (vOutline(0) + vOutline(2)) / 2, vOutline(1) - 0.03, 0, 0, 0)
+         vbCrLf & "<FONT size=8PTS style=R> (INTERIOR VIEW)", (vOutline(0) + vOutline(2)) / 2, yPos, 0, 0, 0)
     swLabelNote.SetTextJustification swTextJustification_e.swTextJustificationCenter
     
     swDrawing.Extension.Rebuild swRebuildOptions_e.swCurrentSheetDisp
