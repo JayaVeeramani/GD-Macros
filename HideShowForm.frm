@@ -150,18 +150,19 @@ Private Sub CreateButton_Click()
     Call AddCallouts(vConsolidatedList, swDrawing, swFrontView, MaxCompHeight, IsMakeUpExists)
 
     Dim Is12GAPanelExists As Boolean
-    'Is12GAPanelExists = Add12GACircles(FlatCompList, swDrawing, swBottomView)
+    Dim IsAllPanels12GA As Boolean
+    Is12GAPanelExists = Add12GACircles(FlatCompList, swDrawing, swBottomView, wallName, IsAllPanels12GA)
 
     Call UpdateBottomViewPosition(FlatCompList, swDrawing, swBottomView)
     
     Dim NoteCount As Integer
-    Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists, IsZChannelExists, NoteCount, wallName)
+    Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists, IsAllPanels12GA, IsZChannelExists, NoteCount, wallName)
     
     Dim swLeftEdge As SldWorks.Edge
     Dim swRightEdge As SldWorks.Edge
     
     Dim swBottomEdge As SldWorks.Edge
-    Set swBottomEdge = AddDimensionInFrontView(swFrontView, FlatCompList, DetailedCompList, swDrawing, MaxHeightComp, swLeftEdge, swRightEdge)
+    Set swBottomEdge = AddDimensionInFrontView(swFrontView, FlatCompList, DetailedCompList, MaxHeightComp, swDrawing, swLeftEdge, swRightEdge)
     
     Dim FlatCompDict As Scripting.Dictionary
     Dim CompNoDict As New Scripting.Dictionary
@@ -231,7 +232,7 @@ Private Sub SketchLineForNonCornerPanels(swView As SldWorks.View, wallName As St
         swView.SelectEntity swBottomEdge, True
         
         Dim swCeilingDim As SldWorks.DisplayDimension
-        Set swCeilingDim = swDrawing.AddVerticalDimension2(oSubAssy.StartComp.xMin - 0.01, (oSubAssy.StartComp.yMin + oSubAssy.StartComp.yMax) / 2, 0)
+        Set swCeilingDim = swDrawing.AddVerticalDimension2(oSubAssy.EndComp.xMax + 0.01, (oSubAssy.StartComp.yMin + oSubAssy.StartComp.yMax) / 2, 0)
         swCeilingDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "SEE NOTE " & CeilingNoteIdx
         
         Dim swStartSketch As SldWorks.SketchSegment
@@ -272,10 +273,10 @@ Private Sub SketchLineForNonCornerPanels(swView As SldWorks.View, wallName As St
             End If
             
         Else
-        
-            MaxClearance = MaxClearance + 0.008
+
             If Not swEndSketch Is Nothing Then
             
+                MaxClearance = MaxClearance + 0.008
                 swEndSketch.Select4 False, Nothing
                 Call SelectEntity(oSubAssy.StartEdge, True, swView)
             
@@ -398,8 +399,9 @@ Private Sub AddDimensionsForDoororHVACInEachSubAssy(subAssylist As IArrListObjec
             Call AddDimensionsForDoororHVAC(oSubAssy.GetDoorOrHVACAssemblies, oSubAssy, swDrawing, swView, Clearance)
             
         Else
-            
-            Call AddOverallDimension(oSubAssy, swDrawing, swView, MaxClearance + 0.007)
+        
+            MaxClearance = MaxClearance + 0.007
+            Call AddOverallDimension(oSubAssy, swDrawing, swView, MaxClearance)
             
         End If
 
@@ -541,17 +543,21 @@ Private Sub AddDimensionNames(subAssylist As IArrListObject, wallName As String,
             Dim swDisplayDim As SldWorks.DisplayDimension
             Set swDisplayDim = oSubAssy.Dimension
             
-            Dim AreaInSqft As Double
-            AreaInSqft = ((oSubAssy.EndComp.xMax - oSubAssy.StartComp.xMin) * oSubAssy.GetMaxLength) - oSubAssy.TotalDoorArea
-            AreaInSqft = Round((AreaInSqft / (swView.ScaleDecimal * swView.ScaleDecimal)) * 10.7639, 2)
+            If Not swDisplayDim Is Nothing Then
             
-            If i = UBound(vSubAssy) Then
-            
-                swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "(" & AreaInSqft & " sq.ft)"
-            
-            Else
-            
-                swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, UCase(wallName) & i + 1 & vbCrLf & "(" & AreaInSqft & " sq.ft)"
+                Dim AreaInSqft As Double
+                AreaInSqft = ((oSubAssy.EndComp.xMax - oSubAssy.StartComp.xMin) * oSubAssy.GetMaxLength) - oSubAssy.TotalDoorArea
+                AreaInSqft = Round((AreaInSqft / (swView.ScaleDecimal * swView.ScaleDecimal)) * 10.7639, 2)
+                
+                If i = UBound(vSubAssy) Then
+                
+                    swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "(" & AreaInSqft & " sq.ft)"
+                
+                Else
+                
+                    swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, UCase(wallName) & i + 1 & vbCrLf & "(" & AreaInSqft & " sq.ft)"
+                    
+                End If
                 
             End If
         
@@ -953,7 +959,7 @@ Private Sub AddLegendBlocks(swDrawing As SldWorks.DrawingDoc, swSheet As SldWork
 End Sub
 
 Private Function AddDimensionInFrontView(swView As SldWorks.View, FlatCompList As Variant, _
-            DetailedCompList As Variant, swDrawing As SldWorks.ModelDoc2, MaxHeightComp As IComp, _
+            DetailedCompList As Variant, MaxCompHeight As IComp, swDrawing As SldWorks.ModelDoc2, _
             ByRef swLeftEdge As SldWorks.Edge, ByRef swRightEdge As SldWorks.Edge) As SldWorks.Edge
             
     Dim vOutline As Variant
@@ -967,40 +973,40 @@ Private Function AddDimensionInFrontView(swView As SldWorks.View, FlatCompList A
     
     Set swLeftEdge = GetEdgeInView(LeftComp, swView, False, False)
     Set swRightEdge = GetEdgeInView(RightComp, swView, False, True)
-
-    Dim swBottomLeftEdge As SldWorks.Edge
-    Set swBottomLeftEdge = GetEdgeInView(LeftComp, swView, True, False)
-
-    Dim swTopLeftEdge As SldWorks.Edge
-    Dim swLeftDim As SldWorks.DisplayDimension
+            
+    Dim swTopRightEdge As SldWorks.Edge
+    Set swTopRightEdge = GetEdgeInView(RightComp, swView, True, True)
+    
+    Dim swBottomRightEdge As SldWorks.Edge
+    Set swBottomRightEdge = GetEdgeInView(RightComp, swView, True, False)
+    
+    Dim swRightDim As SldWorks.DisplayDimension
 
     If (Abs(LeftComp.yMax - RightComp.yMax) <= 0.5 * 0.0254 * swView.ScaleDecimal) Then
     
-        Set swTopLeftEdge = GetEdgeInView(MaxHeightComp, swView, True, True)
-        Set swLeftDim = SelectAndAddDimension(swTopLeftEdge, swBottomLeftEdge, _
-                    swDrawing, LeftComp.xMin - 0.03, (vOutline(1) + vOutline(3)) / 2, swView)
+        Dim MaxCompEdge As SldWorks.Edge
+        Set MaxCompEdge = GetEdgeInView(MaxCompHeight, swView, True, True)
         
+        Set swRightDim = SelectAndAddDimension(MaxCompEdge, _
+                        swBottomRightEdge, swDrawing, RightComp.xMax + 0.025, (vOutline(1) + vOutline(3)) / 2, swView)
     Else
     
+        Dim swBottomLeftEdge As SldWorks.Edge
+        Set swBottomLeftEdge = GetEdgeInView(LeftComp, swView, True, False)
+        
+        Dim swTopLeftEdge As SldWorks.Edge
         Set swTopLeftEdge = GetEdgeInView(LeftComp, swView, True, True)
-        Set swLeftDim = SelectAndAddDimension(swTopLeftEdge, _
-            swBottomLeftEdge, swDrawing, LeftComp.xMin - 0.03, (vOutline(1) + vOutline(3)) / 2, swView)
         
-        
-        Dim swTopRightEdge As SldWorks.Edge
-        Set swTopRightEdge = GetEdgeInView(RightComp, swView, True, True)
-
-        Dim swBottomRightEdge As SldWorks.Edge
-        Set swBottomRightEdge = GetEdgeInView(RightComp, swView, True, False)
-        
-        Dim swRightDim As SldWorks.DisplayDimension
         Set swRightDim = SelectAndAddDimension(swTopRightEdge, _
-                        swBottomRightEdge, swDrawing, RightComp.xMax + 0.015, (vOutline(1) + vOutline(3)) / 2, swView)
-
+                        swBottomRightEdge, swDrawing, RightComp.xMax + 0.025, (vOutline(1) + vOutline(3)) / 2, swView)
+                        
+        Dim swLeftDim As SldWorks.DisplayDimension
+        Set swLeftDim = SelectAndAddDimension(swTopLeftEdge, _
+            swBottomLeftEdge, swDrawing, LeftComp.xMin - 0.015, (vOutline(1) + vOutline(3)) / 2, swView)
         
     End If
     
-    Set AddDimensionInFrontView = swBottomLeftEdge
+    Set AddDimensionInFrontView = swBottomRightEdge
 
 End Function
 
@@ -1046,7 +1052,7 @@ Private Sub GetViewMaxMinPoints(oComp As IComp, swView As SldWorks.View, ByRef x
 End Sub
  
 Private Function AddStructuralNotes(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Sheet, Is12GAPanelExists As Boolean, _
-            IsDoorExists As Boolean, ByRef NoteCount As Integer, wallName As String) As SldWorks.Note
+            IsAllPanels12GA As Boolean, IsDoorExists As Boolean, ByRef NoteCount As Integer, wallName As String) As SldWorks.Note
 
     swDrawing.ActivateSheet swSheet.GetName
     
@@ -1056,9 +1062,18 @@ Private Function AddStructuralNotes(swDrawing As SldWorks.DrawingDoc, swSheet As
     If Is12GAPanelExists Then
     
         NoteCount = 2
-        Note = "<FONT size=10PTS style=B>NOTES:" & vbCrLf & _
-            "<FONT size=8PTS style=R>1. ALL CIRCLED PANELS ARE 12GA." & vbCrLf & _
-         "2. RIB TO RIB #14 TEK SCREW @12" & Chr(34) & " O.C., UNLESS OTHERWISE SPECIFIED."
+        If IsAllPanels12GA Then
+        
+            Note = "<FONT size=10PTS style=B>NOTES:" & vbCrLf & _
+                "<FONT size=8PTS style=R>1. ALL PANELS ARE 12GA." & vbCrLf & _
+             "2. RIB TO RIB #14 TEK SCREW @12" & Chr(34) & " O.C., UNLESS OTHERWISE SPECIFIED."
+        
+        Else
+            Note = "<FONT size=10PTS style=B>NOTES:" & vbCrLf & _
+                "<FONT size=8PTS style=R>1. ALL CIRCLED PANELS ARE 12GA." & vbCrLf & _
+             "2. RIB TO RIB #14 TEK SCREW @12" & Chr(34) & " O.C., UNLESS OTHERWISE SPECIFIED."
+             
+        End If
 
     Else
     
@@ -1175,9 +1190,10 @@ Private Sub CleanUpActivateAndAddViewLabel(swDrawing As SldWorks.ModelDoc2, swVi
 End Sub
 
 Private Function Add12GACircles(vCompList As Variant, swDrawing As SldWorks.ModelDoc2, _
-                swView As SldWorks.View) As Boolean
+                swView As SldWorks.View, wallName As String, ByRef IsAllPanels12GA As Boolean) As Boolean
     
     Add12GACircles = False
+    IsAllPanels12GA = True
     
     swDrawing.ActivateView swView.Name
     swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
@@ -1195,21 +1211,28 @@ Private Function Add12GACircles(vCompList As Variant, swDrawing As SldWorks.Mode
         vViewMinPt = GetComponentPointInViewSpace(oComp.GetComponent, oComp.GetMinPointInModel, swView)
             
         If oComp.GetCustomProperty("THK") = 0.1084 Then
-            
-            Add12GACircles = True
-
-            Dim vPt(2) As Double
-            vPt(0) = (vViewMaxPt(0) + vViewMinPt(0)) / 2
-            vPt(1) = (vViewMaxPt(1) + vViewMinPt(1)) / 2
-            vPt(2) = (vViewMaxPt(2) + vViewMinPt(2)) / 2
-                
-                
-            Dim radius As Double
-            radius = Sqr((vViewMaxPt(0) - vPt(0)) ^ 2 + (vViewMaxPt(1) - vPt(1)) ^ 2) + 0.0127
         
-            Dim swSketchSegment As SldWorks.SketchSegment
-            Set swSketchSegment = swSketchMgr.CreateCircleByRadius(vPt(0), vPt(1), vPt(2), radius)
-            swSketchSegment.ConstructionGeometry = True
+            Add12GACircles = True
+            
+            If InStr(wallName, "Wall") > 0 Then
+            
+                Dim vPt(2) As Double
+                vPt(0) = (vViewMaxPt(0) + vViewMinPt(0)) / 2
+                vPt(1) = (vViewMaxPt(1) + vViewMinPt(1)) / 2
+                vPt(2) = (vViewMaxPt(2) + vViewMinPt(2)) / 2
+                     
+                Dim radius As Double
+                radius = Sqr((vViewMaxPt(0) - vPt(0)) ^ 2 + (vViewMaxPt(1) - vPt(1)) ^ 2) + 0.0127
+            
+                Dim swSketchSegment As SldWorks.SketchSegment
+                Set swSketchSegment = swSketchMgr.CreateCircleByRadius(vPt(0), vPt(1), vPt(2), radius)
+                swSketchSegment.ConstructionGeometry = True
+                
+            End If
+            
+        Else
+        
+            IsAllPanels12GA = False
                 
         End If
             
@@ -1361,7 +1384,8 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
     Set swComp = oComp.GetComponent
     
 
-            
+     Dim TempLength As Double
+     TempLength = 0
         
 
     Dim vEnts As Variant
@@ -1400,9 +1424,16 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
                 vEndPoint = GetComponentPointInViewSpace(swComp, vEndPoint, swView)
                 
                 If Abs(vStartPoint(idx) - vEndPoint(idx)) <= 0.00001 And Abs(vStartPoint(idx) - ValToMatch) <= 0.00001 Then
-
-                    Set GetEdgeInView = swEdge
-                    Exit Function
+                    
+                    Dim vCurveParam As Variant
+                    vCurveParam = swEdge.GetCurveParams2
+                    
+                    If swCurve.GetLength2(vCurveParam(6), vCurveParam(7)) > TempLength Then
+                        
+                        TempLength = swCurve.GetLength2(vCurveParam(6), vCurveParam(7))
+                        Set GetEdgeInView = swEdge
+                        
+                    End If
                     
                 End If
             
@@ -1873,7 +1904,7 @@ Function ScaleAndInsertBottomView(swDrawing As SldWorks.DrawingDoc, swView As Sl
     Set swDrawingModel = swDrawing
     
     IsViewSelected = swDrawingModel.Extension.SelectByID2(swView.Name, "DRAWINGVIEW", 0, 0, 0, False, 0, Nothing, 0)
-    Set ScaleAndInsertBottomView = swDrawing.CreateUnfoldedViewAt3(0.21593179, 0.08695241, 0, False)
+    Set ScaleAndInsertBottomView = swDrawing.CreateUnfoldedViewAt3(0.21593179, 0.08, 0, False)
 
 End Function
 
