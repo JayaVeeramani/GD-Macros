@@ -147,7 +147,10 @@ Private Sub CreateButton_Click()
     swDrawing.ActivateView swFrontView.Name
     
     Dim IsMakeUpExists As Boolean
-    Call AddCallouts(vConsolidatedList, swDrawing, swFrontView, MaxCompHeight, IsMakeUpExists)
+    Dim subAssyCompDict As Scripting.Dictionary
+    Set subAssyCompDict = AddSubAssyComponentsToDictionary(subAssyEndComponents)
+    
+    Call AddCallouts(vConsolidatedList, swDrawing, swFrontView, MaxCompHeight, IsMakeUpExists, subAssyCompDict)
 
     Dim Is12GAPanelExists As Boolean
     Dim IsAllPanels12GA As Boolean
@@ -155,9 +158,7 @@ Private Sub CreateButton_Click()
 
     Call UpdateBottomViewPosition(FlatCompList, swDrawing, swBottomView)
     
-    Dim NoteCount As Integer
-    Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists, IsAllPanels12GA, IsZChannelExists, NoteCount, wallName)
-    
+
     Dim swLeftEdge As SldWorks.Edge
     Dim swRightEdge As SldWorks.Edge
     
@@ -167,7 +168,7 @@ Private Sub CreateButton_Click()
     Dim FlatCompDict As Scripting.Dictionary
     Dim CompNoDict As New Scripting.Dictionary
     Set FlatCompDict = GetCompDictionary(FlatCompList, CompNoDict)
-    
+ 
     Dim subAssylist As IArrListObject
     Set subAssylist = New IArrListObject
     
@@ -199,12 +200,69 @@ Private Sub CreateButton_Click()
     Dim MaxClearance As Double
     Call AddDimensionsForDoororHVACInEachSubAssy(subAssylist, swDrawing, swFrontView, MaxClearance)
     Call AddDimensionNames(subAssylist, wallName, swFrontView)
+    
+    Dim NoteCount As Integer
+    Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists, IsAllPanels12GA, IsZChannelExists, NoteCount, wallName)
+    
     Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, NoteCount, swBottomEdge, MaxClearance)
     Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - MaxClearance - 0.0075)
     
-
     Unload Me
 
+End Sub
+
+Function AddSubAssyComponentsToDictionary(vComps As Variant) As Scripting.Dictionary
+
+    Set AddSubAssyComponentsToDictionary = New Scripting.Dictionary
+    
+    If Not IsEmpty(vComps) Then
+    
+        Dim i As Integer
+        For i = LBound(vComps) To UBound(vComps)
+            
+            If Not AddSubAssyComponentsToDictionary.Exists(vComps(i).Name2) Then
+            
+                AddSubAssyComponentsToDictionary.Add vComps(i).Name2, vComps
+                
+            End If
+        
+        Next i
+    
+    End If
+    
+End Function
+
+Sub CheckandAddLayer(LayName As String, LayerDesc As String, swLayerMgr As SldWorks.LayerMgr)
+
+    Dim vLayNames As Variant
+    vLayNames = swLayerMgr.GetLayerList
+    
+    Dim IsLayerExists As Boolean
+    
+    Dim i As Integer
+    For i = 0 To UBound(vLayNames)
+    
+        If vLayNames(i) = LayName Then
+        
+            IsLayerExists = True
+            Exit For
+            
+        End If
+        
+    Next i
+    
+    If Not (IsLayerExists) Then
+    
+        swLayerMgr.AddLayer LayName, LayerDesc, 0, swLineStyles_e.swLineDEFAULT, swLineWeights_e.swLW_NONE
+        
+        Dim swLayer As SldWorks.Layer
+        Set swLayer = swLayerMgr.GetLayer(LayName)
+        
+        swLayer.Style = swLineStyles_e.swLineCENTER
+        swLayer.Width = swLineWeights_e.swLW_THICK5
+        
+    End If
+    
 End Sub
 
 Private Sub SketchLineForNonCornerPanels(swView As SldWorks.View, wallName As String, _
@@ -400,7 +458,7 @@ Private Sub AddDimensionsForDoororHVACInEachSubAssy(subAssylist As IArrListObjec
             
         Else
         
-            MaxClearance = MaxClearance + 0.007
+            MaxClearance = MaxClearance + 0.008
             Call AddOverallDimension(oSubAssy, swDrawing, swView, MaxClearance)
             
         End If
@@ -599,6 +657,13 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
     Dim subAssylist As IArrListObject
     Set subAssylist = New IArrListObject
     
+    Dim swLayerMgr As SldWorks.LayerMgr
+    Set swLayerMgr = swDrawing.GetLayerManager
+    
+    Const LayName As String = "SPLIT LINE"
+    
+    Call CheckandAddLayer(LayName, "ASSEMBLY SPLIT LINE", swLayerMgr)
+
     For i = LBound(vCompsIdx) To UBound(vCompsIdx)
     
         Dim xMin As Double
@@ -615,9 +680,10 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
         Set swSketchSegment = swSketchMgr.CreateLine(xMax, yMax + 16 * 0.0254, _
                                 0, xMax, yMin - 16 * 0.0254, 0)
                                 
-        swSketchSegment.ConstructionGeometry = True
+        'swSketchSegment.ConstructionGeometry = True
+        swSketchSegment.Layer = LayName
         
-        Call AddSplitLineNote(swSketchSegment, swDrawing, swView, "SPLIT LINE")
+        Call AddSplitLineNote(swSketchSegment, swDrawing, swView, "SPLIT LINE", False, 0.02)
         
         Dim swEdge As SldWorks.Edge
         Set swEdge = GetEdgeInView(oComp, swView, False, True, VisibleEdgesOnly)
@@ -1555,7 +1621,7 @@ Sub UpdateHatchProperties(swView As SldWorks.View)
 End Sub
 
 Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View, _
-        MaxCompHeight As Double, ByRef IsMakeUpExists As Boolean)
+        MaxCompHeight As Double, ByRef IsMakeUpExists As Boolean, subAssyCompDict As Scripting.Dictionary)
     
     Const SheetPosForLastBalloon As Double = 0.2655
     Const Increment As Double = 0.005
@@ -1569,10 +1635,17 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
     maxNoOfBalloons = Int((SheetPosForLastBalloon - MaxCompHeight) / Increment)
     
     Dim AddorSub As Integer
-    AddorSub = 1
-    
     Dim BalloonCount As Integer
-    BalloonCount = 1
+    
+    AddorSub = -1
+    BalloonCount = maxNoOfBalloons
+     
+    If InStr(vConsolidatedList(0).Comp.GetCustomProperty("Profile"), "CORNER") > 0 Then
+     
+        AddorSub = 1
+        BalloonCount = 1
+        
+    End If
     
     Dim AnnXPos As Double
     Dim AnnYPos As Double
@@ -1591,9 +1664,8 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
         Dim xPos As Double
         Dim yPos As Double
       
-        xPos = (oComp.xMin + oComp.xMax) / 2 - Abs((oComp.xMin - oComp.xMax) / 2) + 3.5 * 0.0254 * swView.ScaleDecimal
+        xPos = oComp.xMin + 4 * 0.0254 * swView.ScaleDecimal  '(oComp.xMin + oComp.xMax) / 2 - Abs((oComp.xMin - oComp.xMax) / 2) + 3.5 * 0.0254 * swView.ScaleDecimal
         yPos = 0.075 * oComp.yMin + 0.925 * oComp.yMax
-        
         
         If oComp.IsTop Then
         
@@ -1604,7 +1676,8 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
     
                 If AddorSub = -1 Then
     
-                    If Abs(prevComp.xMin - oComp.xMin) > 2 * MaxBalloonWidth Then
+                    If Abs(prevComp.xMin - oComp.xMin) > 2 * MaxBalloonWidth Or _
+                        Abs(prevComp.xMin - oComp.xMin) > MaxBalloonWidth And BalloonCount > 2 Then
     
                         AddorSub = 1
                         BalloonCount = 1
@@ -1622,6 +1695,26 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
     
                 End If
                 
+                If subAssyCompDict.Exists(prevComp.GetComponent.Name2) Then
+                    
+                    AddorSub = -1
+                    xPos = oComp.xMin + 0.375 * Abs(oComp.xMin - oComp.xMax)
+                    
+                    If Not (i = UBound(vConsolidatedList)) Then
+                        
+                        Dim NextComp As IComp
+                        Set NextComp = vConsolidatedList(i + 1).Comp
+                        
+                        If (Abs(NextComp.xMin - oComp.xMin) > MaxBalloonWidth) Then
+                           
+                           BalloonCount = 1
+                           
+                        End If
+                        
+                    End If
+                    
+                End If
+                
             End If
             
             If AddorSub = 1 Then
@@ -1637,7 +1730,7 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
             
                 If BalloonCount < 1 Then
                 
-                    xPos = (oComp.xMin + oComp.xMax) / 2 + Abs((oComp.xMin - oComp.xMax) / 2) - 3.5 * 0.0254 * swView.ScaleDecimal
+                    xPos = oComp.xMax - 4 * 0.0254 * swView.ScaleDecimal '(oComp.xMin + oComp.xMax) / 2 + Abs((oComp.xMin - oComp.xMax) / 2) - 3.5 * 0.0254 * swView.ScaleDecimal
                     BalloonCount = maxNoOfBalloons
                     
                 End If
