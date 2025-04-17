@@ -16,6 +16,8 @@ Attribute VB_Exposed = False
 
 
 
+
+
 Option Explicit
 
 Dim swMathUtility As SldWorks.MathUtility
@@ -157,7 +159,6 @@ Private Sub CreateButton_Click()
     Is12GAPanelExists = Add12GACircles(FlatCompList, swDrawing, swBottomView, wallName, IsAllPanels12GA)
 
     Call UpdateBottomViewPosition(FlatCompList, swDrawing, swBottomView)
-    
 
     Dim swLeftEdge As SldWorks.Edge
     Dim swRightEdge As SldWorks.Edge
@@ -516,6 +517,10 @@ Private Sub AddDimensionsForDoororHVAC(vDoorOrHVACItems As Variant, oSubAssy As 
                 
                 Set swDisplayDim = SelectAndAddDimension(swDoorOrHVACStartEdge, swDoorOrHVACEndEdge, swDrawing, _
                         oEndComp.xMin - 0.01, oStartComp.yMin - Clearance, swView, False)
+                        
+            Else
+            
+                swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
             
             End If
             
@@ -1971,8 +1976,8 @@ Function ScaleAndInsertBottomView(swDrawing As SldWorks.DrawingDoc, swView As Sl
 
     Dim xScale As Integer
     Dim yScale As Integer
-    xScale = GetScaleValue(swView.ScaleDecimal * 0.40005 / ViewWidth)
-    yScale = GetScaleValue(swView.ScaleDecimal * 0.1574625 / ViewHeight) '0.20995
+    xScale = GetScaleValue(swView.ScaleDecimal * 0.365 / ViewWidth)
+    yScale = GetScaleValue(swView.ScaleDecimal * 0.125 / ViewHeight) '0.20995
     
     Dim IsScaleSet As Boolean
     IsScaleSet = False
@@ -2172,7 +2177,7 @@ Function GetComponentFaces(swComp As SldWorks.Component2)
             
         Else
             
-            Call CombineArr(TempFaces, vFaces)
+            TempFaces = CombineArr(TempFaces, vFaces)
             
         End If
     
@@ -2205,7 +2210,7 @@ Function GetComponentEdges(swComp As SldWorks.Component2)
             
         Else
             
-            Call CombineArr(TempEdges, vEdges)
+            TempEdges = CombineArr(TempEdges, vEdges)
             
         End If
     
@@ -2215,7 +2220,7 @@ Function GetComponentEdges(swComp As SldWorks.Component2)
 
 End Function
 
-Function CombineArr(ByRef MainArr As Variant, ArrToAdd As Variant)
+Function CombineArr(ByVal MainArr As Variant, ArrToAdd As Variant)
 
     Dim i As Integer
     For i = LBound(ArrToAdd) To UBound(ArrToAdd)
@@ -2224,6 +2229,8 @@ Function CombineArr(ByRef MainArr As Variant, ArrToAdd As Variant)
         Set MainArr(UBound(MainArr)) = ArrToAdd(i)
         
     Next i
+    
+    CombineArr = MainArr
     
 End Function
 
@@ -2340,20 +2347,47 @@ Private Function GetDetailedCompList(CompWithPosDict As Scripting.Dictionary, By
     
     Dim i As Integer
     For i = LBound(vItemsPos) To UBound(vItemsPos)
+    
+        If Not i = LBound(vItemsPos) Then
         
-        ReDim Preserve TempArr(i)
-        TempArr(i) = CompWithPosDict(vItemsPos(i))
-
-        If i = 0 Then
+            If Abs(vItemsPos(i - 1) - vItemsPos(i)) <= 0.001 Then
                 
-               FlatCompList = TempArr(i)
+                Dim samePosTempArr As Variant
+                samePosTempArr = TempArr(UBound(TempArr))
+                
+                samePosTempArr = CombineArr(samePosTempArr, CompWithPosDict(vItemsPos(i)))
+                
+                TempArr(UBound(TempArr)) = samePosTempArr
+
+            Else
+            
+                ReDim Preserve TempArr(UBound(TempArr) + 1)
+                TempArr(UBound(TempArr)) = CompWithPosDict(vItemsPos(i))
+            
+            End If
+            
+        Else
+        
+            ReDim Preserve TempArr(i)
+            TempArr(i) = CompWithPosDict(vItemsPos(i))
+            
+            
+        End If
+        
+    Next i
+    
+    For i = LBound(TempArr) To UBound(TempArr)
+    
+          If i = 0 Then
+                
+            FlatCompList = TempArr(i)
                 
         Else
             
-            Call CombineArr(FlatCompList, TempArr(i))
+            FlatCompList = CombineArr(FlatCompList, TempArr(i))
             
         End If
-
+        
     Next i
     
     GetDetailedCompList = TempArr
