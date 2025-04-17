@@ -85,11 +85,11 @@ Property Get TotalDoorArea() As Double
     
 End Property
 
-Sub AddDoororHVACList(DoororHVACList As IArrListObject)
+Sub AddDoororHVACList(DoorOrHVACList As IArrListObject)
 
     Dim i As Integer
     Dim vDoorOrHVACItems As Variant
-    vDoorOrHVACItems = DoororHVACList.Items
+    vDoorOrHVACItems = DoorOrHVACList.Items
     
     If Not IsEmpty(vDoorOrHVACItems) Then
     

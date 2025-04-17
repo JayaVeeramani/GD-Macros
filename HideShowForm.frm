@@ -13,11 +13,6 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-
-
-
-
-
 Option Explicit
 
 Dim swMathUtility As SldWorks.MathUtility
@@ -108,7 +103,15 @@ Private Sub CreateButton_Click()
     Dim ViewHeight As Double
     Dim MaxHeightComp As IComp
     Dim CompList As IArrListObject
-    Set CompList = GetComponentsSortedWithYPosition(swFrontView, swDrawing, swViewNormalVector, ViewWidth, ViewHeight, MaxHeightComp, IsZChannelExists)
+    
+    Dim cChannelList As IArrListObject
+    Set cChannelList = New IArrListObject
+    
+    Dim zChannelList As IArrListObject
+    Set zChannelList = New IArrListObject
+    
+    Set CompList = GetComponentsSortedWithYPosition(swFrontView, swDrawing, swViewNormalVector, ViewWidth, _
+                ViewHeight, MaxHeightComp, IsZChannelExists, zChannelList, cChannelList)
     
     Dim IsMultipleAssembly As Boolean
     IsMultipleAssembly = CheckForMultipleAssembly(ViewWidth / swFrontView.ScaleDecimal, ViewHeight / swFrontView.ScaleDecimal)
@@ -141,10 +144,16 @@ Private Sub CreateButton_Click()
 
     Dim vConsolidatedList As Variant
     
-    Dim DoororHVACList As IArrListObject
-    Set DoororHVACList = New IArrListObject
+    Dim DoorOrHVACList As IArrListObject
+    Set DoorOrHVACList = New IArrListObject
 
-    vConsolidatedList = GetConsolidatedList(DetailedCompList, DoororHVACList)
+    vConsolidatedList = GetConsolidatedList(DetailedCompList, DoorOrHVACList)
+    
+    Set zChannelList = GetChannelCompsWithPos(zChannelList, swFrontView)
+    Set cChannelList = GetChannelCompsWithPos(cChannelList, swFrontView)
+    
+    Call CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList, zChannelList, True)
+    Call CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList, cChannelList)
     
     swDrawing.ActivateView swFrontView.Name
     
@@ -181,7 +190,7 @@ Private Sub CreateButton_Click()
         Set subAssylist = AddSplitLines(vSubAssyComponentsIdx, swDrawing, swFrontView, FlatCompDict, CompNoDict, True, swLeftEdge, swRightEdge, False)
         Call AddSplitLines(vSubAssyComponentsIdx, swDrawing, swBottomView, FlatCompDict, CompNoDict, False, swLeftEdge, swRightEdge)
 
-        Call CheckAndAddDoorOrHVACAssy(subAssylist, DoororHVACList, CompNoDict)
+        Call CheckAndAddDoorOrHVACAssy(subAssylist, DoorOrHVACList, CompNoDict)
   
     End If
     
@@ -194,22 +203,227 @@ Private Sub CreateButton_Click()
     Set oSubAssy.EndEdge = swRightEdge
     oSubAssy.StartIdx = 0
     oSubAssy.EndIdx = UBound(FlatCompDict.Items)
-    Call oSubAssy.AddDoororHVACList(DoororHVACList)
+    Call oSubAssy.AddDoororHVACList(DoorOrHVACList)
     
     subAssylist.AddtoList oSubAssy
     
     Dim MaxClearance As Double
     Call AddDimensionsForDoororHVACInEachSubAssy(subAssylist, swDrawing, swFrontView, MaxClearance)
     Call AddDimensionNames(subAssylist, wallName, swFrontView)
+    Call AddVerticalDimensionsForDoororHVAC(DoorOrHVACList, swFrontView, swDrawing)
     
     Dim NoteCount As Integer
     Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists, IsAllPanels12GA, IsZChannelExists, NoteCount, wallName)
     
     Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, NoteCount, swBottomEdge, MaxClearance)
     Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - MaxClearance - 0.0075)
-    
+
     Unload Me
 
+End Sub
+
+Private Sub AddVerticalDimensionsForDoororHVAC(DoorOrHVACList As IArrListObject, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc)
+
+    Dim vDoorOrHVACItems As Variant
+    vDoorOrHVACItems = DoorOrHVACList.Items
+    
+    If Not IsEmpty(vDoorOrHVACItems) Then
+    
+        Dim DoorOrHVACDict As Scripting.Dictionary
+        Set DoorOrHVACDict = New Scripting.Dictionary
+        
+        Dim DoororHVACQtyDict As Scripting.Dictionary
+        Set DoororHVACQtyDict = New Scripting.Dictionary
+    
+        Dim i As Integer
+        For i = LBound(vDoorOrHVACItems) To UBound(vDoorOrHVACItems)
+        
+            Dim oDoorOrHVACAssy As IDoorOrHVACAssy
+            Set oDoorOrHVACAssy = vDoorOrHVACItems(i)
+            
+            Dim oStartComp As IComp
+            Set oStartComp = oDoorOrHVACAssy.StartComp
+                
+            Dim swDoorOrHVACBottomEdge As SldWorks.Edge
+            Set swDoorOrHVACBottomEdge = GetEdgeInView(oStartComp, swView, True, False)
+            
+            Dim swDisplayDim As SldWorks.DisplayDimension
+            
+            oDoorOrHVACAssy.cChannelCompList.SortItems "yMax", False
+            
+            Dim vCChannelItems As Variant
+            vCChannelItems = oDoorOrHVACAssy.cChannelCompList.Items
+                
+            If Not IsEmpty(vCChannelItems) Then
+            
+                Dim oComp As IComp
+                Set oComp = vCChannelItems(0)
+                
+                Dim yDiff As Double
+
+                If oDoorOrHVACAssy.IsDoor Then
+            
+                    If UBound(vCChannelItems) = 0 Then
+                    
+                        yDiff = Round(Abs(oComp.yMin - oStartComp.yMin), 3)
+                        
+                        If Not DoorOrHVACDict.Exists(yDiff) Then
+                        
+                            Set swDisplayDim = SelectAndAddDimension(GetEdgeInView(oComp, swView, True, False), swDoorOrHVACBottomEdge, swDrawing, _
+                            (oStartComp.xMin + oStartComp.xMax) / 2, oStartComp.yMin + 0.01, swView, False)
+                            
+                            If Not swDisplayDim Is Nothing Then
+                            
+                                DoorOrHVACDict.Add yDiff, swDisplayDim
+                                DoororHVACQtyDict.Add yDiff, 1
+                                
+                            End If
+                            
+                        Else
+                        
+                            DoororHVACQtyDict(yDiff) = DoororHVACQtyDict(yDiff) + 1
+                            
+                        End If
+                        
+                    End If
+
+                Else
+                    
+                    yDiff = Round(Abs(oComp.yMax - oStartComp.yMin), 4)
+                    
+                    If Not DoorOrHVACDict.Exists(yDiff) Then
+                    
+                        Set swDisplayDim = SelectAndAddDimension(GetEdgeInView(oComp, swView, True, True), swDoorOrHVACBottomEdge, swDrawing, _
+                            (oStartComp.xMin + oStartComp.xMax) / 2, oStartComp.yMin + 0.01, swView, False)
+                            
+                        If Not swDisplayDim Is Nothing Then
+                            
+                            DoorOrHVACDict.Add yDiff, swDisplayDim
+                            DoororHVACQtyDict.Add yDiff, 1
+                            
+                        End If
+                            
+                    Else
+                        
+                         DoororHVACQtyDict(yDiff) = DoororHVACQtyDict(yDiff) + 1
+                         
+                    End If
+            
+                End If
+
+            End If
+
+        Next i
+        
+        Call AddQtyToDimensions(DoorOrHVACDict, DoororHVACQtyDict)
+
+    End If
+
+End Sub
+
+Private Sub AddQtyToDimensions(DoorOrHVACDict As Scripting.Dictionary, DoororHVACQtyDict As Scripting.Dictionary)
+
+    Dim doororHVACKeys As Variant
+    doororHVACKeys = DoorOrHVACDict.Keys
+    
+    If Not IsEmpty(doororHVACKeys) Then
+    
+        Dim i As Integer
+        For i = LBound(doororHVACKeys) To UBound(doororHVACKeys)
+        
+            If DoororHVACQtyDict.Item(doororHVACKeys(i)) > 1 Then
+        
+                Dim swDisplayDim As SldWorks.DisplayDimension
+                Set swDisplayDim = DoorOrHVACDict.Item(doororHVACKeys(i))
+            
+            
+                swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextPrefix, DoororHVACQtyDict.Item(doororHVACKeys(i)) & "X "
+                
+            End If
+        
+        Next i
+        
+    End If
+
+End Sub
+
+Private Function GetChannelCompsWithPos(ChannelList As IArrListObject, swView As SldWorks.View) As IArrListObject
+
+    Set GetChannelCompsWithPos = New IArrListObject
+    
+    If Not IsEmpty(ChannelList.Items) Then
+    
+        Dim vComps As Variant
+        vComps = ChannelList.Items
+
+        Dim i As Integer
+        For i = LBound(vComps) To UBound(vComps)
+    
+            Dim MinPoint As Variant
+            Dim MaxPoint As Variant
+            Dim vBodyMinPoint(2) As Double
+            Dim vBodyMaxPoint(2) As Double
+            
+            Dim vNormalFaces As Variant
+            
+            Dim swComp As SldWorks.Component2
+            Set swComp = vComps(i)
+            
+            Call GetMinMaxBodyPointsInSheetSpace(swComp, MinPoint, MaxPoint, vBodyMinPoint, vBodyMaxPoint, swView, True)
+                
+            Dim oComp As IComp
+            Set oComp = New IComp
+            oComp.Initialize swComp, MinPoint, MaxPoint, vBodyMinPoint, vBodyMaxPoint, vNormalFaces
+            
+            GetChannelCompsWithPos.AddtoList oComp
+            
+        Next i
+        
+        GetChannelCompsWithPos.SortItems "xMin", False
+        
+    End If
+
+End Function
+
+Private Sub CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList As IArrListObject, ChannelList As IArrListObject, Optional IsZChannel As Boolean = False)
+    
+    Dim vDoorOrHVACItems As Variant
+    vDoorOrHVACItems = DoorOrHVACList.Items
+    
+    Dim vChannelItems As Variant
+    vChannelItems = ChannelList.Items
+    
+    Dim i As Integer
+    Dim j As Integer
+    
+    Dim LastSubAssyIdx As Integer
+    LastSubAssyIdx = 0
+    
+    If Not IsEmpty(vChannelItems) And Not IsEmpty(vDoorOrHVACItems) Then
+    
+        For i = LBound(vChannelItems) To UBound(vChannelItems)
+        
+            Dim oComp As IComp
+            Set oComp = vChannelItems(i)
+            
+            For j = LastSubAssyIdx To UBound(vDoorOrHVACItems)
+            
+                Dim oDoorOrHVACAssy As IDoorOrHVACAssy
+                Set oDoorOrHVACAssy = vDoorOrHVACItems(j)
+    
+                If oDoorOrHVACAssy.AddToChannelList(oComp, IsZChannel) Then
+                    
+                    LastSubAssyIdx = j
+                    Exit For
+                    
+                End If
+                
+           Next j
+    
+        Next i
+    
+    End If
+    
 End Sub
 
 Function AddSubAssyComponentsToDictionary(vComps As Variant) As Scripting.Dictionary
@@ -535,13 +749,13 @@ Private Sub AddDimensionsForDoororHVAC(vDoorOrHVACItems As Variant, oSubAssy As 
 
 End Sub
 
-Private Sub CheckAndAddDoorOrHVACAssy(subAssylist As IArrListObject, DoororHVACList As IArrListObject, CompNoDict As Scripting.Dictionary)
+Private Sub CheckAndAddDoorOrHVACAssy(subAssylist As IArrListObject, DoorOrHVACList As IArrListObject, CompNoDict As Scripting.Dictionary)
     
     Dim vSubAssemblies As Variant
     vSubAssemblies = subAssylist.Items
     
     Dim vDoorOrHVACItems As Variant
-    vDoorOrHVACItems = DoororHVACList.Items
+    vDoorOrHVACItems = DoorOrHVACList.Items
     
     Dim i As Integer
     Dim j As Integer
@@ -1976,7 +2190,7 @@ Function ScaleAndInsertBottomView(swDrawing As SldWorks.DrawingDoc, swView As Sl
 
     Dim xScale As Integer
     Dim yScale As Integer
-    xScale = GetScaleValue(swView.ScaleDecimal * 0.365 / ViewWidth)
+    xScale = GetScaleValue(swView.ScaleDecimal * 0.371 / ViewWidth)
     yScale = GetScaleValue(swView.ScaleDecimal * 0.125 / ViewHeight) '0.20995
     
     Dim IsScaleSet As Boolean
@@ -2027,7 +2241,8 @@ End Function
 
 Function GetComponentsSortedWithYPosition(swView As SldWorks.View, swDrawing As SldWorks.ModelDoc2, _
             swViewNormalVector As SldWorks.MathVector, ByRef ViewWidth As Double, ByRef ViewHeight As Double, _
-                ByRef MaxHeightComp As IComp, ByRef IsZChannelExists As Boolean) As IArrListObject
+                ByRef MaxHeightComp As IComp, ByRef IsZChannelExists As Boolean, ByRef zChannelList As IArrListObject, _
+                    ByRef cChannelList As IArrListObject) As IArrListObject
     
     swDrawing.ActivateView swView.Name
     
@@ -2073,11 +2288,16 @@ Function GetComponentsSortedWithYPosition(swView As SldWorks.View, swDrawing As 
             
             If InStr(Profile, "EXT-") > 0 Then
             
-                CompList.AddtoList GetComponentWithPosition(swCompFromRoot, swView, swCompModel, swDrawing, swViewNormalVector)
+                CompList.AddtoList GetComponentWithPosition(swCompFromRoot, swView, swDrawing, swViewNormalVector)
             
             ElseIf InStr(Profile, "Z-CHANNEL") > 0 Then
-                
+            
+                zChannelList.AddtoList swCompFromRoot
                 IsZChannelExists = True
+                
+            ElseIf InStr(Profile, "C-CHANNEL") > 0 Then
+                
+                cChannelList.AddtoList swCompFromRoot
                 
             End If
         
@@ -2102,45 +2322,26 @@ Function GetComponentsSortedWithYPosition(swView As SldWorks.View, swDrawing As 
 End Function
 
 Function GetComponentWithPosition(swComp As SldWorks.Component2, swView As SldWorks.View, _
-        swCompModel As SldWorks.ModelDoc2, swDrawing As SldWorks.ModelDoc2, _
+        swDrawing As SldWorks.ModelDoc2, _
         swViewNormalVector As SldWorks.MathVector) As IComp
 
     Dim vFaces As Variant
     vFaces = GetComponentFaces(swComp) 'swView.GetVisibleEntities2(swComp, swViewEntityType_e.swViewEntityType_Face)
     
-    Dim vBodies As Variant
-    vBodies = swCompModel.GetBodies(swSolidBody)
-
-    
-    Dim swBody As SldWorks.Body2
-    Set swBody = vBodies(0) 'vEnts(0).GetBody
+     'vEnts(0).GetBody
 
     If Not IsEmpty(vFaces) Then
     
-        Debug.Print Right(swComp.Name2, Len(swComp.Name2) - InStrRev(swComp.Name2, "/"))
+        'Debug.Print Right(swComp.Name2, Len(swComp.Name2) - InStrRev(swComp.Name2, "/"))
 
         Dim vNormalFaces As Variant
         vNormalFaces = GetNormalFaces(vFaces, swComp.Transform2, swViewNormalVector)
-
-        Dim vBodyBounds As Variant
-        vBodyBounds = swBody.GetBodyBox
-            
+        
+        Dim MinPoint As Variant
+        Dim MaxPoint As Variant
         Dim vBodyMinPoint(2) As Double
         Dim vBodyMaxPoint(2) As Double
-            
-        vBodyMinPoint(0) = vBodyBounds(0)
-        vBodyMinPoint(1) = vBodyBounds(1)
-        vBodyMinPoint(2) = vBodyBounds(2)
-            
-        vBodyMaxPoint(0) = vBodyBounds(3)
-        vBodyMaxPoint(1) = vBodyBounds(4)
-        vBodyMaxPoint(2) = vBodyBounds(5)
-            
-        Dim MinPoint As Variant
-        MinPoint = GetComponentPointInSheetSpace(swComp, vBodyMinPoint, swView)
-
-        Dim MaxPoint As Variant
-        MaxPoint = GetComponentPointInSheetSpace(swComp, vBodyMaxPoint, swView)
+        Call GetMinMaxBodyPointsInSheetSpace(swComp, MinPoint, MaxPoint, vBodyMinPoint, vBodyMaxPoint, swView)
             
         Dim oComp As IComp
         Set oComp = New IComp
@@ -2148,11 +2349,59 @@ Function GetComponentWithPosition(swComp As SldWorks.Component2, swView As SldWo
         
     End If
     
-    Debug.Print Right(swComp.Name2, Len(swComp.Name2) - InStrRev(swComp.Name2, "/"))
+    'Debug.Print Right(swComp.Name2, Len(swComp.Name2) - InStrRev(swComp.Name2, "/"))
     
     Set GetComponentWithPosition = oComp
 
 End Function
+
+Private Sub GetMinMaxBodyPointsInSheetSpace(swComp As SldWorks.Component2, _
+        ByRef MinPoint As Variant, ByRef MaxPoint As Variant, ByRef vBodyMinPoint() As Double, _
+            ByRef vBodyMaxPoint() As Double, swView As SldWorks.View, Optional IsCorZ As Boolean = False)
+            
+'    Debug.Print swComp.GetModelDoc2.ConfigurationManager.ActiveConfiguration.Name
+'    Debug.Print swComp.ReferencedConfiguration
+'
+'    If Not swComp.GetModelDoc2.ConfigurationManager.ActiveConfiguration.Name = swComp.ReferencedConfiguration Then
+'
+'        Debug.Print "no"
+'
+'    End If
+'
+
+    Dim vBodies As Variant
+
+'    If IsCorZ Then
+'
+'        Dim vBodyInfo As Variant
+'        vBodies = swComp.GetBodies3(swBodyType_e.swSolidBody, vBodyInfo)
+'
+'    Else
+'
+        vBodies = swComp.GetModelDoc2.GetBodies(swSolidBody)
+        
+'    End If
+    
+    Dim swBody As SldWorks.Body2
+    Set swBody = vBodies(0)
+
+    Dim vBodyBounds As Variant
+    vBodyBounds = swBody.GetBodyBox
+
+    vBodyMinPoint(0) = vBodyBounds(0)
+    vBodyMinPoint(1) = vBodyBounds(1)
+    vBodyMinPoint(2) = vBodyBounds(2)
+            
+    vBodyMaxPoint(0) = vBodyBounds(3)
+    vBodyMaxPoint(1) = vBodyBounds(4)
+    vBodyMaxPoint(2) = vBodyBounds(5)
+    
+    'Debug.Print swComp.Name2
+            
+    MinPoint = GetComponentPointInSheetSpace(swComp, vBodyMinPoint, swView)
+    MaxPoint = GetComponentPointInSheetSpace(swComp, vBodyMaxPoint, swView)
+    
+End Sub
 
 Function GetComponentFaces(swComp As SldWorks.Component2)
     
@@ -2394,7 +2643,7 @@ Private Function GetDetailedCompList(CompWithPosDict As Scripting.Dictionary, By
     
 End Function
 
-Private Function GetConsolidatedList(vCompsOfComps As Variant, ByRef DoororHVACList As IArrListObject) As Variant
+Private Function GetConsolidatedList(vCompsOfComps As Variant, ByRef DoorOrHVACList As IArrListObject) As Variant
 
     Dim vConsolidatedLists As Variant
     Dim List As IConsolidatedList
@@ -2430,7 +2679,7 @@ Private Function GetConsolidatedList(vCompsOfComps As Variant, ByRef DoororHVACL
                 Set DoororHVACSubAssy.EndComp = vComps(0)
                 DoororHVACSubAssy.IsDoor = False
                 EndIndex = i - 1
-                DoororHVACList.AddtoList DoororHVACSubAssy
+                DoorOrHVACList.AddtoList DoororHVACSubAssy
                 Call UpdatedConsolidatedList(vConsolidatedLists, IsInit, StartIndex, EndIndex, vCompsOfComps)
                 
             End If
@@ -2482,7 +2731,7 @@ Private Function GetConsolidatedList(vCompsOfComps As Variant, ByRef DoororHVACL
                         
                         DoororHVACSubAssy.IsDoor = True
                         
-                        DoororHVACList.AddtoList DoororHVACSubAssy
+                        DoorOrHVACList.AddtoList DoororHVACSubAssy
                         
                     Else
                     
