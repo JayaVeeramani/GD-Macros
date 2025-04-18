@@ -369,6 +369,8 @@ Private Function GetChannelCompsWithPos(ChannelList As IArrListObject, swView As
             Dim swComp As SldWorks.Component2
             Set swComp = vComps(i)
             
+            Debug.Print swComp.Name2
+            
             Call GetMinMaxBodyPointsInSheetSpace(swComp, MinPoint, MaxPoint, vBodyMinPoint, vBodyMaxPoint, swView, True)
                 
             Dim oComp As IComp
@@ -391,6 +393,7 @@ Private Sub CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList As IArrListObject
     vDoorOrHVACItems = DoorOrHVACList.Items
     
     Dim vChannelItems As Variant
+    'ChannelList.SortItems "xMin", False
     vChannelItems = ChannelList.Items
     
     Dim i As Integer
@@ -862,7 +865,7 @@ Private Function GetSubAssyComponentsIndexSorted(vComps As Variant, CompNoDict A
 End Function
 
 Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
-        CompDict As Scripting.Dictionary, CompNoDict As Scripting.Dictionary, IsFrontView As Boolean, _
+        compDict As Scripting.Dictionary, CompNoDict As Scripting.Dictionary, IsFrontView As Boolean, _
         ByVal swLeftEdge As SldWorks.Edge, ByVal swRightEdge As SldWorks.Edge, Optional VisibleEdgesOnly As Boolean = True) As IArrListObject
 
     swDrawing.ActivateView swView.Name
@@ -891,7 +894,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
         Dim yMax As Double
 
         Dim oComp As IComp
-        Set oComp = CompDict.Items(vCompsIdx(i))
+        Set oComp = compDict.Items(vCompsIdx(i))
             
         Call GetViewMaxMinPoints(oComp, swView, xMin, xMax, yMin, yMax)
         
@@ -920,8 +923,8 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 'Set swDisplayDim = SelectAndAddDimension(swLeftEdge, swEdge, swDrawing, _
                                 oComp.xMin - 0.01, vOutline(1) - 0.015, swView)
                              
-                Set oSubAssy.StartComp = CompDict.Items(0)
-                Set oSubAssy.EndComp = CompDict.Items(vCompsIdx(i))
+                Set oSubAssy.StartComp = compDict.Items(0)
+                Set oSubAssy.EndComp = compDict.Items(vCompsIdx(i))
                 
                 Set oSubAssy.StartEdge = swLeftEdge
                 Set oSubAssy.EndEdge = swEdge
@@ -938,8 +941,8 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 'Set swDisplayDim = SelectAndAddDimension(NextAssyStartEdge, swEdge, swDrawing, _
                                 oComp.xMin - 0.01, vOutline(1) - 0.015, swView)
                                 
-                Set oSubAssy.StartComp = CompDict.Items(vCompsIdx(i - 1) + 1)
-                Set oSubAssy.EndComp = CompDict.Items(vCompsIdx(i))
+                Set oSubAssy.StartComp = compDict.Items(vCompsIdx(i - 1) + 1)
+                Set oSubAssy.EndComp = compDict.Items(vCompsIdx(i))
                                 
                 Set oSubAssy.StartEdge = NextAssyStartEdge
                 Set oSubAssy.EndEdge = swEdge
@@ -953,7 +956,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
             End If
             
             Dim NextAssyComp As IComp
-            Set NextAssyComp = CompDict.Items(vCompsIdx(i) + 1)
+            Set NextAssyComp = compDict.Items(vCompsIdx(i) + 1)
             
             Set NextAssyStartEdge = GetEdgeInView(NextAssyComp, swView, False, False, False)
             
@@ -963,8 +966,8 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 'Set swDisplayDim = SelectAndAddDimension(swRightEdge, NextAssyStartEdge, swDrawing, _
                             NextAssyComp.xMax + 0.01, vOutline(1) - 0.015, swView)
                             
-                Set oSubAssy.StartComp = CompDict.Items(vCompsIdx(i) + 1)
-                Set oSubAssy.EndComp = CompDict.Items(UBound(CompDict.Items))
+                Set oSubAssy.StartComp = compDict.Items(vCompsIdx(i) + 1)
+                Set oSubAssy.EndComp = compDict.Items(UBound(compDict.Items))
                 
                 Set oSubAssy.StartEdge = NextAssyStartEdge
                 Set oSubAssy.EndEdge = swRightEdge
@@ -986,7 +989,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
     
             If i = LBound(vCompsIdx) Then
                 
-                Set TempComp = CompDict.Items(0)
+                Set TempComp = compDict.Items(0)
                 Call GetViewMaxMinPoints(TempComp, swView, xMin, xMax, yMin, yMax)
                 vPoint(0) = xMin
                 vPoint(1) = yMin
@@ -1023,7 +1026,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
             
             If i = UBound(vCompsIdx) Then
             
-                Set TempComp = CompDict.Items(UBound(CompDict.Items))
+                Set TempComp = compDict.Items(UBound(compDict.Items))
                 Set swRightEdge = GetEdgeInView(TempComp, swView, False, True)
             
                 Set oSubAssy = New ISubAssy
@@ -1130,8 +1133,8 @@ Function GetSelectedComponents() As Variant
     Dim swSelectionMgr As SldWorks.SelectionMgr
     Set swSelectionMgr = swTopLevelModel.SelectionManager
     
-    Dim CompDict As Scripting.Dictionary
-    Set CompDict = New Scripting.Dictionary
+    Dim compDict As Scripting.Dictionary
+    Set compDict = New Scripting.Dictionary
     
     If swSelectionMgr.GetSelectedObjectCount2(-1) > 0 Then
     
@@ -1141,9 +1144,9 @@ Function GetSelectedComponents() As Variant
             Dim swComp As SldWorks.Component2
             Set swComp = swSelectionMgr.GetSelectedObjectsComponent4(i + 1, -1)
             
-            If False = CompDict.Exists(swComp.Name2) Then
+            If False = compDict.Exists(swComp.Name2) Then
                 
-                CompDict.Add swComp.Name2, swComp
+                compDict.Add swComp.Name2, swComp
             
             End If
 
@@ -1151,9 +1154,9 @@ Function GetSelectedComponents() As Variant
         
     End If
     
-    If Not (CompDict.Count = 0) Then
+    If Not (compDict.Count = 0) Then
     
-        GetSelectedComponents = CompDict.Items
+        GetSelectedComponents = compDict.Items
         
     End If
 
@@ -2245,7 +2248,7 @@ Function GetComponentsSortedWithYPosition(swView As SldWorks.View, swDrawing As 
                     ByRef cChannelList As IArrListObject) As IArrListObject
     
     swDrawing.ActivateView swView.Name
-    
+
     Dim vComps As Variant
     vComps = swView.GetVisibleComponents()
     
@@ -2262,10 +2265,10 @@ Function GetComponentsSortedWithYPosition(swView As SldWorks.View, swDrawing As 
     
         Dim swComp As SldWorks.Component2
         Set swComp = vComps(i)
-
-        Dim swCompFromRoot As SldWorks.Component2
-        Set swCompFromRoot = swTopLevelAssy.GetComponentByName(Right(swComp.Name2, Len(swComp.Name2) - InStrRev(swComp.Name2, "/")))
         
+        Dim swCompFromRoot As SldWorks.Component2
+        Set swCompFromRoot = GetComponentFromRoot(swComp.Name2, swComp, swTopLevelAssy)
+            
         If swCompFromRoot.GetSuppression = swComponentSuppressionState_e.swComponentLightweight Then
             
             Dim bRet As Integer
@@ -2296,7 +2299,8 @@ Function GetComponentsSortedWithYPosition(swView As SldWorks.View, swDrawing As 
                 IsZChannelExists = True
                 
             ElseIf InStr(Profile, "C-CHANNEL") > 0 Then
-                
+                'Debug.Print swCompFromRoot.Name2
+                'Debug.Print swComp.Name2
                 cChannelList.AddtoList swCompFromRoot
                 
             End If
@@ -2318,6 +2322,58 @@ Function GetComponentsSortedWithYPosition(swView As SldWorks.View, swDrawing As 
     ViewHeight = MaxHeightComp.yMax - MinHeight
     
     Set GetComponentsSortedWithYPosition = CompList
+
+End Function
+
+Function GetComponentFromRoot(AssyName As String, swComp As SldWorks.Component2, swTopLevelAssy As SldWorks.AssemblyDoc) As SldWorks.Component2
+
+        Dim compName As String
+        compName = Right(AssyName, Len(AssyName) - InStrRev(AssyName, "/"))
+
+        Dim TempComp As SldWorks.Component2
+        Set TempComp = swTopLevelAssy.GetComponentByName(compName)
+
+        If Not InStr(AssyName, TempComp.Name2) > 0 Then
+
+            AssyName = Replace(AssyName, "/" & compName, "")
+
+            Dim swAssy As SldWorks.Component2
+            Set swAssy = GetComponentFromRoot(AssyName, swComp, swTopLevelAssy)
+
+            Set GetComponentFromRoot = GetThisChildrenOfAssy(swAssy, compName)
+            
+        Else
+        
+            Set GetComponentFromRoot = TempComp
+
+            
+        End If
+        
+       
+        
+End Function
+
+Function GetThisChildrenOfAssy(swAssy As SldWorks.Component2, compName As String) As SldWorks.Component2
+
+    Dim vChild As Variant
+    vChild = swAssy.GetChildren
+    
+    Dim i As Integer
+    For i = LBound(vChild) To UBound(vChild)
+    
+        Dim swComp As SldWorks.Component2
+        Set swComp = vChild(i)
+        
+        Debug.Print swComp.Name2
+        
+        If InStr(swComp.Name2, compName) > 0 Then
+        
+            Set GetThisChildrenOfAssy = swComp
+            Exit For
+        
+        End If
+    
+    Next i
 
 End Function
 
@@ -2371,16 +2427,16 @@ Private Sub GetMinMaxBodyPointsInSheetSpace(swComp As SldWorks.Component2, _
 
     Dim vBodies As Variant
 
-'    If IsCorZ Then
-'
-'        Dim vBodyInfo As Variant
-'        vBodies = swComp.GetBodies3(swBodyType_e.swSolidBody, vBodyInfo)
-'
-'    Else
-'
+    If IsCorZ Then
+
+        Dim vBodyInfo As Variant
+        vBodies = swComp.GetBodies3(swBodyType_e.swSolidBody, vBodyInfo)
+
+    Else
+
         vBodies = swComp.GetModelDoc2.GetBodies(swSolidBody)
         
-'    End If
+    End If
     
     Dim swBody As SldWorks.Body2
     Set swBody = vBodies(0)
