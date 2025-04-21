@@ -13,6 +13,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
 Option Explicit
 
 Dim swMathUtility As SldWorks.MathUtility
@@ -207,13 +208,15 @@ Private Sub CreateButton_Click()
     
     subAssylist.AddtoList oSubAssy
     
+    Dim NoteCount As Integer
+    Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists, IsAllPanels12GA, IsZChannelExists, NoteCount, wallName)
+    
     Dim MaxClearance As Double
     Call AddDimensionsForDoororHVACInEachSubAssy(subAssylist, swDrawing, swFrontView, MaxClearance)
     Call AddDimensionNames(subAssylist, wallName, swFrontView)
-    Call AddVerticalDimensionsForDoororHVAC(DoorOrHVACList, swFrontView, swDrawing)
+    Call AddVerticalDimensionsForDoororHVAC(DoorOrHVACList, swFrontView, swDrawing, NoteCount)
     
-    Dim NoteCount As Integer
-    Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists, IsAllPanels12GA, IsZChannelExists, NoteCount, wallName)
+
     
     Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, NoteCount, swBottomEdge, MaxClearance)
     Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - MaxClearance - 0.0075)
@@ -222,7 +225,8 @@ Private Sub CreateButton_Click()
 
 End Sub
 
-Private Sub AddVerticalDimensionsForDoororHVAC(DoorOrHVACList As IArrListObject, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc)
+Private Sub AddVerticalDimensionsForDoororHVAC(DoorOrHVACList As IArrListObject, swView As SldWorks.View, _
+        swDrawing As SldWorks.DrawingDoc, Count As Integer)
 
     Dim vDoorOrHVACItems As Variant
     vDoorOrHVACItems = DoorOrHVACList.Items
@@ -272,7 +276,10 @@ Private Sub AddVerticalDimensionsForDoororHVAC(DoorOrHVACList As IArrListObject,
                             Set swDisplayDim = SelectAndAddDimension(GetEdgeInView(oComp, swView, True, False), swDoorOrHVACBottomEdge, swDrawing, _
                             (oStartComp.xMin + oStartComp.xMax) / 2, oStartComp.yMin + 0.01, swView, False)
                             
+                            
                             If Not swDisplayDim Is Nothing Then
+                            
+                                swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "SEE NOTE " & Count - 1
                             
                                 DoorOrHVACDict.Add yDiff, swDisplayDim
                                 DoororHVACQtyDict.Add yDiff, 1
@@ -509,7 +516,12 @@ Private Sub SketchLineForNonCornerPanels(swView As SldWorks.View, wallName As St
         
         Dim swCeilingDim As SldWorks.DisplayDimension
         Set swCeilingDim = swDrawing.AddVerticalDimension2(oSubAssy.EndComp.xMax + 0.01, (oSubAssy.StartComp.yMin + oSubAssy.StartComp.yMax) / 2, 0)
-        swCeilingDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "SEE NOTE " & CeilingNoteIdx
+        
+        If Not swCeilingDim Is Nothing Then
+        
+            swCeilingDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "SEE NOTE " & CeilingNoteIdx
+            
+        End If
         
         Dim swStartSketch As SldWorks.SketchSegment
         Dim swEndSketch As SldWorks.SketchSegment
@@ -1086,19 +1098,18 @@ End Function
 Private Sub AddSplitLineNote(swSketchSegment As SldWorks.SketchLine, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
             NoteText As String, Optional IsRight As Boolean = True, Optional ClearanceVal As Double = 0.005)
 
-    Dim swStartPoint As SldWorks.SketchPoint
-    Set swStartPoint = swSketchSegment.GetStartPoint2
-    
-    swStartPoint.Select4 False, Nothing
-    
-    Dim vSketchPoint(2) As Double
-    vSketchPoint(0) = swStartPoint.X
-    vSketchPoint(1) = swStartPoint.Y
-    vSketchPoint(2) = swStartPoint.Z
-    
     
     Dim vPointInSheet As Variant
-    vPointInSheet = GetSketchPointInSheetSpace(swView, vSketchPoint)
+    
+'    If InStr(NoteText, "SPLIT") > 0 Then
+    
+'        vPointInSheet = SelectSketchSegment(swSketchSegment, swDrawing, swView, False, False, 0)
+'
+'    Else
+'
+        vPointInSheet = SelectSketchSegment(swSketchSegment, swDrawing, swView, False, False)
+        
+'    End If
     
     If IsRight Then
     
@@ -1582,10 +1593,10 @@ Private Sub AddRibSketchAndNote(oComp As IComp, swView As SldWorks.View, swSketc
             Dim bool As Boolean
             bool = swDrawing.ActivateView(swView.Name)
             
-            Call SelectSketchSegment(swSketchSegmentHor, swDrawing, swView, False, False)
+            Call SelectSketchSegment(swSketchSegmentHor, swDrawing, swView, False)
             
 
-            vSketchPoint = SelectSketchSegment(swSketchSegmentVer, swDrawing, swView, True, False)
+            vSketchPoint = SelectSketchSegment(swSketchSegmentVer, swDrawing, swView, True)
             
             Call AddNoteToView(swDrawing, "RIB TO RIB" & vbCrLf & "#14 TEK SCREW" & vbCrLf & "@ 6" & Chr(34) & " O.C.", _
                             vSketchPoint(0) + 0.0075, vSketchPoint(1) + 0.0125)
@@ -1602,7 +1613,7 @@ Private Sub AddRibSketchAndNote(oComp As IComp, swView As SldWorks.View, swSketc
                                 
         swSketchSegment.ConstructionGeometry = True
         
-        vSketchPoint = SelectSketchSegment(swSketchSegment, swDrawing, swView, False, True)
+        vSketchPoint = SelectSketchSegment(swSketchSegment, swDrawing, swView, False, True, 0.5)
         Call AddNoteToView(swDrawing, "CASTING BED", vSketchPoint(0) + 0.0075, vSketchPoint(1) - 0.005)
         
         Dim swEdge As SldWorks.Edge
@@ -1782,7 +1793,7 @@ Sub CreateRibSketches(ByRef swSketchSegmentHor As SldWorks.SketchSegment, ByRef 
 End Sub
 
 Function SelectSketchSegment(swSketchSegment As SldWorks.SketchSegment, swDrawing As SldWorks.DrawingDoc, _
-        swView As SldWorks.View, Append As Boolean, IsSelectMid As Boolean)
+        swView As SldWorks.View, Append As Boolean, Optional IsNearEnd As Boolean = True, Optional PercentFromEnd As Double = 0.01)
     
     Dim swSketchLine As SldWorks.SketchLine
     Set swSketchLine = swSketchSegment
@@ -1792,21 +1803,55 @@ Function SelectSketchSegment(swSketchSegment As SldWorks.SketchSegment, swDrawin
     
     Dim swEndPoint As SldWorks.SketchPoint
     Set swEndPoint = swSketchLine.GetEndPoint2
-    
+
+    Dim swCurve As SldWorks.Curve
+    Set swCurve = swSketchSegment.GetCurve
+        
+    Dim LineLength As Double
+    LineLength = swSketchSegment.GetLength
+            
+    Dim vLineParams As Variant
+    vLineParams = swCurve.LineParams
+        
+    Dim vVectorData(2) As Double
+    vVectorData(0) = vLineParams(3)
+    vVectorData(1) = vLineParams(4)
+    vVectorData(2) = vLineParams(5)
+        
+    Dim swMathVector As SldWorks.MathVector
+    Set swMathVector = swMathUtility.CreateVector(vVectorData)
+        
+    Set swMathVector = swMathVector.Normalise
+        
     Dim vSketchPoint(2) As Double
-    If IsSelectMid Then
-    
-        vSketchPoint(0) = (swStartPoint.X + swEndPoint.X) / 2
-        vSketchPoint(1) = (swStartPoint.Y + swEndPoint.Y) / 2
-        vSketchPoint(2) = (swStartPoint.Z + swEndPoint.Z) / 2
-    Else
-    
+    Dim swMathPoint As SldWorks.MathPoint
+        
+    If IsNearEnd Then
+            
         vSketchPoint(0) = swEndPoint.X
         vSketchPoint(1) = swEndPoint.Y
         vSketchPoint(2) = swEndPoint.Z
-        
+            
+        Set swMathPoint = swMathUtility.CreatePoint(vSketchPoint)
+        Set swMathVector = swMathVector.Scale(-1 * PercentFromEnd * LineLength)
+            
+    Else
+ 
+        vSketchPoint(0) = swStartPoint.X
+        vSketchPoint(1) = swStartPoint.Y
+        vSketchPoint(2) = swStartPoint.Z
+
+        Set swMathVector = swMathVector.Scale(PercentFromEnd * LineLength)
+            
     End If
-    
+        
+    Set swMathPoint = swMathUtility.CreatePoint(vSketchPoint)
+    Set swMathPoint = swMathPoint.AddVector(swMathVector)
+        
+    vSketchPoint(0) = swMathPoint.ArrayData(0)
+    vSketchPoint(1) = swMathPoint.ArrayData(1)
+    vSketchPoint(2) = swMathPoint.ArrayData(2)
+ 
     Dim vPointInSheet As Variant
     vPointInSheet = GetSketchPointInSheetSpace(swView, vSketchPoint)
     
@@ -1845,7 +1890,7 @@ End Sub
 Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View, _
         MaxCompHeight As Double, ByRef IsMakeUpExists As Boolean, subAssyCompDict As Scripting.Dictionary)
     
-    Const SheetPosForLastBalloon As Double = 0.2655
+    Const SheetPosForLastBalloon As Double = 0.266
     Const Increment As Double = 0.005
     Const MaxBalloonWidth As Double = 0.015875
     
@@ -2193,8 +2238,8 @@ Function ScaleAndInsertBottomView(swDrawing As SldWorks.DrawingDoc, swView As Sl
 
     Dim xScale As Integer
     Dim yScale As Integer
-    xScale = GetScaleValue(swView.ScaleDecimal * 0.371 / ViewWidth)
-    yScale = GetScaleValue(swView.ScaleDecimal * 0.125 / ViewHeight) '0.20995
+    xScale = GetScaleValue(ViewWidth / (swView.ScaleDecimal * 0.371))
+    yScale = GetScaleValue(ViewHeight / (swView.ScaleDecimal * 0.1295)) '0.20995
     
     Dim IsScaleSet As Boolean
     IsScaleSet = False
@@ -2233,7 +2278,7 @@ Function GetScaleValue(scaleVal As Double) As Integer
     Dim i As Integer
     For i = LBound(stdScales) To UBound(stdScales)
     
-        If stdScales(i) >= (1 / scaleVal) Then
+        If stdScales(i) >= scaleVal Then
            GetScaleValue = stdScales(i)
            Exit For
         End If
