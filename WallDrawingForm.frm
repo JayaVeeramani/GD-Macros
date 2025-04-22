@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 
 
 
+
 Option Explicit
 
 Private Sub CloseButton_Click()
@@ -26,14 +27,30 @@ End Sub
 
 Private Sub ActivateDSButton_Click()
 
-    Me.Hide
+    If Me.DisplayList.ListIndex = -1 Then
     
-    Dim DisplayStateName As String
-    DisplayStateName = Me.DisplayList.List(Me.DisplayList.ListIndex)
+         MsgBox "Please Select a Display state of the respective wall from the list", vbCritical, "Select Display State"
+         
+    Else
+        
+        If Me.WallNameComboBox.Value = "" Then
+        
+            MsgBox "Please select the Wall Name from the list", vbExclamation, "Select Wall Name"
 
-    swConfig.ApplyDisplayState DisplayStateName
-    
-    HideShowForm.Show vbModeless
+        Else
+        
+            Me.Hide
+            
+            Dim DisplayStateName As String
+            DisplayStateName = Me.DisplayList.List(Me.DisplayList.ListIndex)
+        
+            swConfig.ApplyDisplayState DisplayStateName
+            
+            HideShowForm.Show vbModeless
+            
+        End If
+        
+    End If
 
 End Sub
 
@@ -46,6 +63,7 @@ Private Sub UserForm_Initialize()
         .AddItem "Wall-C"
         .AddItem "Wall-D"
         .AddItem "Ceiling"
+        .AddItem "Roof"
         
     End With
 

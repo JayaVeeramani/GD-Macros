@@ -14,6 +14,8 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+
+
 Option Explicit
 
 Dim swMathUtility As SldWorks.MathUtility
@@ -80,6 +82,14 @@ Private Sub CreateButton_Click()
     Dim viewName As String
     viewName = GetViewName(wallName)
     
+    If viewName = "" Then
+    
+        MsgBox "View Name not selected", vbExclamation, "Not Selected!"
+        Unload Me
+        Exit Sub
+        
+    End If
+    
     Set swMathUtility = swApp.GetMathUtility
 
     Dim swViewNormalVector As SldWorks.MathVector
@@ -87,81 +97,81 @@ Private Sub CreateButton_Click()
     
     Dim swDrawing As SldWorks.DrawingDoc
     Set swDrawing = swApp.NewDocument("C:\FBD\COMMON\FBD Templates\DEFAULT\ASSEMBLY DRAWING.drwdot", 0, 0, 0)
-    
+
     Set swSketchMgr = swDrawing.SketchManager
-    
+
     Dim swSheet As SldWorks.Sheet
     Set swSheet = swDrawing.GetCurrentSheet
-    
+
     Call InsertSketchBlock(swDrawing, swSheet, ProjectNo)
     Call AddLegendBlocks(swDrawing, swSheet)
-    
+
     Dim swFrontView As SldWorks.View
     Set swFrontView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), viewName, 0.21593179, 0.19172741, 0)
-    
+
     Dim IsZChannelExists As Boolean
     Dim ViewWidth As Double
     Dim ViewHeight As Double
     Dim MaxHeightComp As IComp
     Dim CompList As IArrListObject
-    
+
     Dim cChannelList As IArrListObject
     Set cChannelList = New IArrListObject
-    
+
     Dim zChannelList As IArrListObject
     Set zChannelList = New IArrListObject
-    
+
     Set CompList = GetComponentsSortedWithYPosition(swFrontView, swDrawing, swViewNormalVector, ViewWidth, _
                 ViewHeight, MaxHeightComp, IsZChannelExists, zChannelList, cChannelList)
-    
+
     Dim IsMultipleAssembly As Boolean
     IsMultipleAssembly = CheckForMultipleAssembly(ViewWidth / swFrontView.ScaleDecimal, ViewHeight / swFrontView.ScaleDecimal)
-    
+
     Dim subAssyEndComponents As Variant
     If IsMultipleAssembly Then
 
         Call ActivateDrawingDocument(swTopLevelModel)
         SubAssyForm.Show vbModeless
-        
+
         IsSubAssyFormClicked = False
         Do While IsSubAssyFormClicked = False
-            
+
             DoEvents
-            
+
         Loop
-        
+
         subAssyEndComponents = GetSelectedComponents
         Call ActivateDrawingDocument(swDrawing)
-        
+
     End If
-    
+
     Dim swBottomView As SldWorks.View
     Set swBottomView = ScaleAndInsertBottomView(swDrawing, swFrontView, ViewWidth, ViewHeight)
-    
+
     Dim FlatCompList As Variant
     Dim DetailedCompList As Variant
     Dim MaxCompHeight As Double
     DetailedCompList = GetComponentsSortedWithXPosition(CompList.Items, FlatCompList, swFrontView, MaxCompHeight)
 
     Dim vConsolidatedList As Variant
-    
+
     Dim DoorOrHVACList As IArrListObject
     Set DoorOrHVACList = New IArrListObject
 
     vConsolidatedList = GetConsolidatedList(DetailedCompList, DoorOrHVACList)
-    
+
     Set zChannelList = GetChannelCompsWithPos(zChannelList, swFrontView)
     Set cChannelList = GetChannelCompsWithPos(cChannelList, swFrontView)
-    
+
     Call CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList, zChannelList, True)
     Call CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList, cChannelList)
-    
+
     swDrawing.ActivateView swFrontView.Name
-    
+
     Dim IsMakeUpExists As Boolean
     Dim subAssyCompDict As Scripting.Dictionary
     Set subAssyCompDict = AddSubAssyComponentsToDictionary(subAssyEndComponents)
-    
+
     Call AddCallouts(vConsolidatedList, swDrawing, swFrontView, MaxCompHeight, IsMakeUpExists, subAssyCompDict)
 
     Dim Is12GAPanelExists As Boolean
@@ -172,32 +182,32 @@ Private Sub CreateButton_Click()
 
     Dim swLeftEdge As SldWorks.Edge
     Dim swRightEdge As SldWorks.Edge
-    
+
     Dim swBottomEdge As SldWorks.Edge
     Set swBottomEdge = AddDimensionInFrontView(swFrontView, FlatCompList, DetailedCompList, MaxHeightComp, swDrawing, swLeftEdge, swRightEdge)
-    
+
     Dim FlatCompDict As Scripting.Dictionary
     Dim CompNoDict As New Scripting.Dictionary
     Set FlatCompDict = GetCompDictionary(FlatCompList, CompNoDict)
- 
+
     Dim subAssylist As IArrListObject
     Set subAssylist = New IArrListObject
-    
+
     If Not IsEmpty(subAssyEndComponents) Then
-        
+
         Dim vSubAssyComponentsIdx As Variant
         vSubAssyComponentsIdx = GetSubAssyComponentsIndexSorted(subAssyEndComponents, CompNoDict)
-        
+
         Set subAssylist = AddSplitLines(vSubAssyComponentsIdx, swDrawing, swFrontView, FlatCompDict, CompNoDict, True, swLeftEdge, swRightEdge, False)
         Call AddSplitLines(vSubAssyComponentsIdx, swDrawing, swBottomView, FlatCompDict, CompNoDict, False, swLeftEdge, swRightEdge)
 
         Call CheckAndAddDoorOrHVACAssy(subAssylist, DoorOrHVACList, CompNoDict)
-  
+
     End If
-    
+
     Dim oSubAssy As ISubAssy
     Set oSubAssy = New ISubAssy
-    
+
     Set oSubAssy.StartComp = FlatCompDict.Items(0)
     Set oSubAssy.EndComp = FlatCompDict.Items(UBound(FlatCompDict.Items))
     Set oSubAssy.StartEdge = swLeftEdge
@@ -205,19 +215,19 @@ Private Sub CreateButton_Click()
     oSubAssy.StartIdx = 0
     oSubAssy.EndIdx = UBound(FlatCompDict.Items)
     Call oSubAssy.AddDoororHVACList(DoorOrHVACList)
-    
+
     subAssylist.AddtoList oSubAssy
-    
+
     Dim NoteCount As Integer
     Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists, IsAllPanels12GA, IsZChannelExists, NoteCount, wallName)
-    
+
     Dim MaxClearance As Double
     Call AddDimensionsForDoororHVACInEachSubAssy(subAssylist, swDrawing, swFrontView, MaxClearance)
     Call AddDimensionNames(subAssylist, wallName, swFrontView)
     Call AddVerticalDimensionsForDoororHVAC(DoorOrHVACList, swFrontView, swDrawing, NoteCount)
-    
 
-    
+
+
     Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, NoteCount, swBottomEdge, MaxClearance)
     Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - MaxClearance - 0.0075)
 
@@ -815,11 +825,20 @@ Private Sub AddDimensionNames(subAssylist As IArrListObject, wallName As String,
         Set CloneList = New IArrListObject
         
         Set CloneList = subAssylist.Clone
-    
+        
+        Dim isRoof As Boolean
+        isRoof = False
+        
         If InStr(wallName, "Wall") > 0 Then
-            
+        
             CloneList.SortItems "AssyLength"
         
+        End If
+        
+        If InStr(UCase(wallName), "ROOF") > 0 Then
+        
+            isRoof = True
+            
         End If
     
         
@@ -837,17 +856,41 @@ Private Sub AddDimensionNames(subAssylist As IArrListObject, wallName As String,
             
             If Not swDisplayDim Is Nothing Then
             
-                Dim AreaInSqft As Double
-                AreaInSqft = ((oSubAssy.EndComp.xMax - oSubAssy.StartComp.xMin) * oSubAssy.GetMaxLength) - oSubAssy.TotalDoorArea
-                AreaInSqft = Round((AreaInSqft / (swView.ScaleDecimal * swView.ScaleDecimal)) * 10.7639, 2)
+                Dim AssyName As String
+                If InStr(wallName, "-") Then
                 
-                If i = UBound(vSubAssy) Then
+                    AssyName = UCase(wallName) & i + 1
+                    
+                Else
+                    
+                    AssyName = UCase(wallName) & "-" & i + 1
+                    
+                End If
                 
-                    swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "(" & AreaInSqft & " sq.ft)"
+                If isRoof Then
+                
+                    If Not i = UBound(vSubAssy) Then
+                    
+                        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, AssyName
+                        
+                    End If
                 
                 Else
                 
-                    swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, UCase(wallName) & i + 1 & vbCrLf & "(" & AreaInSqft & " sq.ft)"
+                    Dim AreaInSqft As Double
+                    AreaInSqft = ((oSubAssy.EndComp.xMax - oSubAssy.StartComp.xMin) * oSubAssy.GetMaxLength) - oSubAssy.TotalDoorArea
+                    AreaInSqft = Round((AreaInSqft / (swView.ScaleDecimal * swView.ScaleDecimal)) * 10.7639, 2)
+                    
+                    If i = UBound(vSubAssy) Then
+                        
+                        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "(" & AreaInSqft & " sq.ft)"
+                    
+                    Else
+                    
+                        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, AssyName & vbCrLf & "(" & AreaInSqft & " sq.ft)"
+                        
+                    End If
+
                     
                 End If
                 
@@ -1480,8 +1523,7 @@ Private Sub CleanUpActivateAndAddViewLabel(swDrawing As SldWorks.ModelDoc2, swVi
     
     Dim swLabelNote As SldWorks.Note
 
-    Set swLabelNote = swDrawing.CreateText2("<FONT size=10PTS style=B> $PRP:" & Chr(34) & "SHEET DESCRIPTION" & Chr(34) & _
-         vbCrLf & "<FONT size=8PTS style=R> (INTERIOR VIEW)", (vOutline(0) + vOutline(2)) / 2, yPos, 0, 0, 0)
+    Set swLabelNote = swDrawing.CreateText2(LabelText, (vOutline(0) + vOutline(2)) / 2, yPos, 0, 0, 0)
     swLabelNote.SetTextJustification swTextJustification_e.swTextJustificationCenter
     
     swDrawing.Extension.Rebuild swRebuildOptions_e.swCurrentSheetDisp
@@ -2165,7 +2207,7 @@ Private Sub SelectComponent(swDrawing As SldWorks.ModelDoc2, oComp As IComp, xPo
     
 End Sub
 
-Function GetViewName(ByRef wallName As String)
+Function GetViewName(wallName As String)
 
     Select Case wallName
         
@@ -2192,7 +2234,6 @@ Function GetViewName(ByRef wallName As String)
         Case Else
             
             ViewNameForm.Show
-            wallName = ViewNameForm.WallNameBox.Value
             GetViewName = ViewNameForm.ViewNameBox.Value
             Unload ViewNameForm
     
@@ -2201,6 +2242,30 @@ Function GetViewName(ByRef wallName As String)
 End Function
 
 Function GetViewVector(viewName As String) As Double()
+
+    Dim vViewRotation As Variant
+    vViewRotation = swTopLevelModel.Extension.GetNamedViewRotation(viewName)
+    
+    Dim swMathVector As SldWorks.MathVector
+    Set swMathVector = swMathUtility.CreateVector(zDirectionVector)
+    
+    Dim vTransformData(15) As Double
+    vTransformData(0) = vViewRotation(0)
+    vTransformData(1) = vViewRotation(1)
+    vTransformData(2) = vViewRotation(2)
+    vTransformData(3) = vViewRotation(3)
+    vTransformData(4) = vViewRotation(4)
+    vTransformData(5) = vViewRotation(5)
+    vTransformData(6) = vViewRotation(6)
+    vTransformData(7) = vViewRotation(7)
+    vTransformData(8) = vViewRotation(8)
+    'vTransformData(15) = 1
+    
+    Dim swMathTransform As SldWorks.MathTransform
+    Set swMathTransform = swMathUtility.CreateTransform(vTransformData)
+    
+    Set swMathVector = swMathVector.MultiplyTransform(swMathTransform.Inverse)
+    
 
     Select Case viewName
         
@@ -2227,6 +2292,14 @@ Function GetViewVector(viewName As String) As Double()
         Case "*Bottom"
             
             GetViewVector = GetOppositeVector(yDirectionVector)
+            
+        Case Else
+            
+            
+
+           GetViewVector = GetOppositeVector(swMathVector.ArrayData)
+           
+           
     
     End Select
        
@@ -2601,6 +2674,8 @@ Function GetNormalFaces(vFaces As Variant, CompTransform As IMathTransform, _
         Dim swSurface As SldWorks.Surface
         Set swSurface = swFace.GetSurface
         
+        Set swViewNormalVector = swViewNormalVector.Normalise
+        
         Dim swFaceNormalVector As SldWorks.MathVector
         Set swFaceNormalVector = swMathUtility.CreateVector(swFace.Normal)
         
@@ -2608,7 +2683,22 @@ Function GetNormalFaces(vFaces As Variant, CompTransform As IMathTransform, _
         Set swFaceNormalVector = swFaceNormalVector.Normalise
         
         Dim Angle As Double
-        Angle = Arccos(swFaceNormalVector.Dot(swViewNormalVector)) * 180# / 3.14159265359
+        Dim DotProduct As Double
+        DotProduct = swFaceNormalVector.Dot(swViewNormalVector)
+        
+        If DotProduct >= 1 Then
+        
+            Angle = Arccos(Int(DotProduct)) * 180# / 3.14159265359
+            
+        ElseIf DotProduct <= -1 Then
+        
+            Angle = Arccos(Int(DotProduct) + 1) * 180# / 3.14159265359
+        
+        Else
+        
+            Angle = Arccos(DotProduct) * 180# / 3.14159265359
+            
+        End If
  
         If swSurface.IsPlane And Angle <= 0.01 Then
             
