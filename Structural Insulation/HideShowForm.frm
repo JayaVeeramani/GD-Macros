@@ -13,10 +13,6 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-
-
-
-
 Option Explicit
 
 
@@ -24,6 +20,7 @@ Dim swSketchMgr As SldWorks.SketchManager
 Dim xDirectionVector(2) As Double
 Dim yDirectionVector(2) As Double
 Dim zDirectionVector(2) As Double
+Const SheetBorderTop As Double = 0.27030866
 
 
 Private Sub CloseButton_Click()
@@ -88,7 +85,7 @@ Private Sub CreateButton_Click()
     Call InsertSketchBlock(swDrawing, swSheet, ProjectNo)
 
     Dim swFrontView As SldWorks.View
-    Set swFrontView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), viewName, 0.21593179, 0.17172741, 0)
+    Set swFrontView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), viewName, 0.21593179, 0.16172741, 0)
 
     Dim ViewWidth As Double
     Dim ViewHeight As Double
@@ -109,7 +106,7 @@ Private Sub CreateButton_Click()
         SubAssyForm.Show vbModeless
 
         IsSubAssyFormClicked = False
-        Do While IsSubAssyFormClicked = False
+        Do While (IsSubAssyFormClicked = False)
 
             DoEvents
 
@@ -174,32 +171,93 @@ Private Sub CreateButton_Click()
 
     Call AddOverallDimension(oSubAssy, swDrawing, swFrontView, 0.01)
 
-
     Dim NoteCount As Integer
     'Call AddStructuralNotes(swDrawing, swSheet, wallName)
+    
+    Dim swLeftSketch As SldWorks.SketchSegment
+    Dim swRightSketch As SldWorks.SketchSegment
 
-
-    Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, swBottomEdge, 0.01)
+    Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, swBottomEdge, 0.01, swLeftSketch, swRightSketch)
     Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - 0.02)
+    
+    If Not swInsulationComp Is Nothing Then
+
+        swInsulationComp.ExcludeFromBOM = False
+        Call AddViewAndWeldTable(swInsulationComp, swDrawing, swFrontView, MaxHeightComp.yMax, _
+            Abs(oSubAssy.EndComp.xMax - oSubAssy.StartComp.xMin))
+            
+        
+        Call AddInsulationHatches(swInsulationComp, swBottomView, swDrawing)
+
+        Dim SolidBodyList As IArrListObject
+        Set SolidBodyList = GetSolidBodyList(swInsulationComp, swFrontView, swDrawing)
+         
+        Call AddDimensionFromEnd(SolidBodyList.Items, swLeftSketch, oSubAssy.StartEdge, swFrontView, swInsulationComp, swDrawing)
+        Call AddDimensionFromEnd(SolidBodyList.Items, swRightSketch, oSubAssy.EndEdge, swFrontView, swInsulationComp, swDrawing, False)
+        
+    End If
     
     Call AddCastingSketchAndNote(oSubAssy.EndComp, swBottomView, swSketchMgr, swDrawing)
     
-    If Not swInsulationComp Is Nothing Then
-    
-        Call AddViewAndWeldTable(swInsulationComp, swDrawing)
-        
-        Dim SolidBodyList As IArrListObject
-        Set SolidBodyList = GetSolidBodyList(swInsulationComp, swFrontView, swDrawing)
-        
-    End If
-
     swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, True
 
     Unload Me
 
 End Sub
 
-Private Sub AddViewAndWeldTable(swComp As SldWorks.Component2, swDrawing As SldWorks.DrawingDoc)
+Sub UpdateHatchProperties(swView As SldWorks.View)
+    
+    Dim swSketch As SldWorks.Sketch
+    Set swSketch = swView.GetSketch
+    
+    Dim vSketchHatches As Variant
+    vSketchHatches = swSketch.GetSketchHatches
+            
+    If Not IsEmpty(vSketchHatches) Then
+            
+        Dim i As Integer
+        For i = LBound(vSketchHatches) To UBound(vSketchHatches)
+                
+            Dim swSketchHatch As SldWorks.SketchHatch
+            Set swSketchHatch = vSketchHatches(i)
+                    
+            swSketchHatch.Pattern = "ANSI32 (Steel)"
+            swSketchHatch.Scale2 = swView.ScaleDecimal * 3
+                
+        Next i
+                
+    End If
+
+End Sub
+
+Private Sub AddInsulationHatches(swInsulationComp As SldWorks.Component2, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc)
+    
+    swDrawing.ClearSelection2 True
+    
+    Dim vFaces As Variant
+    vFaces = swView.GetVisibleEntities2(swInsulationComp, swViewEntityType_e.swViewEntityType_Face)
+    
+    If Not IsEmpty(vFaces) Then
+    
+        Dim i As Integer
+        For i = LBound(vFaces) To UBound(vFaces)
+    
+            Dim swFace As SldWorks.Face2
+            Set swFace = vFaces(i)
+            
+            swView.SelectEntity swFace, True
+            
+        Next i
+        
+        swDrawing.InsertHatchedFace
+        Call UpdateHatchProperties(swView)
+        
+    End If
+
+End Sub
+
+Private Sub AddViewAndWeldTable(swComp As SldWorks.Component2, swDrawing As SldWorks.DrawingDoc, _
+        swView As SldWorks.View, MaxCompHeight As Double, PanelsWidth As Double)
 
     Dim swDummyInsView As SldWorks.View
     Set swDummyInsView = swDrawing.CreateDrawViewFromModelView3(swComp.GetModelDoc2().GetPathName(), "*Top", 0.769, 0.17172741, 0)
@@ -207,7 +265,7 @@ Private Sub AddViewAndWeldTable(swComp As SldWorks.Component2, swDrawing As SldW
     If Not swDummyInsView Is Nothing Then
         
         Dim swWeldTableAnn As SldWorks.WeldmentCutListAnnotation
-        Set swWeldTableAnn = swDummyInsView.InsertWeldmentTable(False, 0.01590679, 0.27030866, _
+        Set swWeldTableAnn = swDummyInsView.InsertWeldmentTable(False, 0.01590679, SheetBorderTop, _
                     swBOMConfigurationAnchorType_e.swBOMConfigurationAnchor_TopLeft, "", "C:\FBD\COMMON\FBD Templates\METAL 6 SERIES INSULATION CUTLIST TABLE.sldwldtbt")
                     
         If Not swWeldTableAnn Is Nothing Then
@@ -219,15 +277,102 @@ Private Sub AddViewAndWeldTable(swComp As SldWorks.Component2, swDrawing As SldW
             Set swAnn = swTableAnn.GetAnnotation
                 
             swAnn.Select3 False, Nothing
+            
+            swTableAnn.MoveColumn 0, swTableItemInsertPosition_e.swTableItemInsertPosition_After, 1
                 
-            swWeldTableAnn.Sort 5, False
-            swWeldTableAnn.Sort 4, False
+            swWeldTableAnn.Sort 1, True
+            swTableAnn.MoveColumn 1, swTableItemInsertPosition_e.swTableItemInsertPosition_Before, 0
+            
+            Call SplitTableIfNeeded(swTableAnn, swView, MaxCompHeight, PanelsWidth)
 
         End If
         
     End If
 
 End Sub
+
+Private Sub SplitTableIfNeeded(swTableAnn As SldWorks.TableAnnotation, swView As SldWorks.View, MaxCompHeight As Double, PanelsWidth As Double)
+
+    Dim rowHeight As Double
+    rowHeight = swTableAnn.GetRowHeight(0)
+    
+    Dim ViewMaxLoc As Double
+    ViewMaxLoc = MaxCompHeight + swView.ScaleDecimal * 16 * 0.0254
+    
+    Dim ViewTopGap As Double
+    ViewTopGap = SheetBorderTop - ViewMaxLoc - 0.01
+    
+    Dim TableWidth As Double
+    TableWidth = GetTableWidth(swTableAnn)
+    
+    If (TableWidth + 0.06 + PanelsWidth) > 0.40005 Then
+        
+        Dim i As Integer
+        Dim NoOfRows As Integer
+        NoOfRows = Int(ViewTopGap / rowHeight)
+        
+        Dim MaxNoOfSplits As Integer
+        MaxNoOfSplits = 2
+        
+        If Int(swTableAnn.RowCount / NoOfRows) < MaxNoOfSplits Then
+            
+            MaxNoOfSplits = Int(swTableAnn.RowCount / NoOfRows)
+            
+        Else
+            
+            NoOfRows = Int(swTableAnn.RowCount / (MaxNoOfSplits + 1)) + 1
+            
+        End If
+        
+        For i = 1 To MaxNoOfSplits
+
+            Set swTableAnn = swTableAnn.Split(swTableSplitLocations_e.swTableSplit_AfterRow, i * (NoOfRows - 1))
+            
+            If Not swTableAnn Is Nothing Then
+            
+                Dim swAnn As SldWorks.Annotation
+                Set swAnn = swTableAnn.GetAnnotation()
+                
+                swAnn.SetPosition2 0.01590679 + i * (TableWidth + 0.005), SheetBorderTop, 0
+                
+            End If
+        
+        
+        Next i
+    
+    
+    End If
+    
+
+End Sub
+Private Function GetColIdx(ColName As String, swTable As SldWorks.TableAnnotation)
+
+    Dim i As Integer
+    For i = 0 To swTable.ColumnCount - 1
+        
+        If swTable.Text(0, i) = ColName Then
+        
+            GetColIdx = i
+            Exit For
+            
+        End If
+    
+    Next i
+    
+End Function
+Private Function GetTableWidth(swTable As SldWorks.TableAnnotation) As Double
+
+    GetTableWidth = 0
+    
+    Dim i As Integer
+    For i = 0 To swTable.ColumnCount - 1
+        
+        GetTableWidth = GetTableWidth + swTable.GetColumnWidth(i)
+            
+    Next i
+    
+End Function
+
 
 Private Function GetSolidBodyList(swComp As SldWorks.Component2, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc) As IArrListObject
 
@@ -247,6 +392,10 @@ Private Function GetSolidBodyList(swComp As SldWorks.Component2, swView As SldWo
 
     vBodies = swComp.GetBodies3(swBodyType_e.swSolidBody, vBodiesInfo)
     
+    Dim vFaces As Variant
+    vFaces = swView.GetVisibleEntities2(swComp, swViewEntityType_e.swViewEntityType_Face)
+
+    
     If Not IsEmpty(vBodies) Then
 
         Dim i As Integer
@@ -262,39 +411,55 @@ Private Function GetSolidBodyList(swComp As SldWorks.Component2, swView As SldWo
             
             GetSolidBodyList.AddtoList oBody
             
-            Dim IsSelected As Boolean
-            IsSelected = swDrawing.Extension.SelectByID2("", "EDGE", (oBody.xMin + oBody.xMax) / 2, oBody.yMax, _
-                    0, False, -1, Nothing, 1)
-                    
-            If IsSelected Then
+            If Not IsEmpty(vFaces) Then
             
-                Dim swSelectMgr As SldWorks.SelectionMgr
-                Set swSelectMgr = swDrawing.SelectionManager
-        
-                Dim swCompCheck As SldWorks.DrawingComponent
-                Set swCompCheck = swSelectMgr.GetSelectedObjectsComponent4(2, -1)
+                Dim swFace As SldWorks.Face2
+                Set swFace = GetFaceOfTheBody(vFaces, swBody)
                 
-                If (Right(swCompCheck.Name, Len(swCompCheck.Name) - InStrRev(swCompCheck.Name, "/")) = _
-                    Right(swComp.Name2, Len(swComp.Name2) - InStrRev(swComp.Name2, "/"))) Then
+                swView.SelectEntity swFace, False
             
-                    Dim swNote As SldWorks.Note
-                    Set swNote = swDrawing.Extension.InsertBOMBalloon2(swBalloonParams)
+
+            
+'            Dim IsSelected As Boolean
+'            IsSelected = swDrawing.Extension.SelectByID2("", "EDGE", (oBody.xMin + oBody.xMax) / 2, oBody.yMax, _
+'                    0, False, -1, Nothing, 1)
                     
-                    swNote.PropertyLinkedText = "$PRPWLD:" & Chr(34) & "ITEM NO" & Chr(34)
-            
+'            If IsSelected Then
+'
+'                Dim swSelectMgr As SldWorks.SelectionMgr
+'                Set swSelectMgr = swDrawing.SelectionManager
+'
+'                Dim swCompCheck As SldWorks.DrawingComponent
+'                Set swCompCheck = swSelectMgr.GetSelectedObjectsComponent4(2, -1)
+'
+'                If (Right(swCompCheck.Name, Len(swCompCheck.Name) - InStrRev(swCompCheck.Name, "/")) = _
+'                    Right(swComp.Name2, Len(swComp.Name2) - InStrRev(swComp.Name2, "/"))) Then
+'
+'                    Dim swNote As SldWorks.Note
+'                    Set swNote = swDrawing.Extension.InsertBOMBalloon2(swBalloonParams)
+'
+'                    swNote.PropertyLinkedText = "$PRPWLD:" & Chr(34) & "ITEM NO" & Chr(34)
+'
+'                End If
+'
+'            End If
+
+                Dim swNote As SldWorks.Note
+                Set swNote = swDrawing.Extension.InsertBOMBalloon2(swBalloonParams)
+    
+                swNote.PropertyLinkedText = "$PRPWLD:" & Chr(34) & "ITEM NO" & Chr(34)
+                
+                If Not swNote Is Nothing Then
+                
+                    Dim swAnn As SldWorks.Annotation
+                    Set swAnn = swNote.GetAnnotation
+                    
+                    swAnn.SetPosition2 (oBody.xMin + oBody.xMax) / 2, (oBody.yMin + oBody.yMax) / 2, 0
+                    swAnn.SetLeader3 swLeaderStyle_e.swNO_LEADER, swLeaderSide_e.swLS_SMART, False, False, True, False
+     
+                    
                 End If
             
-            End If
-            
-            If Not swNote Is Nothing Then
-            
-                Dim swAnn As SldWorks.Annotation
-                Set swAnn = swNote.GetAnnotation
-                
-                swAnn.SetPosition2 (oBody.xMin + oBody.xMax) / 2, , (oBody.yMin + oBody.yMax) / 2, 0
-                swAnn.SetLeader3 swLeaderStyle_e.swNO_LEADER, swLeaderSide_e.swLS_SMART, False, False, True, False
- 
-                
             End If
              
         Next i
@@ -305,21 +470,29 @@ Private Function GetSolidBodyList(swComp As SldWorks.Component2, swView As SldWo
     
 End Function
 
-Private Function GetColIdx(ColName As String, swTable As SldWorks.TableAnnotation)
+Private Function GetFaceOfTheBody(vFaces As Variant, swBody As SldWorks.Body2) As SldWorks.Face2
 
     Dim i As Integer
-    For i = 0 To swTable.ColumnCount - 1
+    For i = LBound(vFaces) To UBound(vFaces)
+    
+        Dim swFace As SldWorks.Face2
+        Set swFace = vFaces(i)
         
-        If swTable.Text(0, i) = ColName Then
+        Dim swFaceBody As SldWorks.Body2
+        Set swFaceBody = swFace.GetBody
         
-            GetColIdx = i
+        If swFaceBody.Name = swBody.Name Then
+        
+            Set GetFaceOfTheBody = swFace
             Exit For
             
         End If
-    
+
     Next i
-    
+
 End Function
+
+
 
 Private Sub UpdateMaxMinPoints(vComps As Variant, swView As SldWorks.View)
 
@@ -425,7 +598,8 @@ Sub CheckandAddLayer(LayName As String, LayerDesc As String, swLayerMgr As SldWo
 End Sub
 
 Private Sub SketchLineForNonCornerPanels(swView As SldWorks.View, wallName As String, _
-        swDrawing As SldWorks.ModelDoc2, oSubAssy As ISubAssy, swBottomEdge As SldWorks.Edge, ByRef MaxClearance As Double)
+        swDrawing As SldWorks.ModelDoc2, oSubAssy As ISubAssy, swBottomEdge As SldWorks.Edge, _
+            ByRef MaxClearance As Double, ByRef swStartSketch As SldWorks.SketchSegment, ByRef swEndSketch As SldWorks.SketchSegment)
     
     swDrawing.ActivateView swView.Name
     
@@ -443,9 +617,6 @@ Private Sub SketchLineForNonCornerPanels(swView As SldWorks.View, wallName As St
         Set swControlSketch = GetControlSketch
         
         Dim PlaneName As String
-        
-        Dim swStartSketch As SldWorks.SketchSegment
-        Dim swEndSketch As SldWorks.SketchSegment
         
         If Not InStr(oSubAssy.StartComp.GetCustomProperty("Profile"), "CORNER") > 0 Then
         
@@ -500,10 +671,63 @@ Private Sub SketchLineForNonCornerPanels(swView As SldWorks.View, wallName As St
             swDisplayDim.SetDual2 False, False
             
         End If
+        
 
     End If
     
 
+End Sub
+
+Private Sub AddDimensionFromEnd(vSolidBodies As Variant, swSketchLine As SldWorks.SketchSegment, _
+        swEdge As SldWorks.Edge, swView As SldWorks.View, swComp As SldWorks.Component2, swDrawing As SldWorks.DrawingDoc, _
+        Optional IsStart As Boolean = True)
+        
+    If Not IsEmpty(vSolidBodies) Then
+        
+        If swSketchLine Is Nothing Then
+            
+            Call SelectEntity(swEdge, False, swView)
+                
+        Else
+        
+            swSketchLine.Select4 False, Nothing
+                
+        End If
+        
+        Dim swBodyEdge As SldWorks.Edge
+        Dim oBody As ISolidBody
+        Dim xPos As Double
+        
+        If IsStart Then
+        
+            Set oBody = vSolidBodies(0)
+            xPos = oBody.xMin - 0.015
+            Set swBodyEdge = GetEdgeInViewForBody(swComp, oBody, swView, False, False)
+            
+        Else
+        
+            
+            Set oBody = vSolidBodies(UBound(vSolidBodies))
+            xPos = oBody.xMax + 0.015
+            Set swBodyEdge = GetEdgeInViewForBody(swComp, oBody, swView, False, True)
+            
+        End If
+        
+        Call SelectEntity(swBodyEdge, True, swView)
+        
+        Dim swDisplayDim As SldWorks.DisplayDimension
+        Set swDisplayDim = swDrawing.AddHorizontalDimension2(xPos, oBody.yMin + 0.01, 0)
+        
+        If Not swDisplayDim Is Nothing Then
+
+            swDisplayDim.CenterText = True
+            swDisplayDim.ShowParenthesis = True
+            
+        End If
+        
+    End If
+            
+    
 End Sub
 
 Private Function CreateSketchLinesForNonCornerPanels(PlaneName As String, viewDrawComp As SldWorks.DrawingComponent, swControlSketch As SldWorks.Component2, _
@@ -744,7 +968,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 
                 Set oSubAssy = New ISubAssy
                 Set swDisplayDim = SelectAndAddDimension(swLeftEdge, swEdge, swDrawing, _
-                                oComp.xMin - 0.01, vSheetPoint(1) - 0.005, swView)
+                                oComp.xMin - 0.01, vSheetPoint(1) - 0.005, swView, IsParanthesis:=True)
                                 
                 Set oSubAssy.StartEdge = swLeftEdge
                 Set oSubAssy.EndEdge = swEdge
@@ -756,7 +980,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
             
                 Set oSubAssy = New ISubAssy
                 Set swDisplayDim = SelectAndAddDimension(subAssylist.Items(UBound(subAssylist.Items)).EndEdge, swEdge, swDrawing, _
-                                oComp.xMin - 0.01, vSheetPoint(1) - 0.005, swView)
+                                oComp.xMin - 0.01, vSheetPoint(1) - 0.005, swView, IsParanthesis:=True)
                                 
                 Set oSubAssy.StartEdge = subAssylist.Items(UBound(subAssylist.Items)).EndEdge
                 Set oSubAssy.EndEdge = swEdge
@@ -1004,18 +1228,18 @@ Private Function GetClearance(oComp As IComp) As Double
 
     If InStr(oComp.GetCustomProperty("Profile"), "CORNER") > 0 Then
         
-        GetClearance = 0.01
+        GetClearance = 0.02
         
     Else
         
-        GetClearance = 0.02
+        GetClearance = 0.025
         
     End If
         
 End Function
 
 Private Function SelectAndAddDimension(swEdge1 As SldWorks.Edge, swEdge2 As SldWorks.Edge, swDrawing As SldWorks.ModelDoc2, _
-            xPos As Double, yPos As Double, swView As SldWorks.View, Optional IsDual As Boolean = True) As SldWorks.DisplayDimension
+            xPos As Double, yPos As Double, swView As SldWorks.View, Optional IsDual As Boolean = True, Optional IsParanthesis As Boolean = False) As SldWorks.DisplayDimension
     
     If Not (swEdge1 Is Nothing) And Not (swEdge2 Is Nothing) Then
         
@@ -1032,6 +1256,12 @@ Private Function SelectAndAddDimension(swEdge1 As SldWorks.Edge, swEdge2 As SldW
             If IsDual Then
             
                 SelectAndAddDimension.SetDual2 False, False
+                
+            End If
+            
+            If IsParanthesis Then
+            
+                SelectAndAddDimension.ShowParenthesis = True
                 
             End If
             
@@ -1308,6 +1538,123 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
                         
                         TempLength = swCurve.GetLength2(vCurveParam(6), vCurveParam(7))
                         Set GetEdgeInView = swEdge
+                        
+                    End If
+                    
+                End If
+            
+            End If
+            
+        Next i
+
+    End If
+
+End Function
+
+Function GetEdgeInViewForBody(swComp As SldWorks.Component2, oBody As ISolidBody, swView As SldWorks.View, _
+    IsHorizontal As Boolean, IsMax As Boolean, Optional CheckAllVisibleEdgesOnly As Boolean = True) As SldWorks.Edge
+    
+    
+    Dim xMin As Double
+    Dim yMin As Double
+    Dim xMax As Double
+    Dim yMax As Double
+    
+    Dim vPointMin(2) As Double
+    vPointMin(0) = oBody.xMin
+    vPointMin(1) = oBody.yMin
+    vPointMin(2) = oBody.zMin
+    
+    Dim vPointMax(2) As Double
+    vPointMax(0) = oBody.xMax
+    vPointMax(1) = oBody.yMax
+    vPointMax(2) = oBody.zMax
+    
+    Dim vViewPointMin As Variant
+    vViewPointMin = GetSheetPointInViewSpace(swView, vPointMin)
+   
+    Dim vViewPointMax As Variant
+    vViewPointMax = GetSheetPointInViewSpace(swView, vPointMax)
+    
+    Call StrucutralElevationInsulation.GetMaxMinPoint(vViewPointMin(0), vViewPointMax(0), xMin, xMax)
+    Call StrucutralElevationInsulation.GetMaxMinPoint(vViewPointMin(1), vViewPointMax(1), yMin, yMax)
+    
+    Dim idx As Integer
+    Dim ValToMatch As Double
+    If IsHorizontal Then
+        
+        idx = 1
+        If IsMax Then
+        
+            ValToMatch = yMax
+            
+        Else
+        
+             ValToMatch = yMin
+             
+        End If
+        
+    Else
+    
+        idx = 0
+        
+        If IsMax Then
+        
+            ValToMatch = xMax
+            
+        Else
+        
+             ValToMatch = xMin
+             
+        End If
+        
+    End If
+
+     Dim TempLength As Double
+     TempLength = 0
+        
+
+    Dim vEnts As Variant
+    If CheckAllVisibleEdgesOnly Then
+    
+        vEnts = swView.GetVisibleEntities2(swComp, swViewEntityType_e.swViewEntityType_Edge)
+        
+    Else
+    
+        vEnts = oBody.GetBody.GetEdges
+        
+    End If
+
+    If Not IsEmpty(vEnts) Then
+    
+        Dim i As Integer
+        For i = LBound(vEnts) To UBound(vEnts)
+        
+            Dim swEdge As SldWorks.Edge
+            Set swEdge = vEnts(i)
+
+            Dim swCurve As SldWorks.Curve
+            Set swCurve = swEdge.GetCurve
+            
+            If swCurve.IsLine Then
+            
+                Dim vStartPoint As Variant
+                vStartPoint = swEdge.GetStartVertex.GetPoint
+                vStartPoint = GetComponentPointInViewSpace(swComp, vStartPoint, swView)
+                
+                Dim vEndPoint As Variant
+                vEndPoint = swEdge.GetEndVertex.GetPoint
+                vEndPoint = GetComponentPointInViewSpace(swComp, vEndPoint, swView)
+                
+                If Abs(vStartPoint(idx) - vEndPoint(idx)) <= 0.00001 And Abs(vStartPoint(idx) - ValToMatch) <= 0.00001 Then
+                    
+                    Dim vCurveParam As Variant
+                    vCurveParam = swEdge.GetCurveParams2
+                    
+                    If swCurve.GetLength2(vCurveParam(6), vCurveParam(7)) > TempLength Then
+                        
+                        TempLength = swCurve.GetLength2(vCurveParam(6), vCurveParam(7))
+                        Set GetEdgeInViewForBody = swEdge
                         
                     End If
                     

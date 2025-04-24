@@ -134,8 +134,8 @@ End Property
 
 
 
-Sub Initialize(swComp As IComponent2, MinPoint As Variant, MaxPoint As Variant, _
-            ModelMinPoint As Variant, ModelMaxPoint As Variant)
+Sub Initialize(swComp As IComponent2, Optional MinPoint As Variant, Optional MaxPoint As Variant, _
+            Optional ModelMinPoint As Variant, Optional ModelMaxPoint As Variant)
 
     Set cComp = swComp
     
