@@ -14,6 +14,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+
 Option Explicit
 
 
@@ -86,7 +87,7 @@ Private Sub CreateButton_Click()
     Call InsertSketchBlock(swDrawing, swSheet, ProjectNo)
 
     Dim swFrontView As SldWorks.View
-    Set swFrontView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), viewName, 0.21593179, 0.16172741, 0)
+    Set swFrontView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), viewName, 0.21593179, 0.15772741, 0)
 
     Dim ViewWidth As Double
     Dim ViewHeight As Double
@@ -186,16 +187,17 @@ Private Sub CreateButton_Click()
         swInsulationComp.ExcludeFromBOM = False
         Call AddViewAndWeldTable(swInsulationComp, swDrawing, swFrontView, MaxHeightComp.yMax, _
             Abs(oSubAssy.EndComp.xMax - oSubAssy.StartComp.xMin))
-            
-        
-        Call AddInsulationHatches(swInsulationComp, swBottomView, swDrawing)
 
         Dim SolidBodyList As IArrListObject
         Set SolidBodyList = GetSolidBodyList(swInsulationComp, swFrontView, swDrawing)
          
-        Call AddDimensionFromEnd(SolidBodyList.Items, swLeftSketch, oSubAssy.StartEdge, swFrontView, swInsulationComp, swDrawing)
-        Call AddDimensionFromEnd(SolidBodyList.Items, swRightSketch, oSubAssy.EndEdge, swFrontView, swInsulationComp, swDrawing, False)
+        Call AddDimensionFromEnd(SolidBodyList.Items, swLeftSketch, oSubAssy.StartEdge, swFrontView, swInsulationComp, swDrawing, oSubAssy.StartComp.yMin)
+        Call AddDimensionFromEnd(SolidBodyList.Items, swRightSketch, oSubAssy.EndEdge, swFrontView, swInsulationComp, swDrawing, oSubAssy.StartComp.yMin, False)
         
+        Call AddInsulationMaterialNote(swInsulationComp, SolidBodyList, swBottomView, swDrawing)
+        Call AddInsulationHatches(swInsulationComp, swBottomView, swDrawing)
+        
+        Call AddCrossMark(swInsulationComp, SolidBodyList, swFrontView, swDrawing)
     End If
     
     Call AddCastingSketchAndNote(oSubAssy.EndComp, swBottomView, swSketchMgr, swDrawing)
@@ -204,6 +206,124 @@ Private Sub CreateButton_Click()
 
     Unload Me
     
+
+End Sub
+
+Sub AddCrossMark(swInsulationComp As SldWorks.Component2, SolidBodyList As IArrListObject, _
+                swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc)
+                
+    Dim vAssyCutFeatures As Variant
+    vAssyCutFeatures = GetAssyCutFeaturesIfAny(swInsulationComp)
+    
+    
+    
+
+End Sub
+
+Function GetAssyCutFeaturesIfAny(swComp As SldWorks.Component2) As Variant
+
+    Dim CutFeaturesDict As Scripting.Dictionary
+    Set CutFeaturesDict = New Scripting.Dictionary
+    
+    Debug.Print swComp.Name2
+    
+    Dim swFeatManager As SldWorks.FeatureManager
+    Set swFeatManager = 0
+
+'    Dim i As Integer
+'    For i = LBound(vSolidBodies) To UBound(vSolidBodies)
+'
+'        Dim oBody As ISolidBody
+'        Set oBody = vSolidBodies(i)
+'
+'        Dim vFeats As Variant
+'        vFeats = oBody.GetBody.GetFeatures
+'
+'        Dim j As Integer
+'        For j = LBound(vFeats) To UBound(vFeats)
+'
+'            Dim swFeat As SldWorks.Feature
+'            Set swFeat = vFeats(j)
+'
+'            Debug.Print swFeat.Name
+'            Debug.Print swFeat.GetTypeName2
+'
+'            If swFeat.GetTypeName2 = "Cut" Then
+'
+'                If Not CutFeaturesDict.Exists(swFeat.Name) Then
+'
+'                    CutFeaturesDict.Add swFeat.Name, swFeat
+'
+'                End If
+'
+'            End If
+'
+'        Next j
+'
+'    Next i
+
+End Function
+
+
+Sub AddInsulationMaterialNote(swInsulationComp As SldWorks.Component2, SolidBodyList As IArrListObject, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc)
+    
+    swDrawing.ClearSelection2 True
+    swDrawing.ActivateView swView.Name
+    
+    Dim MaterialName As String
+    MaterialName = swInsulationComp.GetModelDoc2().MaterialIdName
+    
+    If MaterialName = "" Then
+    
+        MaterialName = "INSULATION"
+        
+    End If
+    
+    Dim StringPos As Integer
+    StringPos = InStr(MaterialName, "|")
+    
+    If StringPos > 0 Then
+
+        MaterialName = Right(MaterialName, Len(MaterialName) - StringPos)
+
+    End If
+    
+    Dim oBodyInFrontView As ISolidBody
+    Set oBodyInFrontView = SolidBodyList.Items(UBound(SolidBodyList.Items))
+
+    Dim oEndBody As ISolidBody
+    Set oEndBody = New ISolidBody
+    
+    oEndBody.Initialize oBodyInFrontView.GetBody, swInsulationComp, swView
+    
+    Dim vFaces As Variant
+    vFaces = swView.GetVisibleEntities2(swInsulationComp, swViewEntityType_e.swViewEntityType_Face)
+    
+    Dim IsSelected As Boolean
+    Dim xPos As Double
+    xPos = (oEndBody.xMax + oEndBody.xMin) / 2
+    
+    Dim yPos As Double
+    yPos = (oEndBody.yMax + oEndBody.yMin) / 2
+    
+    IsSelected = SelectFaceWithPosition(swDrawing, oEndBody, xPos, yPos)
+    
+    If False = IsSelected Then
+    
+        Call SelectFaceOfTheBody(vFaces, oEndBody, swDrawing, swView, False)
+        xPos = oEndBody.xMax
+        
+    End If
+    
+    Dim swAnn As SldWorks.Annotation
+    Set swAnn = AddNoteToView(swDrawing, UCase(MaterialName), xPos + 0.005, yPos + 0.00625)
+    
+    swAnn.SetLeader3 swLeaderStyle_e.swBENT, swLeaderSide_e.swLS_SMART, False, False, True, False
+    
+    Dim HeadStyle As Integer
+    HeadStyle = swAnn.SetArrowHeadStyleAtIndex(0, swArrowStyle_e.swCLOSED_ARROWHEAD)
+    
+  
 
 End Sub
 
@@ -339,21 +459,25 @@ Private Sub SplitTableIfNeeded(swTableAnn As SldWorks.TableAnnotation, swView As
             
         End If
         
-        For i = 1 To MaxNoOfSplits
-
-            Set swTableAnn = swTableAnn.Split(swTableSplitLocations_e.swTableSplit_AfterRow, i * (NoOfRows - 1))
-            
-            If Not swTableAnn Is Nothing Then
-            
-                Dim swAnn As SldWorks.Annotation
-                Set swAnn = swTableAnn.GetAnnotation()
-                
-                swAnn.SetPosition2 0.01590679 + i * (TableWidth + 0.005), SheetBorderTop, 0
-                
-            End If
+        If Abs(swTableAnn.RowCount - NoOfRows) > 2 Then
         
-        
-        Next i
+            For i = 1 To MaxNoOfSplits
+    
+                Set swTableAnn = swTableAnn.Split(swTableSplitLocations_e.swTableSplit_AfterRow, i * (NoOfRows - 1))
+                
+                If Not swTableAnn Is Nothing Then
+                
+                    Dim swAnn As SldWorks.Annotation
+                    Set swAnn = swTableAnn.GetAnnotation()
+                    
+                    swAnn.SetPosition2 0.01590679 + i * (TableWidth + 0.005), SheetBorderTop, 0
+                    
+                End If
+            
+            
+            Next i
+            
+        End If
     
     
     End If
@@ -388,12 +512,11 @@ Private Function GetTableWidth(swTable As SldWorks.TableAnnotation) As Double
     
 End Function
 
-
 Private Function GetSolidBodyList(swComp As SldWorks.Component2, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc) As IArrListObject
-
-    Set GetSolidBodyList = New IArrListObject
     
-    Const BalloonWidth As Double = 0.005
+    swDrawing.ActivateView swView.Name
+    
+    Set GetSolidBodyList = New IArrListObject
     
     Dim swBalloonParams As SldWorks.BalloonOptions
     Set swBalloonParams = swDrawing.Extension.CreateBalloonOptions()
@@ -424,52 +547,31 @@ Private Function GetSolidBodyList(swComp As SldWorks.Component2, swView As SldWo
             oBody.Initialize swBody, swComp, swView
             
             GetSolidBodyList.AddtoList oBody
+           
+            Dim xPos As Double
+            Dim yPos As Double
+            
+            Dim annYPos As Double
+            
+            xPos = (oBody.xMin + oBody.xMax) / 2
+            yPos = (oBody.yMin + oBody.yMax) / 2
+            annYPos = yPos '0.9 * oBody.yMax - 0.1 * oBody.yMin
+            
+            Dim IsSelected As Boolean
             
             If Abs(oBody.xMax - oBody.xMin) <= 0.01 Or Abs(oBody.yMax - oBody.yMin) <= 0.01 Then
             
-            
-            
-            Else
-            
-            End If
-            
-            
-            If Not IsEmpty(vFaces) Then
-            
-                Dim swFace As SldWorks.Face2
-                Set swFace = GetFaceOfTheBody(vFaces, swBody)
-                
-                swView.SelectEntity swFace, False
-                
-            End If
-            
-                
-            
+                yPos = 0.7 * oBody.yMax + 0.3 * oBody.yMin
+                annYPos = yPos + 0.01
+                IsSelected = SelectFaceWithPosition(swDrawing, oBody, xPos, yPos)
 
+            Else
+
+                IsSelected = SelectFaceOfTheBody(vFaces, oBody, swDrawing, swView, False)
+                
+            End If
             
-'            Dim IsSelected As Boolean
-'            IsSelected = swDrawing.Extension.SelectByID2("", "FACE", (oBody.xMin + oBody.xMax) / 2, oBody.yMax, _
-'                    0, False, -1, Nothing, 1)
-                    
-'            If IsSelected Then
-'
-'                Dim swSelectMgr As SldWorks.SelectionMgr
-'                Set swSelectMgr = swDrawing.SelectionManager
-'
-'                Dim swCompCheck As SldWorks.DrawingComponent
-'                Set swCompCheck = swSelectMgr.GetSelectedObjectsComponent4(2, -1)
-'
-'                If (Right(swCompCheck.Name, Len(swCompCheck.Name) - InStrRev(swCompCheck.Name, "/")) = _
-'                    Right(swComp.Name2, Len(swComp.Name2) - InStrRev(swComp.Name2, "/"))) Then
-'
-'                    Dim swNote As SldWorks.Note
-'                    Set swNote = swDrawing.Extension.InsertBOMBalloon2(swBalloonParams)
-'
-'                    swNote.PropertyLinkedText = "$PRPWLD:" & Chr(34) & "ITEM NO" & Chr(34)
-'
-'                End If
-'
-'            End If
+            If IsSelected Then
 
                 Dim swNote As SldWorks.Note
                 Set swNote = swDrawing.Extension.InsertBOMBalloon2(swBalloonParams)
@@ -481,10 +583,14 @@ Private Function GetSolidBodyList(swComp As SldWorks.Component2, swView As SldWo
                     Dim swAnn As SldWorks.Annotation
                     Set swAnn = swNote.GetAnnotation
                     
-                    swAnn.SetPosition2 (oBody.xMin + oBody.xMax) / 2, (oBody.yMin + oBody.yMax) / 2, 0
-                    swAnn.SetLeader3 swLeaderStyle_e.swNO_LEADER, swLeaderSide_e.swLS_SMART, False, False, True, False
-     
+                    swAnn.SetPosition2 xPos, annYPos, 0
                     
+                    If (yPos = annYPos) Then
+                    
+                        swAnn.SetLeader3 swLeaderStyle_e.swNO_LEADER, swLeaderSide_e.swLS_SMART, False, False, True, False
+                        
+                    End If
+
                 End If
             
             End If
@@ -497,29 +603,68 @@ Private Function GetSolidBodyList(swComp As SldWorks.Component2, swView As SldWo
     
 End Function
 
-Private Function GetFaceOfTheBody(vFaces As Variant, swBody As SldWorks.Body2) As SldWorks.Face2
-
-    Dim i As Integer
-    For i = LBound(vFaces) To UBound(vFaces)
+Private Function SelectFaceOfTheBody(vFaces As Variant, oBody As ISolidBody, swDrawing As SldWorks.DrawingDoc, _
+                    swView As SldWorks.View, Append As Boolean) As Boolean
     
-        Dim swFace As SldWorks.Face2
-        Set swFace = vFaces(i)
+    If Not IsEmpty(vFaces) Then
+    
+        Dim i As Integer
+        For i = LBound(vFaces) To UBound(vFaces)
         
-        Dim swFaceBody As SldWorks.Body2
-        Set swFaceBody = swFace.GetBody
-        
-        If swFaceBody.Name = swBody.Name Then
-        
-            Set GetFaceOfTheBody = swFace
-            Exit For
+            Dim swFace As SldWorks.Face2
+            Set swFace = vFaces(i)
             
-        End If
+            Dim swFaceBody As SldWorks.Body2
+            Set swFaceBody = swFace.GetBody
+            
+            If swFaceBody.Name = oBody.GetBody.Name Then
+            
+                SelectFaceOfTheBody = swView.SelectEntity(swFace, Append)
+                Exit For
+                
+            End If
+    
+        Next i
+        
+    Else
+        
+        SelectFaceOfTheBody = SelectFaceWithPosition(swDrawing, oBody, (oBody.xMin + oBody.xMax) / 2, (oBody.yMin + oBody.yMax) / 2)
 
-    Next i
+    End If
 
 End Function
 
+Private Function SelectFaceWithPosition(swDrawing As SldWorks.DrawingDoc, oBody As ISolidBody, xPos As Double, _
+    yPos As Double, Optional Append As Boolean = False) As Boolean
 
+    SelectFaceWithPosition = swDrawing.Extension.SelectByID2("", "FACE", xPos, yPos, _
+                    0, Append, -1, Nothing, 1)
+                    
+    If SelectFaceWithPosition Then
+
+        Dim swSelectMgr As SldWorks.SelectionMgr
+        Set swSelectMgr = swDrawing.SelectionManager
+
+        Dim swCompCheck As SldWorks.DrawingComponent
+        Set swCompCheck = swSelectMgr.GetSelectedObjectsComponent4(2, -1)
+        
+        Dim swCompFace As SldWorks.Face2
+        Set swCompFace = swSelectMgr.GetSelectedObject6(2, -1)
+        
+
+'        If Not (Right(swCompCheck.Name, Len(swCompCheck.Name) - InStrRev(swCompCheck.Name, "/")) = _
+'                    Right(oBody.GetComponent.Name2, Len(oBody.GetComponent.Name2) - InStrRev(oBody.GetComponent.Name2, "/"))) Then
+
+        If Not (swCompFace.GetBody.Name = oBody.GetBody.Name) Then
+        
+            SelectFaceWithPosition = False
+            swDrawing.ClearSelection2 True
+        
+        End If
+        
+    End If
+
+End Function
 
 Private Sub UpdateMaxMinPoints(vComps As Variant, swView As SldWorks.View)
 
@@ -561,7 +706,7 @@ Private Sub AddCastingSketchAndNote(oComp As IComp, swView As SldWorks.View, swS
         
     Dim vSketchPoint As Variant
     vSketchPoint = SelectSketchSegment(swSketchSegment, swDrawing, swView, False, True, 0.5)
-    Call AddNoteToView(swDrawing, "CASTING BED", vSketchPoint(0) + 0.0075, vSketchPoint(1) - 0.005)
+    Call AddNoteToView(swDrawing, "CASTING BED", vSketchPoint(0) - 0.02, vSketchPoint(1) - 0.01)
         
     Dim swEdge As SldWorks.Edge
     Set swEdge = GetEdgeInView(oComp, swView, True, False)
@@ -707,7 +852,7 @@ End Sub
 
 Private Sub AddDimensionFromEnd(vSolidBodies As Variant, swSketchLine As SldWorks.SketchSegment, _
         swEdge As SldWorks.Edge, swView As SldWorks.View, swComp As SldWorks.Component2, swDrawing As SldWorks.DrawingDoc, _
-        Optional IsStart As Boolean = True)
+        yMin As Double, Optional IsStart As Boolean = True)
         
     swDrawing.ActivateView swView.Name
         
@@ -730,14 +875,14 @@ Private Sub AddDimensionFromEnd(vSolidBodies As Variant, swSketchLine As SldWork
         If IsStart Then
         
             Set oBody = vSolidBodies(0)
-            xPos = oBody.xMin - 0.015
+            xPos = oBody.xMin + 0.015
             Set swBodyEdge = GetEdgeInViewForBody(swComp, oBody, swView, False, False)
             
         Else
         
             
             Set oBody = vSolidBodies(UBound(vSolidBodies))
-            xPos = oBody.xMax + 0.015
+            xPos = oBody.xMax - 0.015
             Set swBodyEdge = GetEdgeInViewForBody(swComp, oBody, swView, False, True)
             
         End If
@@ -745,7 +890,7 @@ Private Sub AddDimensionFromEnd(vSolidBodies As Variant, swSketchLine As SldWork
         Call SelectEntity(swBodyEdge, True, swView)
         
         Dim swDisplayDim As SldWorks.DisplayDimension
-        Set swDisplayDim = swDrawing.AddHorizontalDimension2(xPos, oBody.yMin + 0.01, 0)
+        Set swDisplayDim = swDrawing.AddHorizontalDimension2(xPos, yMin - 0.005, 0)
         
         If Not swDisplayDim Is Nothing Then
 
@@ -1257,11 +1402,11 @@ Private Function GetClearance(oComp As IComp) As Double
 
     If InStr(oComp.GetCustomProperty("Profile"), "CORNER") > 0 Then
         
-        GetClearance = 0.02
+        GetClearance = 0.01
         
     Else
         
-        GetClearance = 0.025
+        GetClearance = 0.02
         
     End If
         
@@ -1698,14 +1843,15 @@ Function GetEdgeInViewForBody(swComp As SldWorks.Component2, oBody As ISolidBody
 End Function
 
 
-Sub AddNoteToView(swDrawing As SldWorks.DrawingDoc, NoteText As String, xPos As Double, yPos As Double)
+Function AddNoteToView(swDrawing As SldWorks.DrawingDoc, NoteText As String, xPos As Double, yPos As Double) As SldWorks.Annotation
             
     Dim swNote As SldWorks.Note
     Set swNote = swDrawing.InsertNote(NoteText)
+    
+    Dim swAnnotation As SldWorks.Annotation
             
     If Not swNote Is Nothing Then
 
-        Dim swAnnotation As SldWorks.Annotation
         Set swAnnotation = swNote.GetAnnotation()
 
         If Not swAnnotation Is Nothing Then
@@ -1716,7 +1862,9 @@ Sub AddNoteToView(swDrawing As SldWorks.DrawingDoc, NoteText As String, xPos As 
 
     End If
     
-End Sub
+    Set AddNoteToView = swAnnotation
+    
+End Function
 
 Function SelectSketchSegment(swSketchSegment As SldWorks.SketchSegment, swDrawing As SldWorks.DrawingDoc, _
         swView As SldWorks.View, Append As Boolean, Optional IsNearEnd As Boolean = True, Optional PercentFromEnd As Double = 0.01)
@@ -1813,8 +1961,8 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
         
     End If
     
-    Dim AnnXPos As Double
-    Dim AnnYPos As Double
+    Dim annXPos As Double
+    Dim annYPos As Double
     
     Dim i As Integer
     For i = LBound(vConsolidatedList) To UBound(vConsolidatedList)
@@ -1903,23 +2051,23 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
                 
             End If
             
-            AnnXPos = xPos
-            AnnYPos = MaxCompHeight + BalloonCount * Increment
+            annXPos = xPos
+            annYPos = MaxCompHeight + BalloonCount * Increment
             BalloonCount = BalloonCount + AddorSub
             
         ElseIf oComp.IsBottom Then
         
             xPos = (oComp.xMin + oComp.xMax) / 2
             yPos = 0.7 * oComp.yMin + 0.3 * oComp.yMax
-            AnnXPos = xPos
-            AnnYPos = oComp.yMin - Increment
+            annXPos = xPos
+            annYPos = oComp.yMin - Increment
             
         Else
         
             xPos = (oComp.xMin + oComp.xMax) / 2
             yPos = 0.3 * oComp.yMin + 0.7 * oComp.yMax
-            AnnXPos = oComp.xMin - 3 * Increment
-            AnnYPos = yPos - 2 * Increment
+            annXPos = oComp.xMin - 3 * Increment
+            annYPos = yPos - 2 * Increment
             
         End If
        
@@ -1954,7 +2102,7 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
 
                 Dim swAnn As SldWorks.Annotation
                 Set swAnn = swNote.GetAnnotation
-                swAnn.SetPosition2 AnnXPos, AnnYPos, 0
+                swAnn.SetPosition2 annXPos, annYPos, 0
                 
                 Dim HeadStyle As Integer
                 
@@ -1972,14 +2120,14 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
      
                         If oList.Qty > 1 Then
                         
-                             AnnXPos = xPos - ((vNoteExtents(3) - vNoteExtents(0))) + 0.0064
+                             annXPos = xPos - ((vNoteExtents(3) - vNoteExtents(0))) + 0.0064
                         
                         Else
-                            AnnXPos = xPos - ((vNoteExtents(3) - vNoteExtents(0))) + 0.0027
+                            annXPos = xPos - ((vNoteExtents(3) - vNoteExtents(0))) + 0.0027
                             
                         End If
             
-                        swAnn.SetPosition2 AnnXPos, AnnYPos, 0
+                        swAnn.SetPosition2 annXPos, annYPos, 0
     
                     End If
                     
@@ -2105,7 +2253,7 @@ Function ScaleAndInsertBottomView(swDrawing As SldWorks.DrawingDoc, swView As Sl
     Set swDrawingModel = swDrawing
     
     IsViewSelected = swDrawingModel.Extension.SelectByID2(swView.Name, "DRAWINGVIEW", 0, 0, 0, False, 0, Nothing, 0)
-    Set ScaleAndInsertBottomView = swDrawing.CreateUnfoldedViewAt3(0.21593179, 0.06, 0, False)
+    Set ScaleAndInsertBottomView = swDrawing.CreateUnfoldedViewAt3(0.21593179, 0.065, 0, False)
 
 End Function
 
@@ -2192,14 +2340,15 @@ Function GetComponentsSortedWithXPosition(swView As SldWorks.View, swDrawing As 
         End If
         
     Next i
+
+    CompList.SortItems "yMax"
+    Set MaxHeightComp = CompList.Items(LBound(CompList.Items))
     
     CompList.SortItems "yMin", False
     
     Dim MinHeight As Double
     MinHeight = CompList.Items(LBound(CompList.Items)).yMin
-
-    CompList.SortItems "yMax"
-    Set MaxHeightComp = CompList.Items(LBound(CompList.Items))
+    
     ViewHeight = MaxHeightComp.yMax - MinHeight
     
     CompList.SortItems "xMin", False

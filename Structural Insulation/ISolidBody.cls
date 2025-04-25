@@ -7,6 +7,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
+Private cComp As SldWorks.Component2
 Private cBody As SldWorks.Body2
 Private cXMin As Double
 Private cYMin As Double
@@ -50,9 +51,15 @@ Property Get zMax() As Double
     zMax = cZMax
 End Property
 
+Property Get GetComponent() As SldWorks.Component2
+    Set GetComponent = cComp
+End Property
+
+
 Public Sub Initialize(body As SldWorks.Body2, swComp As SldWorks.Component2, swView As SldWorks.View)
 
     Set cBody = body
+    Set cComp = swComp
     
     Dim vBodyBox As Variant
     vBodyBox = body.GetBodyBox
