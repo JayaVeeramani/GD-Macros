@@ -13,6 +13,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
 Option Explicit
 
 
@@ -202,6 +203,7 @@ Private Sub CreateButton_Click()
     swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, True
 
     Unload Me
+    
 
 End Sub
 
@@ -282,7 +284,7 @@ Private Sub AddViewAndWeldTable(swComp As SldWorks.Component2, swDrawing As SldW
                 
             swWeldTableAnn.Sort 1, True
             swTableAnn.MoveColumn 1, swTableItemInsertPosition_e.swTableItemInsertPosition_Before, 0
-            
+
             Call SplitTableIfNeeded(swTableAnn, swView, MaxCompHeight, PanelsWidth)
 
         End If
@@ -292,10 +294,23 @@ Private Sub AddViewAndWeldTable(swComp As SldWorks.Component2, swDrawing As SldW
 End Sub
 
 Private Sub SplitTableIfNeeded(swTableAnn As SldWorks.TableAnnotation, swView As SldWorks.View, MaxCompHeight As Double, PanelsWidth As Double)
+    
+    Const SingleTextWidth = 0.002
 
+    Dim DescColWidth As Double
+    DescColWidth = swTableAnn.GetColumnWidth(2)
+    
+    If DescColWidth < SingleTextWidth * Len(swTableAnn.Text(1, 2)) Then
+        
+        swTableAnn.SetColumnWidth 2, SingleTextWidth * Len(swTableAnn.Text(1, 2)), swTableRowColSizeChangeBehavior_e.swTableRowColChange_TableSizeCanChange
+        swTableAnn.SetRowHeight swTableCellRangeIdentifier_e.swTableCellRange_All, 0.004, swTableRowColSizeChangeBehavior_e.swTableRowColChange_TableSizeCanChange
+    
+    End If
+    
     Dim rowHeight As Double
     rowHeight = swTableAnn.GetRowHeight(0)
-    
+    Debug.Print swTableAnn.Text(1, 2)
+
     Dim ViewMaxLoc As Double
     ViewMaxLoc = MaxCompHeight + swView.ScaleDecimal * 16 * 0.0254
     
@@ -312,7 +327,7 @@ Private Sub SplitTableIfNeeded(swTableAnn As SldWorks.TableAnnotation, swView As
         NoOfRows = Int(ViewTopGap / rowHeight)
         
         Dim MaxNoOfSplits As Integer
-        MaxNoOfSplits = 2
+        MaxNoOfSplits = Int((0.41595679 - 0.01590679) / TableWidth)
         
         If Int(swTableAnn.RowCount / NoOfRows) < MaxNoOfSplits Then
             
@@ -395,7 +410,6 @@ Private Function GetSolidBodyList(swComp As SldWorks.Component2, swView As SldWo
     Dim vFaces As Variant
     vFaces = swView.GetVisibleEntities2(swComp, swViewEntityType_e.swViewEntityType_Face)
 
-    
     If Not IsEmpty(vBodies) Then
 
         Dim i As Integer
@@ -411,17 +425,30 @@ Private Function GetSolidBodyList(swComp As SldWorks.Component2, swView As SldWo
             
             GetSolidBodyList.AddtoList oBody
             
+            If Abs(oBody.xMax - oBody.xMin) <= 0.01 Or Abs(oBody.yMax - oBody.yMin) <= 0.01 Then
+            
+            
+            
+            Else
+            
+            End If
+            
+            
             If Not IsEmpty(vFaces) Then
             
                 Dim swFace As SldWorks.Face2
                 Set swFace = GetFaceOfTheBody(vFaces, swBody)
                 
                 swView.SelectEntity swFace, False
+                
+            End If
+            
+                
             
 
             
 '            Dim IsSelected As Boolean
-'            IsSelected = swDrawing.Extension.SelectByID2("", "EDGE", (oBody.xMin + oBody.xMax) / 2, oBody.yMax, _
+'            IsSelected = swDrawing.Extension.SelectByID2("", "FACE", (oBody.xMin + oBody.xMax) / 2, oBody.yMax, _
 '                    0, False, -1, Nothing, 1)
                     
 '            If IsSelected Then
@@ -681,6 +708,8 @@ End Sub
 Private Sub AddDimensionFromEnd(vSolidBodies As Variant, swSketchLine As SldWorks.SketchSegment, _
         swEdge As SldWorks.Edge, swView As SldWorks.View, swComp As SldWorks.Component2, swDrawing As SldWorks.DrawingDoc, _
         Optional IsStart As Boolean = True)
+        
+    swDrawing.ActivateView swView.Name
         
     If Not IsEmpty(vSolidBodies) Then
         
@@ -998,7 +1027,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
             
                 Set oSubAssy = New ISubAssy
                 Set swDisplayDim = SelectAndAddDimension(swEdge, swRightEdge, swDrawing, _
-                            oComp.xMax + 0.01, vSheetPoint(1) - 0.005, swView)
+                            oComp.xMax + 0.01, vSheetPoint(1) - 0.005, swView, IsParanthesis:=True)
                             
                 Set oSubAssy.StartEdge = swEdge
                 Set oSubAssy.EndEdge = swRightEdge
