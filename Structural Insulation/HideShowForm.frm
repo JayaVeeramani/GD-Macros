@@ -211,8 +211,40 @@ Sub AddCrossMark(swInsulationComp As SldWorks.Component2, SolidBodyList As IArrL
     Dim vAssyCutFeatures As Variant
     vAssyCutFeatures = GetAssyCutFeaturesIfAny(swInsulationComp)
     
+    If Not IsEmpty(vAssyCutFeatures) Then
     
-    
+        Dim i As Integer
+        For i = LBound(vAssyCutFeatures) To UBound(vAssyCutFeatures)
+        
+            Dim swFeat As SldWorks.Feature
+            Set swFeat = vAssyCutFeatures(i)
+            
+            Dim swSubFeat As SldWorks.Feature
+            Set swSubFeat = swFeat.GetFirstSubFeature
+            
+            If swSubFeat.GetTypeName2 = "ProfileFeature" Then
+            
+                Dim swSketch As SldWorks.Sketch
+                Set swSketch = swSubFeat.GetSpecificFeature2
+            
+            End If
+            
+            Debug.Print swSubFeat.GetTypeName2
+            
+'            While Not swSubFeat Is Nothing
+'
+'                Debug.Print swSubFeat.Name
+'
+'
+'                Set swSubFeat = swSubFeat.GetNextSubFeature
+'
+'            Wend
+            
+        
+        Next i
+        
+    End If
+
 
 End Sub
 
@@ -271,7 +303,7 @@ Function GetAssyCutFeaturesIfAny(swComp As SldWorks.Component2) As Variant
         
     Next i
     
-    swWallAssy.Close
+    swApp.CloseDoc swWallAssy.GetPathName
     
     GetAssyCutFeaturesIfAny = CutFeaturesDict.Items
 
@@ -293,7 +325,7 @@ Function IsFeatureAffectThisComp(swComp As SldWorks.Component2, _
         
         Debug.Print swFeatAffectedComp.Name2
         
-        If swComp.Name2 = swFeatAffectedComp.Name2 Then
+        If InStr(swComp.Name2, swFeatAffectedComp.Name2) > 0 Then
             
             IsFeatureAffectThisComp = True
             
@@ -370,7 +402,7 @@ Sub AddInsulationMaterialNote(swInsulationComp As SldWorks.Component2, SolidBody
     If IsSelected Then
     
         Dim swAnn As SldWorks.Annotation
-        Set swAnn = AddNoteToView(swDrawing, UCase(MaterialName), xPos + 0.005, yPos + 0.008)
+        Set swAnn = AddNoteToView(swDrawing, UCase(MaterialName), xPos - Len(MaterialName) * 0.002, yPos + 0.008)
         
         swAnn.SetLeader3 swLeaderStyle_e.swBENT, swLeaderSide_e.swLS_SMART, False, False, True, False
         
