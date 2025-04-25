@@ -13,17 +13,13 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-
-
 Option Explicit
-
 
 Dim swSketchMgr As SldWorks.SketchManager
 Dim xDirectionVector(2) As Double
 Dim yDirectionVector(2) As Double
 Dim zDirectionVector(2) As Double
 Const SheetBorderTop As Double = 0.27030866
-
 
 Private Sub CloseButton_Click()
     
@@ -42,6 +38,7 @@ Private Function GetOppositeVector(Dir As Variant) As Double()
     Next i
     
     GetOppositeVector = Temp
+    
 End Function
 
 Function SelectEntity(swEnt As Object, Append As Boolean, swView As SldWorks.View) As Boolean 'swView As SldWorks.View
@@ -206,7 +203,6 @@ Private Sub CreateButton_Click()
 
     Unload Me
     
-
 End Sub
 
 Sub AddCrossMark(swInsulationComp As SldWorks.Component2, SolidBodyList As IArrListObject, _
@@ -222,52 +218,97 @@ End Sub
 
 Function GetAssyCutFeaturesIfAny(swComp As SldWorks.Component2) As Variant
 
+    Dim swTopLevelAssy As SldWorks.AssemblyDoc
+    Set swTopLevelAssy = swTopLevelModel
+    
+    Dim AssyName As String
+    AssyName = Replace(swComp.Name2, "/" & Right(swComp.Name2, Len(swComp.Name2) - InStrRev(swComp.Name2, "/")), "")
+    AssyName = Right(AssyName, Len(AssyName) - InStrRev(AssyName, "/"))
+    
+    Dim swWallAssy As SldWorks.AssemblyDoc
+    Set swWallAssy = swTopLevelAssy.GetComponentByName(AssyName).GetModelDoc2()
+    
+    Dim Errors As Long
+    swApp.ActivateDoc3 swWallAssy.GetPathName, True, swRebuildOnActivation_e.swDontRebuildActiveDoc, Errors
+    
     Dim CutFeaturesDict As Scripting.Dictionary
     Set CutFeaturesDict = New Scripting.Dictionary
-    
-    Debug.Print swComp.Name2
-    
-    Dim swFeatManager As SldWorks.FeatureManager
-    Set swFeatManager = 0
 
-'    Dim i As Integer
-'    For i = LBound(vSolidBodies) To UBound(vSolidBodies)
-'
-'        Dim oBody As ISolidBody
-'        Set oBody = vSolidBodies(i)
-'
-'        Dim vFeats As Variant
-'        vFeats = oBody.GetBody.GetFeatures
-'
-'        Dim j As Integer
-'        For j = LBound(vFeats) To UBound(vFeats)
-'
-'            Dim swFeat As SldWorks.Feature
-'            Set swFeat = vFeats(j)
-'
-'            Debug.Print swFeat.Name
-'            Debug.Print swFeat.GetTypeName2
-'
-'            If swFeat.GetTypeName2 = "Cut" Then
-'
-'                If Not CutFeaturesDict.Exists(swFeat.Name) Then
-'
-'                    CutFeaturesDict.Add swFeat.Name, swFeat
-'
-'                End If
-'
-'            End If
-'
-'        Next j
-'
-'    Next i
+    Dim swFeatManager As SldWorks.FeatureManager
+    Set swFeatManager = swWallAssy.FeatureManager
+    
+    Dim vFeats As Variant
+    vFeats = swFeatManager.GetFeatures(True)
+    
+    Dim i As Integer
+    For i = UBound(vFeats) To LBound(vFeats) Step -1
+    
+        Dim swFeat As SldWorks.Feature
+        Set swFeat = vFeats(i)
+        
+        Debug.Print swFeat.Name
+        Debug.Print swFeat.GetTypeName2
+        
+        If swFeat.GetTypeName2 = "Cut" Then
+
+            If IsFeatureAffectThisComp(swComp, swWallAssy, swFeat) Then
+        
+                If Not CutFeaturesDict.Exists(swFeat.Name) Then
+                
+                    CutFeaturesDict.Add swFeat.Name, swFeat
+                    
+                End If
+                
+            End If
+            
+        End If
+        
+        If swFeat.GetTypeName2 = "MateGroup" Then
+        
+            Exit For
+            
+        End If
+        
+    Next i
+    
+    swWallAssy.Close
+    
+    GetAssyCutFeaturesIfAny = CutFeaturesDict.Items
 
 End Function
 
-
-Sub AddInsulationMaterialNote(swInsulationComp As SldWorks.Component2, SolidBodyList As IArrListObject, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc)
+Function IsFeatureAffectThisComp(swComp As SldWorks.Component2, _
+            swWallAssy As SldWorks.AssemblyDoc, swFeat As SldWorks.Feature) As Boolean
+            
+    IsFeatureAffectThisComp = False
+      
+    Dim vComps As Variant
+    vComps = swWallAssy.GetFeatureScope(swFeat)
     
-    swDrawing.ClearSelection2 True
+    Dim i As Integer
+    For i = LBound(vComps) To UBound(vComps)
+    
+        Dim swFeatAffectedComp As SldWorks.Component2
+        Set swFeatAffectedComp = vComps(i)
+        
+        Debug.Print swFeatAffectedComp.Name2
+        
+        If swComp.Name2 = swFeatAffectedComp.Name2 Then
+            
+            IsFeatureAffectThisComp = True
+            
+        End If
+
+    Next i
+    
+    
+End Function
+
+
+Sub AddInsulationMaterialNote(swInsulationComp As SldWorks.Component2, SolidBodyList As IArrListObject, _
+        swView As SldWorks.View, swDrawing As SldWorks.ModelDoc2)
+    
+    
     swDrawing.ActivateView swView.Name
     
     Dim MaterialName As String
@@ -306,24 +347,38 @@ Sub AddInsulationMaterialNote(swInsulationComp As SldWorks.Component2, SolidBody
     Dim yPos As Double
     yPos = (oEndBody.yMax + oEndBody.yMin) / 2
     
-    IsSelected = SelectFaceWithPosition(swDrawing, oEndBody, xPos, yPos)
+    swDrawing.ViewZoomTo2 oEndBody.xMin, oEndBody.yMin, oEndBody.zMin, oEndBody.xMax, oEndBody.yMax, oEndBody.zMax
+    swDrawing.ClearSelection2 True
+    
+    IsSelected = SelectFaceWithPosition(swDrawing, oEndBody, xPos, yPos, CheckComp:=True)
+    
+    swDrawing.ViewZoomTo2 0, 0, 0, 17 * 0.0254, 11 * 0.0254, 0
     
     If False = IsSelected Then
-    
-        Call SelectFaceOfTheBody(vFaces, oEndBody, swDrawing, swView, False)
+        
+        IsSelected = SelectFaceOfTheBody(vFaces, oEndBody, swDrawing, swView, False)
         xPos = oEndBody.xMax
+        
+        If False = IsSelected Then
+            
+            swView.SelectEntity vFaces(0), False
+            
+        End If
         
     End If
     
-    Dim swAnn As SldWorks.Annotation
-    Set swAnn = AddNoteToView(swDrawing, UCase(MaterialName), xPos + 0.005, yPos + 0.00625)
+    If IsSelected Then
     
-    swAnn.SetLeader3 swLeaderStyle_e.swBENT, swLeaderSide_e.swLS_SMART, False, False, True, False
-    
-    Dim HeadStyle As Integer
-    HeadStyle = swAnn.SetArrowHeadStyleAtIndex(0, swArrowStyle_e.swCLOSED_ARROWHEAD)
-    
-  
+        Dim swAnn As SldWorks.Annotation
+        Set swAnn = AddNoteToView(swDrawing, UCase(MaterialName), xPos + 0.005, yPos + 0.008)
+        
+        swAnn.SetLeader3 swLeaderStyle_e.swBENT, swLeaderSide_e.swLS_SMART, False, False, True, False
+        
+        Dim HeadStyle As Integer
+        HeadStyle = swAnn.SetArrowHeadStyleAtIndex(0, swArrowStyle_e.swCLOSED_ARROWHEAD)
+        
+    End If
+
 
 End Sub
 
@@ -635,7 +690,7 @@ Private Function SelectFaceOfTheBody(vFaces As Variant, oBody As ISolidBody, swD
 End Function
 
 Private Function SelectFaceWithPosition(swDrawing As SldWorks.DrawingDoc, oBody As ISolidBody, xPos As Double, _
-    yPos As Double, Optional Append As Boolean = False) As Boolean
+    yPos As Double, Optional Append As Boolean = False, Optional CheckComp As Boolean = False) As Boolean
 
     SelectFaceWithPosition = swDrawing.Extension.SelectByID2("", "FACE", xPos, yPos, _
                     0, Append, -1, Nothing, 1)
@@ -651,15 +706,25 @@ Private Function SelectFaceWithPosition(swDrawing As SldWorks.DrawingDoc, oBody 
         Dim swCompFace As SldWorks.Face2
         Set swCompFace = swSelectMgr.GetSelectedObject6(2, -1)
         
-
-'        If Not (Right(swCompCheck.Name, Len(swCompCheck.Name) - InStrRev(swCompCheck.Name, "/")) = _
-'                    Right(oBody.GetComponent.Name2, Len(oBody.GetComponent.Name2) - InStrRev(oBody.GetComponent.Name2, "/"))) Then
-
-        If Not (swCompFace.GetBody.Name = oBody.GetBody.Name) Then
+        If CheckComp Then
         
-            SelectFaceWithPosition = False
-            swDrawing.ClearSelection2 True
+            If Not (Right(swCompCheck.Name, Len(swCompCheck.Name) - InStrRev(swCompCheck.Name, "/")) = _
+                    Right(oBody.GetComponent.Name2, Len(oBody.GetComponent.Name2) - InStrRev(oBody.GetComponent.Name2, "/"))) Then
+                
+                SelectFaceWithPosition = False
+                swDrawing.ClearSelection2 True
+                
+            End If
+            
+        Else
         
+            If Not (swCompFace.GetBody.Name = oBody.GetBody.Name) Then
+            
+                SelectFaceWithPosition = False
+                swDrawing.ClearSelection2 True
+
+            End If
+            
         End If
         
     End If
@@ -2341,16 +2406,19 @@ Function GetComponentsSortedWithXPosition(swView As SldWorks.View, swDrawing As 
         
     Next i
 
-    CompList.SortItems "yMax"
-    Set MaxHeightComp = CompList.Items(LBound(CompList.Items))
+
     
     CompList.SortItems "yMin", False
     
     Dim MinHeight As Double
     MinHeight = CompList.Items(LBound(CompList.Items)).yMin
     
+    CompList.SortItems "yMax"
+    Set MaxHeightComp = CompList.Items(LBound(CompList.Items))
+    
     ViewHeight = MaxHeightComp.yMax - MinHeight
     
+    CompList.SortItems "yMax", True
     CompList.SortItems "xMin", False
     ViewWidth = CompList.Items(UBound(CompList.Items)).xMax - CompList.Items(LBound(CompList.Items)).xMin
     
