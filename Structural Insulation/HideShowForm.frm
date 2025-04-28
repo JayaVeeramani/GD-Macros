@@ -170,7 +170,7 @@ Private Sub CreateButton_Click()
 
     Call AddOverallDimension(oSubAssy, swDrawing, swFrontView, 0.01)
 
-    Dim NoteCount As Integer
+    'Dim NoteCount As Integer
     'Call AddStructuralNotes(swDrawing, swSheet, wallName)
     
     Dim swLeftSketch As SldWorks.SketchSegment
@@ -187,14 +187,15 @@ Private Sub CreateButton_Click()
 
         Dim SolidBodyList As IArrListObject
         Set SolidBodyList = GetSolidBodyList(swInsulationComp, swFrontView, swDrawing)
-         
+
         Call AddDimensionFromEnd(SolidBodyList.Items, swLeftSketch, oSubAssy.StartEdge, swFrontView, swInsulationComp, swDrawing, oSubAssy.StartComp.yMin)
         Call AddDimensionFromEnd(SolidBodyList.Items, swRightSketch, oSubAssy.EndEdge, swFrontView, swInsulationComp, swDrawing, oSubAssy.StartComp.yMin, False)
-        
+
         Call AddInsulationMaterialNote(swInsulationComp, SolidBodyList, swBottomView, swDrawing)
         Call AddInsulationHatches(swInsulationComp, swBottomView, swDrawing)
         
         Call AddCrossMark(swInsulationComp, SolidBodyList, swFrontView, swDrawing)
+        
     End If
     
     Call AddCastingSketchAndNote(oSubAssy.EndComp, swBottomView, swSketchMgr, swDrawing)
@@ -208,16 +209,81 @@ End Sub
 Sub AddCrossMark(swInsulationComp As SldWorks.Component2, SolidBodyList As IArrListObject, _
                 swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc)
                 
-    Dim vAssyCutFeatures As Variant
-    vAssyCutFeatures = GetAssyCutFeaturesIfAny(swInsulationComp)
+    Dim FullAssyName As String
+    FullAssyName = Replace(swInsulationComp.Name2, "/" & _
+                Right(swInsulationComp.Name2, Len(swInsulationComp.Name2) - InStrRev(swInsulationComp.Name2, "/")), "")
     
-    If Not IsEmpty(vAssyCutFeatures) Then
+    Dim AssyName As String
+    AssyName = Right(FullAssyName, Len(FullAssyName) - InStrRev(FullAssyName, "/"))
+                
+    Dim vAssyCutFeatures As Variant
+    vAssyCutFeatures = GetAssyCutFeaturesIfAny(swInsulationComp, AssyName)
+    
+    Call GetContoursAndAddCrossMark(vAssyCutFeatures, swDrawing, swView, FullAssyName)
+    
+    Dim vCompCutFeatures As Variant
+    vCompCutFeatures = GetComponentCutFeaturesIfAny(swInsulationComp)
+    
+    Call GetContoursAndAddCrossMark(vCompCutFeatures, swDrawing, swView, swInsulationComp.Name2)
+
+End Sub
+
+Function GetComponentCutFeaturesIfAny(swComp As SldWorks.Component2) As Variant
+
+    
+    Dim CutFeaturesDict As Scripting.Dictionary
+    Set CutFeaturesDict = New Scripting.Dictionary
+
+    Dim swFeatManager As SldWorks.FeatureManager
+    Set swFeatManager = swComp.GetModelDoc2().FeatureManager
+    
+    Dim vFeats As Variant
+    vFeats = swFeatManager.GetFeatures(True)
+    
+    Dim i As Integer
+    For i = UBound(vFeats) To LBound(vFeats) Step -1
+    
+        Dim swFeat As SldWorks.Feature
+        Set swFeat = vFeats(i)
+        
+        Debug.Print swFeat.Name
+        Debug.Print swFeat.GetTypeName2
+        
+        Dim vSuppressed As Variant
+        vSuppressed = swFeat.IsSuppressed2(swInConfigurationOpts_e.swThisConfiguration, Nothing)
+        
+        If False = vSuppressed(0) Then
+        
+            If swFeat.GetTypeName2 = "Cut" Then
+
+                If Not CutFeaturesDict.Exists(swFeat.Name) Then
+                    
+                    CutFeaturesDict.Add swFeat.Name, swFeat
+                        
+                End If
+                
+            End If
+            
+        End If
+
+    Next i
+    
+    
+    GetComponentCutFeaturesIfAny = CutFeaturesDict.Items
+
+End Function
+
+
+Sub GetContoursAndAddCrossMark(vCutFeatures As Variant, swDrawing As SldWorks.DrawingDoc, _
+        swView As SldWorks.View, AssyName As String)
+
+    If Not IsEmpty(vCutFeatures) Then
     
         Dim i As Integer
-        For i = LBound(vAssyCutFeatures) To UBound(vAssyCutFeatures)
+        For i = LBound(vCutFeatures) To UBound(vCutFeatures)
         
             Dim swFeat As SldWorks.Feature
-            Set swFeat = vAssyCutFeatures(i)
+            Set swFeat = vCutFeatures(i)
             
             Dim swSubFeat As SldWorks.Feature
             Set swSubFeat = swFeat.GetFirstSubFeature
@@ -226,37 +292,32 @@ Sub AddCrossMark(swInsulationComp As SldWorks.Component2, SolidBodyList As IArrL
             
                 Dim swSketch As SldWorks.Sketch
                 Set swSketch = swSubFeat.GetSpecificFeature2
+                
+                Dim vContourArrList As New IArrListObject
+                Set vContourArrList = GetSketchContours(swSketch)
+                
+                Dim vContours As Variant
+                vContours = vContourArrList.Items
+            
+                If Not (IsEmpty(vContours)) Then
+                
+                    Call AddCrossMarkForContours(vContours, swDrawing, swSubFeat, swSketch, swView, AssyName)
+                    
+                End If
             
             End If
-            
-            Debug.Print swSubFeat.GetTypeName2
-            
-'            While Not swSubFeat Is Nothing
-'
-'                Debug.Print swSubFeat.Name
-'
-'
-'                Set swSubFeat = swSubFeat.GetNextSubFeature
-'
-'            Wend
-            
-        
+
         Next i
         
     End If
-
-
 End Sub
 
-Function GetAssyCutFeaturesIfAny(swComp As SldWorks.Component2) As Variant
+Function GetAssyCutFeaturesIfAny(swComp As SldWorks.Component2, AssyName As String) As Variant
 
     Dim swTopLevelAssy As SldWorks.AssemblyDoc
     Set swTopLevelAssy = swTopLevelModel
     
-    Dim AssyName As String
-    AssyName = Replace(swComp.Name2, "/" & Right(swComp.Name2, Len(swComp.Name2) - InStrRev(swComp.Name2, "/")), "")
-    AssyName = Right(AssyName, Len(AssyName) - InStrRev(AssyName, "/"))
-    
+
     Dim swWallAssy As SldWorks.AssemblyDoc
     Set swWallAssy = swTopLevelAssy.GetComponentByName(AssyName).GetModelDoc2()
     
@@ -430,8 +491,8 @@ Sub UpdateHatchProperties(swView As SldWorks.View)
             Dim swSketchHatch As SldWorks.SketchHatch
             Set swSketchHatch = vSketchHatches(i)
                     
-            swSketchHatch.Pattern = "ANSI32 (Steel)"
-            swSketchHatch.Scale2 = swView.ScaleDecimal * 3
+            swSketchHatch.Pattern = "ISO (Steel)"
+            swSketchHatch.Scale2 = swView.ScaleDecimal * 4
                 
         Next i
                 
@@ -856,11 +917,11 @@ Sub CheckandAddLayer(LayName As String, LayerDesc As String, swLayerMgr As SldWo
     
         swLayerMgr.AddLayer LayName, LayerDesc, 0, swLineStyles_e.swLineDEFAULT, swLineWeights_e.swLW_NONE
         
-        Dim swLayer As SldWorks.Layer
-        Set swLayer = swLayerMgr.GetLayer(LayName)
+        Dim swlayer As SldWorks.Layer
+        Set swlayer = swLayerMgr.GetLayer(LayName)
         
-        swLayer.Style = swLineStyles_e.swLineCENTER
-        swLayer.Width = swLineWeights_e.swLW_THICK5
+        swlayer.Style = swLineStyles_e.swLineCENTER
+        swlayer.Width = swLineWeights_e.swLW_THICK5
         
     End If
     
@@ -1969,10 +2030,10 @@ Function SelectSketchSegment(swSketchSegment As SldWorks.SketchSegment, swDrawin
     Dim swSketchLine As SldWorks.SketchLine
     Set swSketchLine = swSketchSegment
     
-    Dim swStartPoint As SldWorks.SketchPoint
+    Dim swStartPoint As SldWorks.sketchPoint
     Set swStartPoint = swSketchLine.GetStartPoint2
     
-    Dim swEndPoint As SldWorks.SketchPoint
+    Dim swEndPoint As SldWorks.sketchPoint
     Set swEndPoint = swSketchLine.GetEndPoint2
 
     Dim swCurve As SldWorks.Curve
