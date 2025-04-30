@@ -113,6 +113,12 @@ Function GetComponentPointInViewSpace(swComp As SldWorks.Component2, _
 
 End Function
 
+Function GetDistance(vStartPt As Variant, vEndPt As Variant) As Double
+    
+    GetDistance = Sqrt((vStartPt(0) - vEndPt(0)) ^ 2 + (vStartPt(1) - vEndPt(1)) ^ 2 + (vStartPt(2) - vEndPt(2)) ^ 2)
+
+End Function
+
             
 
 

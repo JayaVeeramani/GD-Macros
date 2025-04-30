@@ -141,7 +141,6 @@ Private Sub CreateButton_Click()
     
     Call ActivateDrawingDocument(swDrawing)
 
-    
     Call ScaleView(swDrawing, swFrontView, ViewWidth, ViewHeight)
     
     Call UpdateMaxMinPoints(CompList.Items, swFrontView)
@@ -158,49 +157,92 @@ Private Sub CreateButton_Click()
     
     Dim oSubAssy As ISubAssy
     
-
-        Dim swLeftEdge As SldWorks.Edge
-        Dim swRightEdge As SldWorks.Edge
+    Dim swLeftEdge As SldWorks.Edge
+    Dim swRightEdge As SldWorks.Edge
     
-        Dim swBottomEdge As SldWorks.Edge
-        Set swBottomEdge = AddDimensionInFrontView(swFrontView, CompList.Items, MaxHeightComp, swDrawing, swLeftEdge, swRightEdge)
+    Dim swBottomEdge As SldWorks.Edge
+    Set swBottomEdge = AddDimensionInFrontView(swFrontView, CompList.Items, MaxHeightComp, swDrawing, swLeftEdge, swRightEdge)
         
-        Dim FlatCompDict As Scripting.Dictionary
-        Dim CompNoDict As New Scripting.Dictionary
-        Set FlatCompDict = GetCompDictionary(CompList.Items, CompNoDict)
+    Dim FlatCompDict As Scripting.Dictionary
+    Dim CompNoDict As New Scripting.Dictionary
+    Set FlatCompDict = GetCompDictionary(CompList.Items, CompNoDict)
         
-        Set oSubAssy = New ISubAssy
+    Set oSubAssy = New ISubAssy
     
-        Set oSubAssy.StartComp = FlatCompDict.Items(0)
-        Set oSubAssy.EndComp = FlatCompDict.Items(UBound(FlatCompDict.Items))
-        Set oSubAssy.StartEdge = swLeftEdge
-        Set oSubAssy.EndEdge = swRightEdge
-        oSubAssy.StartIdx = 0
-        oSubAssy.EndIdx = UBound(FlatCompDict.Items)
+    Set oSubAssy.StartComp = FlatCompDict.Items(0)
+    Set oSubAssy.EndComp = FlatCompDict.Items(UBound(FlatCompDict.Items))
+    Set oSubAssy.StartEdge = swLeftEdge
+    Set oSubAssy.EndEdge = swRightEdge
+    oSubAssy.StartIdx = 0
+    oSubAssy.EndIdx = UBound(FlatCompDict.Items)
     
-        Call AddOverallDimension(oSubAssy, swDrawing, swFrontView, 0.01)
+    Call AddOverallDimension(oSubAssy, swDrawing, swFrontView, 0.01)
         
-        Call AddCastingSketchAndNote(oSubAssy.EndComp, swBottomView, swSketchMgr, swDrawing)
+    Call AddCastingSketchAndNote(oSubAssy.EndComp, swBottomView, swSketchMgr, swDrawing)
         
-        Dim swLeftSketch As SldWorks.SketchSegment
-        Dim swRightSketch As SldWorks.SketchSegment
+    Dim swLeftSketch As SldWorks.SketchSegment
+    Dim swRightSketch As SldWorks.SketchSegment
 
-        Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, swBottomEdge, 0.01, swLeftSketch, swRightSketch)
-        Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - 0.02)
+    Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, swBottomEdge, 0.01, swLeftSketch, swRightSketch)
+    Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - 0.02)
         
-        If Not IsEmpty(subAssyEndComponents) Then
+    If Not IsEmpty(subAssyEndComponents) Then
     
-            Dim vSubAssyComponentsIdx As Variant
-            vSubAssyComponentsIdx = GetSubAssyComponentsIndexSorted(subAssyEndComponents, CompNoDict)
+        Dim vSubAssyComponentsIdx As Variant
+        vSubAssyComponentsIdx = GetSubAssyComponentsIndexSorted(subAssyEndComponents, CompNoDict)
     
-            Call AddSplitLines(vSubAssyComponentsIdx, swDrawing, swFrontView, FlatCompDict, CompNoDict, True, swLeftEdge, swRightEdge, False)
-            Call AddSplitLines(vSubAssyComponentsIdx, swDrawing, swBottomView, FlatCompDict, CompNoDict, False, swLeftEdge, swRightEdge)
+        Call AddSplitLines(vSubAssyComponentsIdx, swDrawing, swFrontView, FlatCompDict, CompNoDict, True, swLeftEdge, swRightEdge, False)
+        Call AddSplitLines(vSubAssyComponentsIdx, swDrawing, swBottomView, FlatCompDict, CompNoDict, False, swLeftEdge, swRightEdge)
     
-        End If
+    End If
+    
+    Dim lTabList As IArrListObject
+    Set lTabList = GetLTablist(InternalCompList, swFrontView)
+    
+    If Not IsEmpty(lTabList.Items) Then
+    
+        Dim xTabDict As Scripting.Dictionary
+        Set xTabDict = GetConsolidatedTabListBasedOnXPos(lTabList)
+        
+        Dim TabAssyList As IArrListObject
+        Set TabAssyList = GetTabAssList(xTabDict)
+        
+        Debug.Print "1"
+        
+    End If
+    
+'    Dim lTabAssyList As IArrListObject
+'    Set lTabAssyList = New IArrListObject
 
-
-    
-
+'    If Not IsEmpty(lTabList.Items) Then
+'
+'        Dim vTabItems As Variant
+'        vTabItems = lTabList.Items
+'
+'        Dim i As Integer
+'        For i = LBound(vTabItems) To UBound(vTabItems)
+'
+'            Dim oLTab As ILTabs
+'            Set oLTab = vTabItems(i)
+'
+'            If oLTab.IsLeft And oLTab.IsBottom Then
+'
+'                Dim oTabAssy As ILTabAssy
+'                Set oTabAssy = New ILTabAssy
+'
+'                oTabAssy.Initialize oLTab
+'                lTabAssyList.AddtoList oTabAssy
+'
+'            End If
+'
+'            If oLTab.IsLeft And Not (oLTab.IsBottom) Then
+'
+'                if
+'
+'
+'        Next i
+'
+'    End If
 
 
 
@@ -223,6 +265,294 @@ Private Sub CreateButton_Click()
     Unload Me
     
 End Sub
+
+
+Function GetConsolidatedTabListBasedOnXPos(lTabList As IArrListObject) As Scripting.Dictionary
+    
+    Set GetConsolidatedTabListBasedOnXPos = New Scripting.Dictionary
+    
+    Dim vTabItems As Variant
+    vTabItems = lTabList.Items
+    
+    Dim i As Integer
+    For i = LBound(vTabItems) To UBound(vTabItems)
+    
+        Dim oLTab As ILTabs
+        Set oLTab = vTabItems(i)
+    
+        If GetConsolidatedTabListBasedOnXPos.Exists(oLTab.xPoint) Then
+            
+            GetConsolidatedTabListBasedOnXPos.Item(oLTab.xPoint).AddToList oLTab
+        Else
+            
+            Dim TempLTabList As IArrListObject
+            Set TempLTabList = New IArrListObject
+            
+            TempLTabList.AddToList oLTab
+            
+            If GetConsolidatedTabListBasedOnXPos.Count = 0 Then
+            
+                GetConsolidatedTabListBasedOnXPos.Add oLTab.xPoint, TempLTabList
+                
+            Else
+                
+                If Abs(GetConsolidatedTabListBasedOnXPos.Keys(UBound(GetConsolidatedTabListBasedOnXPos.Keys)) - oLTab.xPoint) <= 0.001 Then
+                
+                     GetConsolidatedTabListBasedOnXPos.Item(GetConsolidatedTabListBasedOnXPos.Keys(UBound(GetConsolidatedTabListBasedOnXPos.Keys))).AddToList oLTab
+                
+                Else
+                
+                    GetConsolidatedTabListBasedOnXPos.Add oLTab.xPoint, TempLTabList
+                
+                End If
+                
+            End If
+            
+        End If
+
+    Next i
+    
+    'Call SortArrListInEachDictionary(GetConsolidatedTabListBasedOnXPos)
+    
+End Function
+
+Function GetTabAssList(Dict As Scripting.Dictionary) As IArrListObject
+
+    Set GetTabAssList = New IArrListObject
+
+    Dim vKeys As Variant
+    vKeys = Dict.Keys
+    
+    Dim i As Integer
+    For i = LBound(vKeys) To UBound(vKeys)
+    
+        Dim ArrList As IArrListObject
+        Set ArrList = Dict.Item(vKeys(i))
+        
+        ArrList.SortItems "yPoint", False
+        
+        
+        Dim vLTabs As Variant
+        vLTabs = ArrList.Items
+        
+        If (UBound(vLTabs) + 1) Mod 2 = 0 Then
+        
+            Dim j As Integer
+            For j = LBound(vLTabs) To UBound(vLTabs) Step 2
+                
+                Dim oLTab As ILTabs
+                Set oLTab = vLTabs(j)
+                
+                Dim oLTabNext As ILTabs
+                Set oLTabNext = vLTabs(j + 1)
+                
+                If oLTab.IsLeft And oLTabNext.IsLeft Then
+                
+                    If oLTab.IsBottom And Not (oLTabNext.IsBottom) Then
+                    
+                        Dim olTabAssy As ILTabAssy
+                        Set olTabAssy = New ILTabAssy
+                            
+                        olTabAssy.Initialize oLTab, oLTabNext
+                        
+                        GetTabAssList.AddToList olTabAssy
+                        
+                    Else
+                    
+                        Set GetTabAssList = New IArrListObject
+                        Exit For
+                        
+                    End If
+                    
+                ElseIf Not (oLTab.IsLeft) And Not (oLTabNext.IsLeft) Then
+                
+                    Dim TempTabAssy As ILTabAssy
+                    Set TempTabAssy = GetSuitableAssyFromAssyList(oLTab, oLTabNext, GetTabAssList)
+                    
+                    If TempTabAssy Is Nothing Then
+                    
+                        Set GetTabAssList = New IArrListObject
+                        Exit For
+                    
+                    Else
+                        
+                        TempTabAssy.AddToTabsList oLTab, oLTabNext
+                        
+                    End If
+                        
+                        
+                Else
+                    
+                    Set GetTabAssList = New IArrListObject
+                    Exit For
+
+                End If
+
+            Next j
+            
+        Else
+        
+            Set GetTabAssList = New IArrListObject
+            Exit For
+            
+        End If
+    
+    Next i
+
+End Function
+
+Function GetSuitableAssyFromAssyList(oLTab As ILTabs, oLTabNext As ILTabs, ArrList As IArrListObject) As ILTabAssy
+
+    Dim i As Integer
+    
+    Dim vTabAssyItems As Variant
+    vTabAssyItems = ArrList.Items
+    
+    For i = LBound(vTabAssyItems) To UBound(vTabAssyItems)
+    
+        Dim oTabAssy As ILTabAssy
+        Set oTabAssy = vTabAssyItems(i)
+        
+        If Abs(oTabAssy.LowerLeftLTab.yPoint - oLTab.yPoint) < 0.001 And _
+                    Abs(oTabAssy.UpperLeftLTab.yPoint - oLTabNext.yPoint) <= 0.001 Then
+                    
+            Set GetSuitableAssyFromAssyList = oTabAssy
+            Exit For
+                    
+        End If
+        
+    Next i
+    
+    
+End Function
+Function GetLTablist(InternalCompList As IArrListObject, swView As SldWorks.View) As IArrListObject
+    
+    Set GetLTablist = New IArrListObject
+    
+    Dim vIntComps As Variant
+    vIntComps = InternalCompList.Items
+    
+    If Not IsEmpty(vIntComps) Then
+    
+        Dim i As Integer
+        For i = LBound(vIntComps) To UBound(vIntComps)
+        
+            Dim oIntComp As IComp
+            Set oIntComp = vIntComps(i)
+            
+            Dim vFaces As Variant
+            vFaces = swView.GetVisibleEntities2(oIntComp.GetComponent, swViewEntityType_e.swViewEntityType_Face)
+            
+            If Not IsEmpty(vFaces) Then
+                
+                Dim swFace As SldWorks.Face2
+            
+                If UBound(vFaces) = 0 Then
+                
+                   Set swFace = vFaces(0)
+                   
+                Else
+                
+                    Set swFace = GetLargestFace(vFaces)
+                    
+                End If
+                
+                Dim vLoops As Variant
+                vLoops = swFace.GetLoops
+                
+                Call AddNonHoleLoopsToList(vLoops, GetLTablist, oIntComp, swView)
+
+            End If
+
+        Next i
+        
+    End If
+    
+End Function
+
+Sub AddNonHoleLoopsToList(vLoops As Variant, ArrList As IArrListObject, oComp As IComp, swView As SldWorks.View)
+
+    Dim i As Integer
+    For i = LBound(vLoops) To UBound(vLoops)
+    
+        Dim swLoop As SldWorks.Loop2
+        Set swLoop = vLoops(i)
+        
+        If Not (swLoop.IsOuter) Then
+        
+            Dim vEdges As Variant
+            vEdges = swLoop.GetEdges
+            
+            If UBound(vEdges) = 5 Then
+            
+                If Not (IsContainsCircularEdge(vEdges)) Then
+                    
+                    Dim oLTab As ILTabs
+                    Set oLTab = New ILTabs
+
+                    oLTab.Initialize swLoop, oComp.GetComponent, swView
+
+                    ArrList.AddToList oLTab
+                
+                End If
+            
+            End If
+        
+        
+        
+        End If
+    
+    Next i
+    
+    ArrList.SortItems "yPoint", False
+    ArrList.SortItems "xPoint", False
+    
+End Sub
+
+Function IsContainsCircularEdge(vEdges As Variant) As Boolean
+
+    IsContainsCircularEdge = False
+    
+    Dim i As Integer
+    For i = LBound(vEdges) To UBound(vEdges)
+    
+        Dim swEdge As SldWorks.Edge
+        Set swEdge = vEdges(i)
+        
+        Dim swCurve As SldWorks.Curve
+        Set swCurve = swEdge.GetCurve
+        
+        If swCurve.IsCircle Then
+        
+            IsContainsCircularEdge = True
+            Exit For
+            
+        End If
+    
+    Next i
+    
+End Function
+ 
+Function GetLargestFace(vFaces As Variant) As SldWorks.Face2
+
+    Dim i As Integer
+    Dim Area As Double
+    Area = 0
+    For i = LBound(vFaces) To UBound(vFaces)
+    
+        Dim swFace As SldWorks.Face2
+        Set swFace = vFaces(i)
+        
+        If swFace.GetArea > Area Then
+        
+            Set GetLargestFace = swFace
+            Area = swFace.GetArea
+            
+        End If
+
+    Next i
+   
+End Function
 
 Private Sub SelectComponent(swDrawing As SldWorks.DrawingDoc, oComp As IComp, xPos As Double, _
     yPos As Double, Count As Integer, IsSelected As Boolean, swView As SldWorks.View)
@@ -792,7 +1122,7 @@ Private Function GetSolidBodyList(swComp As SldWorks.Component2, swView As SldWo
             
             oBody.Initialize swBody, swComp, swView
             
-            GetSolidBodyList.AddtoList oBody
+            GetSolidBodyList.AddToList oBody
            
             Dim xPos As Double
             Dim yPos As Double
@@ -1181,7 +1511,7 @@ Private Function GetSubAssyComponentsIndexSorted(vComps As Variant, CompNoDict A
     Dim i As Integer
     For i = LBound(vComps) To UBound(vComps)
     
-        vIdxArr.AddtoList CompNoDict(vComps(i).Name2)
+        vIdxArr.AddToList CompNoDict(vComps(i).Name2)
         
     Next i
     
@@ -1259,7 +1589,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 oSubAssy.StartIdx = 0
                 oSubAssy.EndIdx = vCompsIdx(i)
                 
-                subAssylist.AddtoList oSubAssy
+                subAssylist.AddToList oSubAssy
                 
             Else
             
@@ -1277,7 +1607,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 oSubAssy.StartIdx = vCompsIdx(i - 1) + 1
                 oSubAssy.EndIdx = vCompsIdx(i)
                 
-                subAssylist.AddtoList oSubAssy
+                subAssylist.AddToList oSubAssy
 
             End If
             
@@ -1303,7 +1633,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 oSubAssy.StartIdx = vCompsIdx(i) + 1
                 oSubAssy.EndIdx = (CompNoDict.Count) - 1
                 
-                subAssylist.AddtoList oSubAssy
+                subAssylist.AddToList oSubAssy
                             
             End If
             
@@ -1333,7 +1663,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 Set oSubAssy.EndEdge = swEdge
                 Set oSubAssy.Dimension = swDisplayDim
                 
-                subAssylist.AddtoList oSubAssy
+                subAssylist.AddToList oSubAssy
                 
             Else
             
@@ -1345,7 +1675,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 Set oSubAssy.EndEdge = swEdge
                 Set oSubAssy.Dimension = swDisplayDim
                 
-                subAssylist.AddtoList oSubAssy
+                subAssylist.AddToList oSubAssy
 
             End If
             
@@ -1363,7 +1693,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 Set oSubAssy.EndEdge = swRightEdge
                 Set oSubAssy.Dimension = swDisplayDim
                 
-                subAssylist.AddtoList oSubAssy
+                subAssylist.AddToList oSubAssy
                             
             End If
             
@@ -2015,7 +2345,7 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
     swDrawing.Extension.SetUserPreferenceInteger swUserPreferenceIntegerValue_e.swDetailingBOMUpperText, swUserPreferenceOption_e.swDetailingNoOptionSpecified, swBalloonTextContent_e.swBalloonTextPartNumberBOM
     
     Dim maxNoOfBalloons As Integer
-    maxNoOfBalloons = Int((SheetPosForLastBalloon - MaxCompHeight) / Increment)
+    maxNoOfBalloons = 2 'Int((SheetPosForLastBalloon - MaxCompHeight) / Increment)
     
     Dim AddorSub As Integer
     Dim BalloonCount As Integer
@@ -2084,7 +2414,7 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
             
             If BalloonCount < 1 Then
 
-                BalloonCount = 2
+                BalloonCount = maxNoOfBalloons
 
             End If
                 
@@ -2295,7 +2625,7 @@ Function GetComponentsSortedWithXPosition(swView As SldWorks.View, swDrawing As 
                     
                     If InStr(Profile, ProfileTextToMatch) > 0 Then
                     
-                        CompList.AddtoList GetComponentWithPosition(swCompFromRoot, swView, swDrawing)
+                        CompList.AddToList GetComponentWithPosition(swCompFromRoot, swView, swDrawing)
                     
                     End If
                     
