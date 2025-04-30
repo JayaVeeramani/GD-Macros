@@ -13,6 +13,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
 Option Explicit
 
 Dim swSketchMgr As SldWorks.SketchManager
@@ -85,18 +86,36 @@ Private Sub CreateButton_Click()
 
     Dim swFrontView As SldWorks.View
     Set swFrontView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), viewName, 0.21593179, 0.15772741, 0)
+    
+    Dim IsViewSelected As Boolean
+    IsViewSelected = swDrawing.Extension.SelectByID2(swFrontView.Name, "DRAWINGVIEW", 0, 0, 0, False, 0, Nothing, 0)
+    
+    Dim swBottomView As SldWorks.View
+    Set swBottomView = swDrawing.CreateUnfoldedViewAt3(0.21593179, 0.065, 0, False)
 
+    Dim CompList As IArrListObject
+    Set CompList = GetComponentsSortedWithXPosition(swFrontView, swDrawing, "EXT-")
+    
+    Dim InternalCompList As IArrListObject
+    Set InternalCompList = GetComponentsSortedWithXPosition(swFrontView, swDrawing, "INT-")
+    
     Dim ViewWidth As Double
     Dim ViewHeight As Double
     Dim MaxHeightComp As IComp
-    Dim CompList As IArrListObject
-    Dim InternalCompList As IArrListObject
-    Set InternalCompList = New IArrListObject
-
-    Set CompList = GetComponentsSortedWithXPosition(swFrontView, swDrawing, ViewWidth, _
-                ViewHeight, MaxHeightComp, InternalCompList)
                 
+
+    If IsEmpty(CompList.Items) Then
     
+        Set CompList = GetComponentsSortedWithXPosition(swBottomView, swDrawing, "EXT-")
+        Call UpdateMaxMinPoints(CompList.Items, swFrontView)
+        Call GetComponentBoundsInView(CompList, ViewWidth, ViewHeight, MaxHeightComp)
+         
+    Else
+    
+        Call GetComponentBoundsInView(CompList, ViewWidth, ViewHeight, MaxHeightComp)
+
+    End If
+                
 
     Dim IsMultipleAssembly As Boolean
     IsMultipleAssembly = CheckForMultipleAssembly(ViewWidth / swFrontView.ScaleDecimal, ViewHeight / swFrontView.ScaleDecimal)
@@ -122,11 +141,12 @@ Private Sub CreateButton_Click()
     
     Call ActivateDrawingDocument(swDrawing)
 
-    Dim swBottomView As SldWorks.View
-    Set swBottomView = ScaleAndInsertBottomView(swDrawing, swFrontView, ViewWidth, ViewHeight)
-
-    Call UpdateMaxMinPoints(InternalCompList.Items, swFrontView)
+    
+    Call ScaleView(swDrawing, swFrontView, ViewWidth, ViewHeight)
+    
     Call UpdateMaxMinPoints(CompList.Items, swFrontView)
+    Call UpdateMaxMinPoints(InternalCompList.Items, swFrontView)
+    
     Call UpdateBottomViewPosition(InternalCompList.Items, swDrawing, swBottomView)
     
     swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
@@ -829,78 +849,7 @@ Private Function GetSolidBodyList(swComp As SldWorks.Component2, swView As SldWo
     
 End Function
 
-Private Function SelectFaceOfTheBody(vFaces As Variant, oBody As ISolidBody, swDrawing As SldWorks.DrawingDoc, _
-                    swView As SldWorks.View, Append As Boolean) As Boolean
-    
-    If Not IsEmpty(vFaces) Then
-    
-        Dim i As Integer
-        For i = LBound(vFaces) To UBound(vFaces)
-        
-            Dim swFace As SldWorks.Face2
-            Set swFace = vFaces(i)
-            
-            Dim swFaceBody As SldWorks.Body2
-            Set swFaceBody = swFace.GetBody
-            
-            If swFaceBody.Name = oBody.GetBody.Name Then
-            
-                SelectFaceOfTheBody = swView.SelectEntity(swFace, Append)
-                Exit For
-                
-            End If
-    
-        Next i
-        
-    Else
-        
-        SelectFaceOfTheBody = SelectFaceWithPosition(swDrawing, oBody, (oBody.xMin + oBody.xMax) / 2, (oBody.yMin + oBody.yMax) / 2)
 
-    End If
-
-End Function
-
-Private Function SelectFaceWithPosition(swDrawing As SldWorks.DrawingDoc, oBody As ISolidBody, xPos As Double, _
-    yPos As Double, Optional Append As Boolean = False, Optional CheckComp As Boolean = False) As Boolean
-
-    SelectFaceWithPosition = swDrawing.Extension.SelectByID2("", "FACE", xPos, yPos, _
-                    0, Append, -1, Nothing, 1)
-                    
-    If SelectFaceWithPosition Then
-
-        Dim swSelectMgr As SldWorks.SelectionMgr
-        Set swSelectMgr = swDrawing.SelectionManager
-
-        Dim swCompCheck As SldWorks.DrawingComponent
-        Set swCompCheck = swSelectMgr.GetSelectedObjectsComponent4(2, -1)
-        
-        Dim swCompFace As SldWorks.Face2
-        Set swCompFace = swSelectMgr.GetSelectedObject6(2, -1)
-        
-        If CheckComp Then
-        
-            If Not (Right(swCompCheck.Name, Len(swCompCheck.Name) - InStrRev(swCompCheck.Name, "/")) = _
-                    Right(oBody.GetComponent.Name2, Len(oBody.GetComponent.Name2) - InStrRev(oBody.GetComponent.Name2, "/"))) Then
-                
-                SelectFaceWithPosition = False
-                swDrawing.ClearSelection2 True
-                
-            End If
-            
-        Else
-        
-            If Not (swCompFace.GetBody.Name = oBody.GetBody.Name) Then
-            
-                SelectFaceWithPosition = False
-                swDrawing.ClearSelection2 True
-
-            End If
-            
-        End If
-        
-    End If
-
-End Function
 
 Private Sub UpdateMaxMinPoints(vComps As Variant, swView As SldWorks.View)
 
@@ -1965,123 +1914,6 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
 
 End Function
 
-Function GetEdgeInViewForBody(swComp As SldWorks.Component2, oBody As ISolidBody, swView As SldWorks.View, _
-    IsHorizontal As Boolean, IsMax As Boolean, Optional CheckAllVisibleEdgesOnly As Boolean = True) As SldWorks.Edge
-    
-    
-    Dim xMin As Double
-    Dim yMin As Double
-    Dim xMax As Double
-    Dim yMax As Double
-    
-    Dim vPointMin(2) As Double
-    vPointMin(0) = oBody.xMin
-    vPointMin(1) = oBody.yMin
-    vPointMin(2) = oBody.zMin
-    
-    Dim vPointMax(2) As Double
-    vPointMax(0) = oBody.xMax
-    vPointMax(1) = oBody.yMax
-    vPointMax(2) = oBody.zMax
-    
-    Dim vViewPointMin As Variant
-    vViewPointMin = GetSheetPointInViewSpace(swView, vPointMin)
-   
-    Dim vViewPointMax As Variant
-    vViewPointMax = GetSheetPointInViewSpace(swView, vPointMax)
-    
-    Call StrucutralElevationInsulation.GetMaxMinPoint(vViewPointMin(0), vViewPointMax(0), xMin, xMax)
-    Call StrucutralElevationInsulation.GetMaxMinPoint(vViewPointMin(1), vViewPointMax(1), yMin, yMax)
-    
-    Dim idx As Integer
-    Dim ValToMatch As Double
-    If IsHorizontal Then
-        
-        idx = 1
-        If IsMax Then
-        
-            ValToMatch = yMax
-            
-        Else
-        
-             ValToMatch = yMin
-             
-        End If
-        
-    Else
-    
-        idx = 0
-        
-        If IsMax Then
-        
-            ValToMatch = xMax
-            
-        Else
-        
-             ValToMatch = xMin
-             
-        End If
-        
-    End If
-
-     Dim TempLength As Double
-     TempLength = 0
-        
-
-    Dim vEnts As Variant
-    If CheckAllVisibleEdgesOnly Then
-    
-        vEnts = swView.GetVisibleEntities2(swComp, swViewEntityType_e.swViewEntityType_Edge)
-        
-    Else
-    
-        vEnts = oBody.GetBody.GetEdges
-        
-    End If
-
-    If Not IsEmpty(vEnts) Then
-    
-        Dim i As Integer
-        For i = LBound(vEnts) To UBound(vEnts)
-        
-            Dim swEdge As SldWorks.Edge
-            Set swEdge = vEnts(i)
-
-            Dim swCurve As SldWorks.Curve
-            Set swCurve = swEdge.GetCurve
-            
-            If swCurve.IsLine Then
-            
-                Dim vStartPoint As Variant
-                vStartPoint = swEdge.GetStartVertex.GetPoint
-                vStartPoint = GetComponentPointInViewSpace(swComp, vStartPoint, swView)
-                
-                Dim vEndPoint As Variant
-                vEndPoint = swEdge.GetEndVertex.GetPoint
-                vEndPoint = GetComponentPointInViewSpace(swComp, vEndPoint, swView)
-                
-                If Abs(vStartPoint(idx) - vEndPoint(idx)) <= 0.00001 And Abs(vStartPoint(idx) - ValToMatch) <= 0.00001 Then
-                    
-                    Dim vCurveParam As Variant
-                    vCurveParam = swEdge.GetCurveParams2
-                    
-                    If swCurve.GetLength2(vCurveParam(6), vCurveParam(7)) > TempLength Then
-                        
-                        TempLength = swCurve.GetLength2(vCurveParam(6), vCurveParam(7))
-                        Set GetEdgeInViewForBody = swEdge
-                        
-                    End If
-                    
-                End If
-            
-            End If
-            
-        Next i
-
-    End If
-
-End Function
-
 
 Function AddNoteToView(swDrawing As SldWorks.DrawingDoc, NoteText As String, xPos As Double, yPos As Double) As SldWorks.Annotation
             
@@ -2327,47 +2159,7 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
 
 End Sub
 
-Private Sub SelectBody(swDrawing As SldWorks.ModelDoc2, oBody As ISolidBody, xPos As Double, _
-    yPos As Double, Count As Integer, IsSelected As Boolean, swView As SldWorks.View)
-    
-    IsSelected = swDrawing.Extension.SelectByID2("", "FACE", xPos, yPos, _
-                    0, False, -1, Nothing, 1)
-                    
-    If Count > 2 Then
-        
-        Dim vFaces As Variant
-        vFaces = oBody.GetViewNormalFaces
-        
-        Dim swFace As SldWorks.Face2
-        Set swFace = vFaces(0)
-        IsSelected = SelectEntity(swFace, False, swView)
-        Exit Sub
-        
-    End If
-    
-    If IsSelected Then
-    
-        Dim swSelectMgr As SldWorks.SelectionMgr
-        Set swSelectMgr = swDrawing.SelectionManager
-        
-        Dim swComp As SldWorks.DrawingComponent
-        Set swComp = swSelectMgr.GetSelectedObjectsComponent4(2, -1)
-        
-        If Not (Right(swComp.Name, Len(swComp.Name) - InStrRev(swComp.Name, "/")) = _
-            Right(oBody.GetComponent.Name2, Len(oBody.GetComponent.Name2) - InStrRev(oBody.GetComponent.Name2, "/"))) Then
-            
-            Call SelectComponent(swDrawing, oBody, (oBody.xMax + oBody.xMin) / 2, yPos, Count + 1, IsSelected, swView)
-            
-        End If
-        
-    Else
-    
-        Call SelectComponent(swDrawing, oBody, (oBody.xMax + oBody.xMin) / 2, yPos, Count + 1, IsSelected, swView)
-        
-    End If
-    
-    
-End Sub
+
 
 Function GetViewName(wallName As String)
 
@@ -2403,7 +2195,7 @@ Function GetViewName(wallName As String)
     
 End Function
 
-Function ScaleAndInsertBottomView(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
+Function ScaleView(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
             ViewWidth As Double, ViewHeight As Double) As SldWorks.View
             
 
@@ -2429,13 +2221,6 @@ Function ScaleAndInsertBottomView(swDrawing As SldWorks.DrawingDoc, swView As Sl
         
     End If
     
-    Dim IsViewSelected As Boolean
-    
-    Dim swDrawingModel As SldWorks.ModelDoc2
-    Set swDrawingModel = swDrawing
-    
-    IsViewSelected = swDrawingModel.Extension.SelectByID2(swView.Name, "DRAWINGVIEW", 0, 0, 0, False, 0, Nothing, 0)
-    Set ScaleAndInsertBottomView = swDrawing.CreateUnfoldedViewAt3(0.21593179, 0.065, 0, False)
 
 End Function
 
@@ -2459,8 +2244,7 @@ Function GetScaleValue(scaleVal As Double) As Integer
 End Function
 
 Function GetComponentsSortedWithXPosition(swView As SldWorks.View, swDrawing As SldWorks.ModelDoc2, _
-                        ByRef ViewWidth As Double, ByRef ViewHeight As Double, _
-                        ByRef MaxHeightComp As IComp, ByRef InternalCompList As IArrListObject) As IArrListObject
+       ProfileTextToMatch As String) As IArrListObject
     
     swDrawing.ActivateView swView.Name
 
@@ -2509,13 +2293,9 @@ Function GetComponentsSortedWithXPosition(swView As SldWorks.View, swDrawing As 
                     Dim wasResolved As Boolean
                     swCompProp.Get5 "Profile", False, Profile, ResolvedVal, wasResolved
                     
-                    If InStr(Profile, "EXT-") > 0 Then
+                    If InStr(Profile, ProfileTextToMatch) > 0 Then
                     
                         CompList.AddtoList GetComponentWithPosition(swCompFromRoot, swView, swDrawing)
-                        
-                    ElseIf InStr(Profile, "INT-") > 0 Then
-                    
-                        InternalCompList.AddtoList GetComponentWithPosition(swCompFromRoot, swView, swDrawing)
                     
                     End If
                     
@@ -2527,8 +2307,15 @@ Function GetComponentsSortedWithXPosition(swView As SldWorks.View, swDrawing As 
         
     Next i
 
+    CompList.SortItems "xMin", False
+        
+    Set GetComponentsSortedWithXPosition = CompList
 
-    
+End Function
+
+Sub GetComponentBoundsInView(CompList As IArrListObject, ByRef ViewWidth As Double, _
+    ByRef ViewHeight As Double, MaxHeightComp As IComp)
+
     CompList.SortItems "yMin", False
     
     Dim MinHeight As Double
@@ -2542,12 +2329,9 @@ Function GetComponentsSortedWithXPosition(swView As SldWorks.View, swDrawing As 
     CompList.SortItems "yMax", True
     CompList.SortItems "xMin", False
     ViewWidth = CompList.Items(UBound(CompList.Items)).xMax - CompList.Items(LBound(CompList.Items)).xMin
-    
-    Set GetComponentsSortedWithXPosition = CompList
-    
-    InternalCompList.SortItems "xMin", False
 
-End Function
+    
+End Sub
 
 Function GetComponentFromRoot(AssyName As String, swComp As SldWorks.Component2, swTopLevelAssy As SldWorks.AssemblyDoc) As SldWorks.Component2
 
