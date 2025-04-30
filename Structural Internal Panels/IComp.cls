@@ -139,9 +139,9 @@ Sub Initialize(swComp As IComponent2, Optional MinPoint As Variant, Optional Max
 
     Set cComp = swComp
     
-    Call StrucutralElevationInsulation.GetMaxMinPoint(MinPoint(0), MaxPoint(0), cXMin, cXMax)
-    Call StrucutralElevationInsulation.GetMaxMinPoint(MinPoint(1), MaxPoint(1), cYMin, cYMax)
-    Call StrucutralElevationInsulation.GetMaxMinPoint(MinPoint(2), MaxPoint(2), cZMin, cZMax)
+    Call GetMaxMinPoint(MinPoint(0), MaxPoint(0), cXMin, cXMax)
+    Call GetMaxMinPoint(MinPoint(1), MaxPoint(1), cYMin, cYMax)
+    Call GetMaxMinPoint(MinPoint(2), MaxPoint(2), cZMin, cZMax)
 
     cModelMinPoint = ModelMinPoint
     cModelMaxPoint = ModelMaxPoint
@@ -195,9 +195,9 @@ End Function
 
 Sub UpdateSheetMaxMinDimensions(swView As SldWorks.View, MinPoint As Variant, MaxPoint As Variant)
 
-    Call StrucutralElevationInsulation.GetMaxMinPoint(MinPoint(0), MaxPoint(0), cXMin, cXMax)
-    Call StrucutralElevationInsulation.GetMaxMinPoint(MinPoint(1), MaxPoint(1), cYMin, cYMax)
-    Call StrucutralElevationInsulation.GetMaxMinPoint(MinPoint(2), MaxPoint(2), cZMin, cZMax)
+    Call GetMaxMinPoint(MinPoint(0), MaxPoint(0), cXMin, cXMax)
+    Call GetMaxMinPoint(MinPoint(1), MaxPoint(1), cYMin, cYMax)
+    Call GetMaxMinPoint(MinPoint(2), MaxPoint(2), cZMin, cZMax)
     
 End Sub
 
