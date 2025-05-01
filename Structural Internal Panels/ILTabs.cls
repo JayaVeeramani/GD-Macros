@@ -122,12 +122,12 @@ Private Sub SegregateHorizontalAndVerticalEdges(swView As SldWorks.View)
             If Abs(vStartVertex(0) - vEndVertex(0)) <= 0.0001 Then
                 
                 oEdge.Initialize swEdge, True, CDbl(vStartVertex(0)), Length
-                VerEdgeList.AddToList oEdge
+                VerEdgeList.AddtoList oEdge
                 
             ElseIf Abs(vStartVertex(1) - vEndVertex(1)) <= 0.0001 Then
             
                 oEdge.Initialize swEdge, False, CDbl(vStartVertex(1)), Length
-                HorEdgeList.AddToList oEdge
+                HorEdgeList.AddtoList oEdge
                 
             End If
             
