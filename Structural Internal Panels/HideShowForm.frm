@@ -178,6 +178,7 @@ Private Sub CreateButton_Click()
     End If
     
     Dim subAssylist As IArrListObject
+    Set subAssylist = New IArrListObject
     
     If Not IsEmpty(subAssyEndComponents) Then
     
@@ -211,11 +212,12 @@ Private Sub CreateButton_Click()
     Dim swLeftSketch As SldWorks.SketchSegment
     Dim swRightSketch As SldWorks.SketchSegment
 
-    Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, swBottomEdge, 0.01, swLeftSketch, swRightSketch)
-    Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - 0.02)
+
     
     Dim MaxClearance As Double
     Call AddDimensionsForLTabOrDoorInEachSubAssy(subAssylist, swDrawing, swFrontView, MaxClearance)
+    Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, swBottomEdge, MaxClearance, swLeftSketch, swRightSketch)
+    Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - MaxClearance - 0.005)
     
 
 
@@ -266,7 +268,7 @@ Private Sub AddDimensionsForLTabOrDoorInEachSubAssy(subAssylist As IArrListObjec
             
         Else
         
-            MaxClearance = MaxClearance + 0.008
+            MaxClearance = MaxClearance + 0.006
             Call AddOverallDimension(oSubAssy, swDrawing, swView, MaxClearance)
             
         End If
@@ -321,6 +323,8 @@ Private Sub AddDimensionsForLTabOrDoor(vDoorOrTabItems As Variant, oSubAssy As I
                 Set swDisplayDim = SelectAndAddDimension(swDoorStartEdge, swDoorEndEdge, swDrawing, _
                         oEndComp.xMin - 0.01, oStartComp.yMin - Clearance, swView, False, True)
                         
+                Clearance = Clearance + 0.006
+                        
             Else
             
                 Dim oLTabAssy As ILTabAssy
@@ -328,25 +332,17 @@ Private Sub AddDimensionsForLTabOrDoor(vDoorOrTabItems As Variant, oSubAssy As I
                 
                 If j = LBound(vDoorOrTabItems) Then
                     
-                    Set swDisplayDim = SelectAndAddDimension(oLTabAssy.LowerLeftLTab.EndVerticalEdge, _
-                            oSubAssy.StartEdge, swDrawing, _
-                        oLTabAssy.LowerLeftXPoint - 0.01, oSubAssy.StartComp.yMin - Clearance, swView, False)
+                    Call AddLTabPosDimension(oLTabAssy, oSubAssy, Clearance, swDrawing, swView)
+                    Call AddLTabLengthDimension(oLTabAssy, swDrawing, swView)
+                    Clearance = Clearance + 0.006
                         
                 Else
                 
                     If vDoorOrTabItems(j - 1).IsDoor Then
                         
-                        Set swDisplayDim = SelectAndAddDimension(oLTabAssy.LowerLeftLTab.EndVerticalEdge, _
-                            oSubAssy.StartEdge, swDrawing, _
-                        oLTabAssy.LowerLeftXPoint - 0.01, oSubAssy.StartComp.yMin - Clearance, swView, False)
-                        
-                        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
-                        
-                        Set swDisplayDim = SelectAndAddDimension(oLTabAssy.LowerLeftLTab.EndVerticalEdge, _
-                            oLTabAssy.LowerRightLTab.EndVerticalEdge, swDrawing, _
-                        oLTabAssy.LowerLeftXPoint + 0.01, oLTabAssy.LowerLeftYPoint - 0.005, swView, False)
-                        
-                        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
+                        Call AddLTabPosDimension(oLTabAssy, oSubAssy, Clearance, swDrawing, swView)
+                        Call AddLTabLengthDimension(oLTabAssy, swDrawing, swView)
+                        Clearance = Clearance + 0.006
                     
                     Else
                 
@@ -355,21 +351,15 @@ Private Sub AddDimensionsForLTabOrDoor(vDoorOrTabItems As Variant, oSubAssy As I
                         
                         If Not Abs(PrevTabAssy.LowerLeftXPoint - oLTabAssy.LowerLeftXPoint) <= 0.001 Then
                         
-                            Set swDisplayDim = SelectAndAddDimension(oLTabAssy.LowerLeftLTab.EndVerticalEdge, _
-                                oSubAssy.StartEdge, swDrawing, _
-                                oLTabAssy.LowerLeftXPoint - 0.01, oSubAssy.StartComp.yMin - Clearance, swView, False)
-                                
-                            swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
-                                
+                            Call AddLTabPosDimension(oLTabAssy, oSubAssy, Clearance, swDrawing, swView)
+                            Call AddLTabLengthDimension(oLTabAssy, swDrawing, swView)
+                            Clearance = Clearance + 0.006
+                            
                         Else
                         
                             If Not Abs(PrevTabAssy.UpperRightXPoint - oLTabAssy.UpperRightXPoint) <= 0.001 Then
                             
-                                Set swDisplayDim = SelectAndAddDimension(oLTabAssy.LowerLeftLTab.EndVerticalEdge, _
-                                    oLTabAssy.LowerRightLTab.EndVerticalEdge, swDrawing, _
-                                    oLTabAssy.LowerLeftXPoint + 0.01, oLTabAssy.LowerLeftYPoint - 0.005, swView, False)
-                        
-                                swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
+                                Call AddLTabLengthDimension(oLTabAssy, swDrawing, swView)
                             
                             End If
                                 
@@ -378,15 +368,10 @@ Private Sub AddDimensionsForLTabOrDoor(vDoorOrTabItems As Variant, oSubAssy As I
                     End If
                 
                 End If
-                
-
-                    
-            
-                
             
             End If
             
-            Clearance = Clearance + 0.005
+            
                 
         Next j
             
@@ -395,6 +380,32 @@ Private Sub AddDimensionsForLTabOrDoor(vDoorOrTabItems As Variant, oSubAssy As I
 '    Clearance = Clearance + 0.004
 '    Call AddOverallDimension(oSubAssy, swDrawing, swView, Clearance)
 
+End Sub
+
+Sub AddLTabPosDimension(oLTabAssy As ILTabAssy, oSubAssy As ISubAssy, Clearance As Double, _
+        swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+
+    Dim swDisplayDim As SldWorks.DisplayDimension
+    Set swDisplayDim = SelectAndAddDimension(oLTabAssy.LowerLeftLTab.EndVerticalEdge, _
+                        oSubAssy.StartEdge, swDrawing, _
+                        oLTabAssy.LowerLeftXPoint - 0.01, oSubAssy.StartComp.yMin - Clearance, swView, False)
+                        
+                        
+    swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
+    
+End Sub
+
+
+Sub AddLTabLengthDimension(oLTabAssy As ILTabAssy, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+
+    Dim swDisplayDim As SldWorks.DisplayDimension
+                  
+    Set swDisplayDim = SelectAndAddDimension(oLTabAssy.LowerLeftLTab.EndVerticalEdge, _
+                            oLTabAssy.LowerRightLTab.EndVerticalEdge, swDrawing, _
+                        oLTabAssy.LowerLeftXPoint + 0.01, oLTabAssy.LowerLeftYPoint - 0.005, swView, False)
+                        
+    swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
+    
 End Sub
 
 
@@ -466,7 +477,7 @@ Function GetConsolidatedTabListBasedOnXPos(lTabList As IArrListObject) As Script
             
             If GetConsolidatedTabListBasedOnXPos.Count = 0 Then
             
-                GetConsolidatedTabListBasedOnXPos.Add oLTab.xPoint, TempLTabList
+                GetConsolidatedTabListBasedOnXPos.add oLTab.xPoint, TempLTabList
                 
             Else
                 
@@ -476,7 +487,7 @@ Function GetConsolidatedTabListBasedOnXPos(lTabList As IArrListObject) As Script
                 
                 Else
                 
-                    GetConsolidatedTabListBasedOnXPos.Add oLTab.xPoint, TempLTabList
+                    GetConsolidatedTabListBasedOnXPos.add oLTab.xPoint, TempLTabList
                 
                 End If
                 
@@ -769,6 +780,7 @@ Private Function GetConsolidatedList(ArrList As IArrListObject, ByRef DoorList A
     IsDoorStarted = False
     
     Dim oDoorAssy As IDoorAssy
+    
     Set DoorList = New IArrListObject
     
     Dim k As Integer
@@ -809,9 +821,10 @@ Private Function GetConsolidatedList(ArrList As IArrListObject, ByRef DoorList A
             Dim PrevComp As IComp
             Set PrevComp = vComps(k - 1)
             
-            If Not Abs(PrevComp.xMin - oComp.xMin) <= 0.001 Then
+            Debug.Print PrevComp.GetComponent.Name2
             
-                Set oDoorAssy = New IDoorAssy
+            If Not Abs(PrevComp.yMin - oComp.yMin) <= 0.001 Then
+
             
                 If IsDoorStarted Then
                     
@@ -822,7 +835,7 @@ Private Function GetConsolidatedList(ArrList As IArrListObject, ByRef DoorList A
                     DoorList.AddtoList oDoorAssy
 
                 Else
-                    
+                    Set oDoorAssy = New IDoorAssy
                     IsDoorStarted = True
                     Set oDoorAssy.StartComp = PrevComp
                     
@@ -890,7 +903,7 @@ Function GetComponentCutFeaturesIfAny(swComp As SldWorks.Component2) As Variant
 
                 If Not CutFeaturesDict.Exists(swFeat.Name) Then
                     
-                    CutFeaturesDict.Add swFeat.Name, swFeat
+                    CutFeaturesDict.add swFeat.Name, swFeat
                         
                 End If
                 
@@ -980,7 +993,7 @@ Function GetAssyCutFeaturesIfAny(swComp As SldWorks.Component2, AssyName As Stri
         
                 If Not CutFeaturesDict.Exists(swFeat.Name) Then
                 
-                    CutFeaturesDict.Add swFeat.Name, swFeat
+                    CutFeaturesDict.add swFeat.Name, swFeat
                     
                 End If
                 
@@ -1445,7 +1458,7 @@ Function AddSubAssyComponentsToDictionary(vComps As Variant) As Scripting.Dictio
             
             If Not AddSubAssyComponentsToDictionary.Exists(vComps(i).Name2) Then
             
-                AddSubAssyComponentsToDictionary.Add vComps(i).Name2, vComps
+                AddSubAssyComponentsToDictionary.add vComps(i).Name2, vComps
                 
             End If
         
@@ -1529,7 +1542,7 @@ Private Sub SketchLineForNonCornerPanels(swView As SldWorks.View, wallName As St
         
         If Not swStartSketch Is Nothing Then
         
-            MaxClearance = MaxClearance + 0.008
+            MaxClearance = MaxClearance + 0.006
             
             If Not swEndSketch Is Nothing Then
                 
@@ -1547,7 +1560,7 @@ Private Sub SketchLineForNonCornerPanels(swView As SldWorks.View, wallName As St
 
             If Not swEndSketch Is Nothing Then
             
-                MaxClearance = MaxClearance + 0.008
+                MaxClearance = MaxClearance + 0.006
                 swEndSketch.Select4 False, Nothing
                 Call SelectEntity(oSubAssy.StartEdge, True, swView)
             
@@ -1969,8 +1982,8 @@ Private Function GetCompDictionary(FlatCompList As Variant, CompNoDict As Script
     Dim i As Integer
     For i = LBound(FlatCompList) To UBound(FlatCompList)
         
-        TempDict.Add FlatCompList(i).GetComponent.Name2, FlatCompList(i)
-        CompNoDict.Add FlatCompList(i).GetComponent.Name2, i
+        TempDict.add FlatCompList(i).GetComponent.Name2, FlatCompList(i)
+        CompNoDict.add FlatCompList(i).GetComponent.Name2, i
     
     Next i
     
@@ -1996,7 +2009,7 @@ Function GetSelectedComponents() As Variant
             
             If False = compDict.Exists(swComp.Name2) Then
                 
-                compDict.Add swComp.Name2, swComp
+                compDict.add swComp.Name2, swComp
             
             End If
 

@@ -21,7 +21,7 @@ Private lTaborDoorList As IArrListObject
 
 Property Get GetLTabOrDoorList() As Variant
 
-    lTaborDoorList.SortItems "xPoint"
+    lTaborDoorList.SortItems "xPoint", False
     GetLTabOrDoorList = lTaborDoorList.Items
     
 End Property

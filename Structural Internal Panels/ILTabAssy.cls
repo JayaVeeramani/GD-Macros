@@ -26,6 +26,26 @@ Property Get UpperLeftLTab() As ILTabs
     
 End Property
 
+'Property Get GetLength() As Double
+'
+'    If Not IsEmpty(LTabsList.Items) And UBound(LTabsList.Items) = 3 Then
+'
+'        GetLength = LTabsList.Items(1)
+'
+'    End If
+'
+'End Property
+'
+'Property Get UpperLeftLTab() As ILTabs
+'
+'    If Not IsEmpty(LTabsList.Items) And UBound(LTabsList.Items) >= 1 Then
+'
+'        Set UpperLeftLTab = LTabsList.Items(1)
+'
+'    End If
+'
+'End Property
+
 Property Get UpperRightLTab() As ILTabs
     
     If Not IsEmpty(LTabsList.Items) And UBound(LTabsList.Items) = 3 Then
