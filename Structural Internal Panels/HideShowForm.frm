@@ -14,6 +14,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+
 Option Explicit
 
 Dim swSketchMgr As SldWorks.SketchManager
@@ -207,7 +208,11 @@ Private Sub CreateButton_Click()
         Dim TabAssyList As IArrListObject
         Set TabAssyList = GetTabAssList(xTabDict)
         
-        Debug.Print "1"
+        If Not TabAssyList Is Nothing Then
+        
+            
+        
+        End If
         
     End If
     
@@ -282,13 +287,13 @@ Function GetConsolidatedTabListBasedOnXPos(lTabList As IArrListObject) As Script
     
         If GetConsolidatedTabListBasedOnXPos.Exists(oLTab.xPoint) Then
             
-            GetConsolidatedTabListBasedOnXPos.Item(oLTab.xPoint).AddToList oLTab
+            GetConsolidatedTabListBasedOnXPos.Item(oLTab.xPoint).AddtoList oLTab
         Else
             
             Dim TempLTabList As IArrListObject
             Set TempLTabList = New IArrListObject
             
-            TempLTabList.AddToList oLTab
+            TempLTabList.AddtoList oLTab
             
             If GetConsolidatedTabListBasedOnXPos.Count = 0 Then
             
@@ -298,7 +303,7 @@ Function GetConsolidatedTabListBasedOnXPos(lTabList As IArrListObject) As Script
                 
                 If Abs(GetConsolidatedTabListBasedOnXPos.Keys(UBound(GetConsolidatedTabListBasedOnXPos.Keys)) - oLTab.xPoint) <= 0.001 Then
                 
-                     GetConsolidatedTabListBasedOnXPos.Item(GetConsolidatedTabListBasedOnXPos.Keys(UBound(GetConsolidatedTabListBasedOnXPos.Keys))).AddToList oLTab
+                     GetConsolidatedTabListBasedOnXPos.Item(GetConsolidatedTabListBasedOnXPos.Keys(UBound(GetConsolidatedTabListBasedOnXPos.Keys))).AddtoList oLTab
                 
                 Else
                 
@@ -355,7 +360,7 @@ Function GetTabAssList(Dict As Scripting.Dictionary) As IArrListObject
                             
                         olTabAssy.Initialize oLTab, oLTabNext
                         
-                        GetTabAssList.AddToList olTabAssy
+                        GetTabAssList.AddtoList olTabAssy
                         
                     Else
                     
@@ -492,7 +497,7 @@ Sub AddNonHoleLoopsToList(vLoops As Variant, ArrList As IArrListObject, oComp As
 
                     oLTab.Initialize swLoop, oComp.GetComponent, swView
 
-                    ArrList.AddToList oLTab
+                    ArrList.AddtoList oLTab
                 
                 End If
             
@@ -1122,7 +1127,7 @@ Private Function GetSolidBodyList(swComp As SldWorks.Component2, swView As SldWo
             
             oBody.Initialize swBody, swComp, swView
             
-            GetSolidBodyList.AddToList oBody
+            GetSolidBodyList.AddtoList oBody
            
             Dim xPos As Double
             Dim yPos As Double
@@ -1511,7 +1516,7 @@ Private Function GetSubAssyComponentsIndexSorted(vComps As Variant, CompNoDict A
     Dim i As Integer
     For i = LBound(vComps) To UBound(vComps)
     
-        vIdxArr.AddToList CompNoDict(vComps(i).Name2)
+        vIdxArr.AddtoList CompNoDict(vComps(i).Name2)
         
     Next i
     
@@ -1589,7 +1594,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 oSubAssy.StartIdx = 0
                 oSubAssy.EndIdx = vCompsIdx(i)
                 
-                subAssylist.AddToList oSubAssy
+                subAssylist.AddtoList oSubAssy
                 
             Else
             
@@ -1607,7 +1612,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 oSubAssy.StartIdx = vCompsIdx(i - 1) + 1
                 oSubAssy.EndIdx = vCompsIdx(i)
                 
-                subAssylist.AddToList oSubAssy
+                subAssylist.AddtoList oSubAssy
 
             End If
             
@@ -1633,7 +1638,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 oSubAssy.StartIdx = vCompsIdx(i) + 1
                 oSubAssy.EndIdx = (CompNoDict.Count) - 1
                 
-                subAssylist.AddToList oSubAssy
+                subAssylist.AddtoList oSubAssy
                             
             End If
             
@@ -1663,7 +1668,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 Set oSubAssy.EndEdge = swEdge
                 Set oSubAssy.Dimension = swDisplayDim
                 
-                subAssylist.AddToList oSubAssy
+                subAssylist.AddtoList oSubAssy
                 
             Else
             
@@ -1675,7 +1680,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 Set oSubAssy.EndEdge = swEdge
                 Set oSubAssy.Dimension = swDisplayDim
                 
-                subAssylist.AddToList oSubAssy
+                subAssylist.AddtoList oSubAssy
 
             End If
             
@@ -1693,7 +1698,7 @@ Private Function AddSplitLines(vCompsIdx As Variant, swDrawing As SldWorks.Drawi
                 Set oSubAssy.EndEdge = swRightEdge
                 Set oSubAssy.Dimension = swDisplayDim
                 
-                subAssylist.AddToList oSubAssy
+                subAssylist.AddtoList oSubAssy
                             
             End If
             
@@ -2625,7 +2630,7 @@ Function GetComponentsSortedWithXPosition(swView As SldWorks.View, swDrawing As 
                     
                     If InStr(Profile, ProfileTextToMatch) > 0 Then
                     
-                        CompList.AddToList GetComponentWithPosition(swCompFromRoot, swView, swDrawing)
+                        CompList.AddtoList GetComponentWithPosition(swCompFromRoot, swView, swDrawing)
                     
                     End If
                     
