@@ -212,41 +212,110 @@ Private Sub CreateButton_Click()
     Dim swLeftSketch As SldWorks.SketchSegment
     Dim swRightSketch As SldWorks.SketchSegment
 
-
-    
     Dim MaxClearance As Double
-    Call AddDimensionsForLTabOrDoorInEachSubAssy(subAssylist, swDrawing, swFrontView, MaxClearance)
+    
     Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, swBottomEdge, MaxClearance, swLeftSketch, swRightSketch)
+    Call AddDimensionsForLTabOrDoorInEachSubAssy(subAssylist, swDrawing, swFrontView, MaxClearance, swLeftSketch)
+    Call AddDimensionFromCornerSketches(swDrawing, swFrontView, swLeftSketch, swRightSketch, oSubAssy, MaxClearance)
+    
     Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - MaxClearance - 0.005)
+    Call AddVerticalDimensionForLTab(swDrawing, swFrontView, swBottomEdge, TabAssyList)
     
-
-
-    'Call AddOverallDimension(oSubAssy, swDrawing, swFrontView, 0.01)
-    
-
-
-
     'Call AddCrossMark(swInsulationComp, SolidBodyList, swFrontView, swDrawing)
 
     'Dim NoteCount As Integer
     'Call AddStructuralNotes(swDrawing, swSheet, wallName)
-    
 
-
-        
-        
-        
-
-    
-    
-    
     swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, True
 
     Unload Me
     
 End Sub
+
+Sub AddVerticalDimensionForLTab(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
+            swBottomEdge As SldWorks.Edge, TabAssyList As IArrListObject)
+            
+    'TabAssyList.SortItems "LowerLeftYPoint", False
+    
+    If Not IsEmpty(TabAssyList.Items) Then
+    
+        Dim vTabAssy As Variant
+        vTabAssy = TabAssyList.Items
+        
+        Dim i As Integer
+        For i = LBound(vTabAssy) To UBound(vTabAssy)
+        
+            Dim oTabAssy As ILTabAssy
+            Set oTabAssy = vTabAssy(i)
+            
+            Dim swDisplayDim As SldWorks.DisplayDimension
+            
+            If i = LBound(vTabAssy) Then
+            
+                Call AddLTabVerticalPosDimension(oTabAssy, swBottomEdge, swDrawing, swView)
+                Call AddLTabVerticalDimension(oTabAssy, swDrawing, swView)
+            
+
+            Else
+            
+                Dim PrevTabAssy As ILTabAssy
+                Set PrevTabAssy = vTabAssy(i - 1)
+                 
+                If (Abs(PrevTabAssy.LowerLeftXPoint - oTabAssy.LowerLeftXPoint) <= 0.001 And _
+                        Abs(PrevTabAssy.UpperRightXPoint - oTabAssy.UpperRightXPoint) <= 0.001) Then
+                       
+                    Set swDisplayDim = SelectAndAddDimension(PrevTabAssy.UpperRightLTab.EndHorizontalEdge, oTabAssy.LowerRightLTab.EndHorizontalEdge, swDrawing, _
+                        oTabAssy.UpperRightXPoint + 0.01, oTabAssy.LowerLeftYPoint - 0.01, swView, False)
+                        
+                    swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
+                    Call AddLTabVerticalDimension(oTabAssy, swDrawing, swView)
+                    
+                Else
+
+                    If Not (Abs(PrevTabAssy.LowerLeftYPoint - oTabAssy.LowerLeftYPoint) <= 0.001 And _
+                           Abs(PrevTabAssy.UpperRightYPoint - oTabAssy.UpperRightYPoint) <= 0.001) Then
+                
+                        Call AddLTabVerticalPosDimension(oTabAssy, swBottomEdge, swDrawing, swView)
+                        Call AddLTabVerticalDimension(oTabAssy, swDrawing, swView)
+                        
+                    End If
+                    
+                End If
+                
+            End If
+
+        Next i
+
+    End If
+
+End Sub
+
+Sub AddLTabVerticalPosDimension(oTabAssy As ILTabAssy, swBottomEdge As SldWorks.Edge, _
+        swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+
+    Dim swDisplayDim As SldWorks.DisplayDimension
+    Set swDisplayDim = SelectAndAddDimension(swBottomEdge, oTabAssy.LowerRightLTab.EndHorizontalEdge, swDrawing, _
+                        oTabAssy.UpperRightXPoint + 0.01, oTabAssy.LowerLeftYPoint - 0.01, swView, False)
+                        
+                        
+    swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
+    
+End Sub
+
+
+Sub AddLTabVerticalDimension(oLTabAssy As ILTabAssy, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+
+    Dim swDisplayDim As SldWorks.DisplayDimension
+                  
+    Set swDisplayDim = SelectAndAddDimension(oLTabAssy.LowerRightLTab.EndHorizontalEdge, _
+                            oLTabAssy.UpperRightLTab.EndHorizontalEdge, swDrawing, _
+                        oLTabAssy.UpperRightXPoint + 0.01, oLTabAssy.UpperRightYPoint - 0.01, swView, False)
+                        
+    swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
+    
+End Sub
 Private Sub AddDimensionsForLTabOrDoorInEachSubAssy(subAssylist As IArrListObject, swDrawing As SldWorks.DrawingDoc, _
-            swView As SldWorks.View, MaxClearance As Double)
+            swView As SldWorks.View, MaxClearance As Double, swLeftSketch As SldWorks.SketchSegment)
 
     Dim vSubAssy As Variant
     vSubAssy = subAssylist.Items
@@ -260,11 +329,11 @@ Private Sub AddDimensionsForLTabOrDoorInEachSubAssy(subAssylist As IArrListObjec
         Set oSubAssy = vSubAssy(i)
         
         Dim Clearance As Double
-        Clearance = 0.005
+        Clearance = 0
         
         If (UBound(vSubAssy)) = 0 Or i < UBound(vSubAssy) Then
             
-            Call AddDimensionsForLTabOrDoor(oSubAssy.GetLTabOrDoorList, oSubAssy, swDrawing, swView, Clearance)
+            Call AddDimensionsForLTabOrDoor(oSubAssy.GetLTabOrDoorList, oSubAssy, swDrawing, swView, Clearance, i, swLeftSketch)
             
         Else
         
@@ -286,7 +355,7 @@ End Sub
 
 
 Private Sub AddDimensionsForLTabOrDoor(vDoorOrTabItems As Variant, oSubAssy As ISubAssy, swDrawing As SldWorks.DrawingDoc, _
-                    swView As SldWorks.View, ByRef Clearance As Double, Optional IsDoor As Boolean = True)
+            swView As SldWorks.View, ByRef Clearance As Double, SubAssyIdx As Integer, swLeftSketch As SldWorks.SketchSegment)
 
     Dim j As Integer
     
@@ -301,6 +370,8 @@ Private Sub AddDimensionsForLTabOrDoor(vDoorOrTabItems As Variant, oSubAssy As I
     
             If oDoorOrTabAssy.IsDoor Then
             
+                Clearance = Clearance + 0.006
+                
                 Dim oDoor As IDoorAssy
                 Set oDoor = oDoorOrTabAssy.Doorassy
             
@@ -323,27 +394,28 @@ Private Sub AddDimensionsForLTabOrDoor(vDoorOrTabItems As Variant, oSubAssy As I
                 Set swDisplayDim = SelectAndAddDimension(swDoorStartEdge, swDoorEndEdge, swDrawing, _
                         oEndComp.xMin - 0.01, oStartComp.yMin - Clearance, swView, False, True)
                         
-                Clearance = Clearance + 0.006
-                        
             Else
             
                 Dim oLTabAssy As ILTabAssy
                 Set oLTabAssy = oDoorOrTabAssy.TabAssy
                 
                 If j = LBound(vDoorOrTabItems) Then
-                    
+                
+                    Clearance = Clearance + 0.006
                     Call AddLTabPosDimension(oLTabAssy, oSubAssy, Clearance, swDrawing, swView)
                     Call AddLTabLengthDimension(oLTabAssy, swDrawing, swView)
-                    Clearance = Clearance + 0.006
-                        
+                    Call CheckAndAddLTabDimensionFromSketchEnd(oLTabAssy, oSubAssy, Clearance, swDrawing, swView, swLeftSketch, SubAssyIdx)
+                    
+                       
                 Else
                 
                     If vDoorOrTabItems(j - 1).IsDoor Then
-                        
+                    
+                        Clearance = Clearance + 0.006
                         Call AddLTabPosDimension(oLTabAssy, oSubAssy, Clearance, swDrawing, swView)
                         Call AddLTabLengthDimension(oLTabAssy, swDrawing, swView)
-                        Clearance = Clearance + 0.006
-                    
+                        Call CheckAndAddLTabDimensionFromSketchEnd(oLTabAssy, oSubAssy, Clearance, swDrawing, swView, swLeftSketch, SubAssyIdx)
+                        
                     Else
                 
                         Dim PrevTabAssy As ILTabAssy
@@ -351,9 +423,10 @@ Private Sub AddDimensionsForLTabOrDoor(vDoorOrTabItems As Variant, oSubAssy As I
                         
                         If Not Abs(PrevTabAssy.LowerLeftXPoint - oLTabAssy.LowerLeftXPoint) <= 0.001 Then
                         
+                            Clearance = Clearance + 0.006
                             Call AddLTabPosDimension(oLTabAssy, oSubAssy, Clearance, swDrawing, swView)
                             Call AddLTabLengthDimension(oLTabAssy, swDrawing, swView)
-                            Clearance = Clearance + 0.006
+                            Call CheckAndAddLTabDimensionFromSketchEnd(oLTabAssy, oSubAssy, Clearance, swDrawing, swView, swLeftSketch, SubAssyIdx)
                             
                         Else
                         
@@ -377,8 +450,34 @@ Private Sub AddDimensionsForLTabOrDoor(vDoorOrTabItems As Variant, oSubAssy As I
             
     End If
     
-'    Clearance = Clearance + 0.004
-'    Call AddOverallDimension(oSubAssy, swDrawing, swView, Clearance)
+
+
+End Sub
+
+Sub CheckAndAddLTabDimensionFromSketchEnd(oLTabAssy As ILTabAssy, oSubAssy As ISubAssy, ByRef Clearance As Double, _
+        swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, swLeftSketch As SldWorks.SketchSegment, SubAssyIdx As Integer)
+        
+    If SubAssyIdx = 0 Then
+    
+        If Not swLeftSketch Is Nothing Then
+        
+            swLeftSketch.Select4 False, Nothing
+            Call SelectEntity(oLTabAssy.LowerLeftLTab.EndVerticalEdge, True, swView)
+            Clearance = Clearance + 0.007
+            
+        End If
+
+        Dim swDisplayDim As SldWorks.DisplayDimension
+        Set swDisplayDim = swDrawing.AddHorizontalDimension2(oSubAssy.StartComp.xMin + 0.01, oSubAssy.EndComp.yMin - Clearance, 0)
+        
+        If Not swDisplayDim Is Nothing Then
+
+            swDisplayDim.CenterText = True
+            swDisplayDim.ShowParenthesis = True
+            
+        End If
+    
+    End If
 
 End Sub
 
@@ -1507,7 +1606,8 @@ Private Sub SketchLineForNonCornerPanels(swView As SldWorks.View, wallName As St
     
     swDrawing.ActivateView swView.Name
     
-    If InStr(wallName, "Wall") > 0 Then
+    If InStr(wallName, "Wall") > 0 And (InStr(wallName, "-A") > 0 Or InStr(wallName, "-B") Or _
+                                InStr(wallName, "-C") Or InStr(wallName, "-D")) Then
     
         Dim viewDrawComp As SldWorks.DrawingComponent
         Set viewDrawComp = swView.RootDrawingComponent
@@ -1538,7 +1638,19 @@ Private Sub SketchLineForNonCornerPanels(swView As SldWorks.View, wallName As St
             
         End If
         
-        Dim swDisplayDim As SldWorks.DisplayDimension
+        
+        
+
+    End If
+    
+
+End Sub
+
+Private Sub AddDimensionFromCornerSketches(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
+                swStartSketch As SldWorks.SketchSegment, swEndSketch As SldWorks.SketchSegment, _
+            oSubAssy As ISubAssy, ByRef MaxClearance As Double)
+
+    Dim swDisplayDim As SldWorks.DisplayDimension
         
         If Not swStartSketch Is Nothing Then
         
@@ -1575,66 +1687,9 @@ Private Sub SketchLineForNonCornerPanels(swView As SldWorks.View, wallName As St
             swDisplayDim.SetDual2 False, False
             
         End If
-        
-
-    End If
-    
-
 End Sub
 
-Private Sub AddDimensionFromEnd(vSolidBodies As Variant, swSketchLine As SldWorks.SketchSegment, _
-        swEdge As SldWorks.Edge, swView As SldWorks.View, swComp As SldWorks.Component2, swDrawing As SldWorks.DrawingDoc, _
-        yMin As Double, Optional IsStart As Boolean = True)
-        
-    swDrawing.ActivateView swView.Name
-        
-    If Not IsEmpty(vSolidBodies) Then
-        
-        If swSketchLine Is Nothing Then
-            
-            Call SelectEntity(swEdge, False, swView)
-                
-        Else
-        
-            swSketchLine.Select4 False, Nothing
-                
-        End If
-        
-        Dim swBodyEdge As SldWorks.Edge
-        Dim oBody As ISolidBody
-        Dim xPos As Double
-        
-        If IsStart Then
-        
-            Set oBody = vSolidBodies(0)
-            xPos = oBody.xMin + 0.015
-            Set swBodyEdge = GetEdgeInViewForBody(swComp, oBody, swView, False, False)
-            
-        Else
-        
-            
-            Set oBody = vSolidBodies(UBound(vSolidBodies))
-            xPos = oBody.xMax - 0.015
-            Set swBodyEdge = GetEdgeInViewForBody(swComp, oBody, swView, False, True)
-            
-        End If
-        
-        Call SelectEntity(swBodyEdge, True, swView)
-        
-        Dim swDisplayDim As SldWorks.DisplayDimension
-        Set swDisplayDim = swDrawing.AddHorizontalDimension2(xPos, yMin - 0.005, 0)
-        
-        If Not swDisplayDim Is Nothing Then
 
-            swDisplayDim.CenterText = True
-            swDisplayDim.ShowParenthesis = True
-            
-        End If
-        
-    End If
-            
-    
-End Sub
 
 Private Function CreateSketchLinesForNonCornerPanels(PlaneName As String, viewDrawComp As SldWorks.DrawingComponent, swControlSketch As SldWorks.Component2, _
                                         viewComp As SldWorks.Component2, oComp As IComp, swView As SldWorks.View, _

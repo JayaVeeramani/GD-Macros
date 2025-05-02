@@ -32,7 +32,7 @@ Property Get EndHorizontalEdge() As SldWorks.Edge
     
     If Not IsEmpty(HorEdgeList.Items) Then
     
-        Set GetEndHorizontalEdge = HorEdgeList.Items(LBound(HorEdgeList.Items)).GetEdge
+        Set EndHorizontalEdge = HorEdgeList.Items(LBound(HorEdgeList.Items)).GetEdge
         
     End If
 
