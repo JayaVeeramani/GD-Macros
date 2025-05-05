@@ -18,6 +18,13 @@ Public EndComp As IComp
  
 Public Dimension As SldWorks.DisplayDimension
 Private lTaborDoorList As IArrListObject
+Private lTabList As IArrListObject
+
+Property Get GetLTabList() As Variant
+
+    GetLTabList = lTabList.Items
+    
+End Property
 
 Property Get GetLTabOrDoorList() As Variant
 
@@ -25,24 +32,34 @@ Property Get GetLTabOrDoorList() As Variant
     GetLTabOrDoorList = lTaborDoorList.Items
     
 End Property
+Property Get yMin() As Double
 
-Function GetMaxLength() As Double
- 
-    Dim yMin As Double
-    Dim yMax As Double
-    If StartComp.yMin < EndComp.yMin Then
-        yMin = StartComp.yMin
-    Else
-        yMin = EndComp.yMin
+    If Not StartComp Is Nothing And Not EndComp Is Nothing Then
+    
+        If StartComp.yMin < EndComp.yMin Then
+            yMin = StartComp.yMin
+        Else
+            yMin = EndComp.yMin
+        End If
+        
     End If
-    If StartComp.yMax > EndComp.yMax Then
-        yMax = StartComp.yMax
-    Else
-        yMax = EndComp.yMax
+    
+End Property
+
+Property Get yMax() As Double
+
+    If Not StartComp Is Nothing And Not EndComp Is Nothing Then
+    
+        If StartComp.yMax > EndComp.yMax Then
+            yMax = StartComp.yMax
+        Else
+            yMax = EndComp.yMax
+        End If
+        
     End If
-    GetMaxLength = yMax - yMin
- 
-End Function
+    
+End Property
+
  
 Sub AddEntireList(ArrList As IArrListObject)
     
@@ -77,7 +94,8 @@ Sub AddToLTaborDoorList(oLTaborDoorAssy As Object)
         Set Obj.Doorassy = oLTaborDoorAssy
         
     Else
-
+    
+        lTabList.AddtoList oLTaborDoorAssy
         Set Obj.TabAssy = oLTaborDoorAssy
     
     End If
@@ -90,5 +108,6 @@ End Sub
 Private Sub Class_Initialize()
     
     Set lTaborDoorList = New IArrListObject
+    Set lTabList = New IArrListObject
 
 End Sub

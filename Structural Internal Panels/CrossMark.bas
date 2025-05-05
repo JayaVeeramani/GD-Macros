@@ -1,6 +1,6 @@
 Attribute VB_Name = "CrossMark"
 
-Function GetSketchContours(swSketch As SldWorks.Sketch) As IArrListObject
+Function sdfsdf(swSketch As SldWorks.Sketch) As IArrListObject
 
     Dim IsInit As Boolean
     IsInit = True
@@ -116,13 +116,13 @@ Sub GetOffsetValues(ByRef OffsetX As Double, ByRef OffsetZ As Double, swDrawing 
 
 End Sub
 
-Sub AddSketchSegmentsAndConstraints(swDrawing As SldWorks.DrawingDoc, swSketchManager As SldWorks.SketchManager, OffsetX As Double, OffsetY As Double, _
-                FirstPoint As SldWorks.sketchPoint, SecondPoint As SldWorks.sketchPoint, SelectionString2 As String, SelectionString3 As String)
+Sub AddCrossMarkForDoor(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
+                swBottomEdge As SldWorks.Edge, DoorList As IArrListObject)
 
-    Dim x1Val As Double
-    Dim x2Val As Double
-    Dim y1Val As Double
-    Dim y2Val As Double
+    
+    Dim vDoorItems As Variant
+    vDoorItems = DoorList.Items
+    
     
     Dim skSegment As SketchSegment
     Set skSegment = swSketchManager.CreateLine(FirstPoint.X - OffsetX, FirstPoint.Y - OffsetY, FirstPoint.Z, _
@@ -143,11 +143,11 @@ End Sub
 Sub AddConstraint(swDrawing As SldWorks.DrawingDoc, sketchPoint As SldWorks.sketchPoint, linePoint As SldWorks.sketchPoint, xVal, yVal, _
     zVal, SelectionString2 As String, SelectionString3 As String)
 
-    Dim Bool As Boolean
-    Bool = swDrawing.Extension.SelectByID2("Point" & sketchPoint.GetID(1) & "@" & SelectionString2 _
+    Dim bool As Boolean
+    bool = swDrawing.Extension.SelectByID2("Point" & sketchPoint.GetID(1) & "@" & SelectionString2 _
         & SelectionString3, "EXTSKETCHPOINT", xVal, yVal, zVal, False, 0, Nothing, 0)
 
-    If Bool Then
+    If bool Then
         
         linePoint.Select4 True, Nothing
         swDrawing.SketchAddConstraints "sgCOINCIDENT"
