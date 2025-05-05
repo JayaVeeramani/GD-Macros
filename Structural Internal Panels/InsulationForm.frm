@@ -15,13 +15,6 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
 
-
-
-
-
-
-
-
 Private Sub OkButton_Click()
 
     IsInsulationFormClicked = True
