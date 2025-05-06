@@ -13,6 +13,8 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
+
 Option Explicit
 
 Dim swSketchMgr As SldWorks.SketchManager
@@ -146,6 +148,7 @@ Private Sub CreateButton_Click()
     InsulationComponents = GetSelectedComponents
     
     Call ActivateDrawingDocument(swDrawing)
+    
 
     Call ScaleView(swDrawing, swFrontView, ViewWidth, ViewHeight)
     
@@ -234,6 +237,8 @@ Private Sub CreateButton_Click()
     
      Call AddCastingSketchAndNote(oSubAssy.EndComp, swBottomView, swSketchMgr, swDrawing)
      Call InsulationHatchesAndCallouts(InsulationComponents, swDrawing, swBottomView)
+     
+     Call UpdateFrontViewPosition(InternalCompList.Items, swDrawing, swFrontView)
 
 
     'Dim NoteCount As Integer
@@ -534,7 +539,7 @@ Sub AddVerticalDimensionForLTab(swDrawing As SldWorks.DrawingDoc, swView As SldW
   
                     End If
                     
-                    Call AddLTabVerticalDimension(oTabAssy, swDrawing, swView)
+                    Call AddLTabVerticalDimension(oTabAssy, swDrawing, swView, -1)
                         
                 End If
                     
@@ -584,13 +589,13 @@ Sub AddLTabVerticalPosDimension(oTabAssy As ILTabAssy, swBottomEdge As SldWorks.
 End Sub
 
 
-Sub AddLTabVerticalDimension(oLTabAssy As ILTabAssy, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+Sub AddLTabVerticalDimension(oLTabAssy As ILTabAssy, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, Optional Reverse As Integer = 1)
 
     Dim swDisplayDim As SldWorks.DisplayDimension
                   
     Set swDisplayDim = SelectAndAddDimension(oLTabAssy.LowerRightLTab.EndHorizontalEdge, _
                             oLTabAssy.UpperRightLTab.EndHorizontalEdge, swDrawing, _
-                        oLTabAssy.UpperRightXPoint + 0.01, oLTabAssy.UpperRightYPoint - 0.01, swView, False, IsHorizontalDim:=False)
+                        oLTabAssy.UpperRightXPoint + 0.01, oLTabAssy.UpperRightYPoint - (0.00625 * Reverse), swView, False, IsHorizontalDim:=False)
                         
     swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
     
@@ -613,8 +618,8 @@ Private Sub AddDimensionsForLTabOrDoorInEachSubAssy(subAssylist As IArrListObjec
         Clearance = 0
  
         
-        If (UBound(vSubAssy)) = 0 Or i < UBound(vSubAssy) Then
-            
+        If i < UBound(vSubAssy) Then
+
             Call AddDimensionsForLTabOrDoor(oSubAssy.GetLTabOrDoorList, oSubAssy, swDrawing, swView, Clearance)
             
             If i = 0 Then
@@ -625,8 +630,18 @@ Private Sub AddDimensionsForLTabOrDoorInEachSubAssy(subAssylist As IArrListObjec
             
         Else
         
-            MaxClearance = MaxClearance + 0.006
-            Call AddOverallDimension(oSubAssy, swDrawing, swView, MaxClearance)
+            If UBound(vSubAssy) = 0 Then
+            
+               Call AddDimensionsForLTabOrDoor(oSubAssy.GetLTabOrDoorList, oSubAssy, swDrawing, swView, Clearance)
+               Call AddOverallDimension(oSubAssy, swDrawing, swView, Clearance)
+               
+            Else
+            
+                Call AddOverallDimension(oSubAssy, swDrawing, swView, MaxClearance)
+               
+            End If
+        
+
             
         End If
 
@@ -746,7 +761,7 @@ Private Sub AddDimensionsForLTabOrDoor(vDoorOrTabItems As Variant, oSubAssy As I
                 
                 
                 Set swDisplayDim = SelectAndAddDimension(oSubAssy.StartEdge, swDoorStartEdge, swDrawing, _
-                        oStartComp.xMin - 0.01, oStartComp.yMin - Clearance, swView, False, True)
+                        oStartComp.xMin + 0.01, oStartComp.yMin - Clearance, swView, False, True)
             
                 Dim oEndComp As IComp
                 Set oEndComp = oDoor.EndComp
@@ -1742,8 +1757,10 @@ Private Function GetPlaneName(wallName As String, IsLeftPanel As Boolean) As Str
 End Function
 
 
-Private Sub AddOverallDimension(oSubAssy As ISubAssy, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, Clearance As Double)
-
+Private Sub AddOverallDimension(oSubAssy As ISubAssy, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, ByRef Clearance As Double)
+    
+    Clearance = Clearance + 0.006
+    
     Dim swDisplayDim As SldWorks.DisplayDimension
     Set swDisplayDim = SelectAndAddDimension(oSubAssy.StartEdge, oSubAssy.EndEdge, swDrawing, _
                 oSubAssy.EndComp.xMin - 0.01, oSubAssy.EndComp.yMin - Clearance, swView)
@@ -2196,9 +2213,21 @@ Private Function SelectAndAddDimension(swEdge1 As SldWorks.Edge, swEdge2 As SldW
         
             Set SelectAndAddDimension = swDrawing.AddHorizontalDimension2(xPos, yPos, 0)
             
+            If SelectAndAddDimension Is Nothing Then
+                
+                Set SelectAndAddDimension = swDrawing.AddVerticalDimension2(xPos, yPos, 0)
+                
+            End If
+            
         Else
             
             Set SelectAndAddDimension = swDrawing.AddVerticalDimension2(xPos, yPos, 0)
+            
+            If SelectAndAddDimension Is Nothing Then
+                
+                Set SelectAndAddDimension = swDrawing.AddHorizontalDimension2(xPos, yPos, 0)
+                
+            End If
             
         End If
 
@@ -2311,6 +2340,26 @@ Private Sub InsertSketchBlock(swDrawing As SldWorks.DrawingDoc, swSheet As SldWo
 
 End Sub
 
+Private Sub UpdateFrontViewPosition(vComps As Variant, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+    
+    Dim oStartComp As IComp
+    Set oStartComp = vComps(0)
+    
+    Dim oEndComp As IComp
+    Set oEndComp = vComps(UBound(vComps))
+    
+    Dim CenterX As Double
+    CenterX = (oStartComp.xMin + oEndComp.xMax) / 2
+
+    Dim viewPosition As Variant
+    viewPosition = swView.Position
+
+    viewPosition(0) = viewPosition(0) + (viewPosition(0) - CenterX)
+
+    swView.Position = viewPosition
+    
+End Sub
+
 Private Sub UpdateBottomViewPosition(vComps As Variant, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
     
     Dim oComp As IComp
@@ -2350,21 +2399,13 @@ Private Sub CleanUpActivateAndAddViewLabel(swDrawing As SldWorks.ModelDoc2, swVi
     Dim SheetDesc As String
     Dim LabelText As String
     If InStr(wallName, "Wall") > 0 Then
-    
-        If InsulationName = "" Then
-    
-            SheetDesc = "STRUCTURAL, ELEVATION, INSULATION, " & UCase(wallName)
-            
-        Else
-        
-            SheetDesc = "STRUCTURAL, ELEVATION, " & UCase(InsulationName) & ", " & UCase(wallName)
-            
-        End If
-       
-         
+
+        SheetDesc = "STRUCTURAL, ELEVATION, INTERNAL LINER PANELS, " & UCase(wallName)
+
+
     Else
         
-        SheetDesc = "STRUCTURAL, " & UCase(wallName) & ", " & UCase(InsulationName)
+        SheetDesc = "STRUCTURAL, " & UCase(wallName) & ", INTERNAL LINER PANELS"
         
     End If
     
