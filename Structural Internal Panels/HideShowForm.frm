@@ -233,7 +233,7 @@ Private Sub CreateButton_Click()
     Call AddVerticalDimensionForLTab(swDrawing, swFrontView, swBottomEdge, TabAssyList)
     Call AddVerticalDimensionForDoor(swDrawing, swFrontView, swBottomEdge, DoorList, oSubAssy)
     Call AddCrossMarkForDoor(swDrawing, swFrontView, swBottomEdge, DoorList)
-    Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - MaxClearance - 0.005)
+    Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - MaxClearance - 0.005, (oSubAssy.StartComp.xMin + oSubAssy.EndComp.xMax) / 2)
     
      Call AddCastingSketchAndNote(oSubAssy.EndComp, swBottomView, swSketchMgr, swDrawing)
      Call InsulationHatchesAndCallouts(InsulationComponents, swDrawing, swBottomView)
@@ -1537,27 +1537,6 @@ Private Sub AddCastingSketchAndNote(oComp As IComp, swView As SldWorks.View, swS
     
 End Sub
 
-Function AddSubAssyComponentsToDictionary(vComps As Variant) As Scripting.Dictionary
-
-    Set AddSubAssyComponentsToDictionary = New Scripting.Dictionary
-    
-    If Not IsEmpty(vComps) Then
-    
-        Dim i As Integer
-        For i = LBound(vComps) To UBound(vComps)
-            
-            If Not AddSubAssyComponentsToDictionary.Exists(vComps(i).Name2) Then
-            
-                AddSubAssyComponentsToDictionary.add vComps(i).Name2, vComps
-                
-            End If
-        
-        Next i
-    
-    End If
-    
-End Function
-
 Sub CheckandAddLayer(LayName As String, LayerDesc As String, swLayerMgr As SldWorks.LayerMgr)
 
     Dim vLayNames As Variant
@@ -1679,8 +1658,6 @@ Private Sub AddDimensionFromCornerSketches(swDrawing As SldWorks.DrawingDoc, swV
             
         End If
 End Sub
-
-
 
 Private Function CreateSketchLinesForNonCornerPanels(PlaneName As String, viewDrawComp As SldWorks.DrawingComponent, swControlSketch As SldWorks.Component2, _
                                         viewComp As SldWorks.Component2, oComp As IComp, swView As SldWorks.View, _
@@ -2267,56 +2244,56 @@ Private Sub GetViewMaxMinPoints(oComp As IComp, swView As SldWorks.View, ByRef x
     
 End Sub
  
-Private Function AddStructuralNotes(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Sheet, Is12GAPanelExists As Boolean, _
-            IsAllPanels12GA As Boolean, IsDoorExists As Boolean, ByRef NoteCount As Integer, wallName As String) As SldWorks.Note
-
-    swDrawing.ActivateSheet swSheet.GetName
-    
-    Dim swStructuralNote As SldWorks.Note
-    Dim Note As String
-    
-    If Is12GAPanelExists Then
-    
-        NoteCount = 2
-        If IsAllPanels12GA Then
-        
-            Note = "<FONT size=10PTS style=B>NOTES:" & vbCrLf & _
-                "<FONT size=8PTS style=R>1. ALL PANELS ARE 12GA." & vbCrLf & _
-             "2. RIB TO RIB #14 TEK SCREW @12" & Chr(34) & " O.C., UNLESS OTHERWISE SPECIFIED."
-        
-        Else
-            Note = "<FONT size=10PTS style=B>NOTES:" & vbCrLf & _
-                "<FONT size=8PTS style=R>1. ALL CIRCLED PANELS ARE 12GA." & vbCrLf & _
-             "2. RIB TO RIB #14 TEK SCREW @12" & Chr(34) & " O.C., UNLESS OTHERWISE SPECIFIED."
-             
-        End If
-
-    Else
-    
-        NoteCount = 1
-        Note = "<FONT size=10PTS style=B> NOTES:" & vbCrLf & _
-            "<FONT size=8PTS style=R>1. RIB TO RIB #14 TEK SCREW @12" & Chr(34) & " O.C., UNLESS OTHERWISE SPECIFIED."
-         
-     End If
-     
-    
-    If InStr(wallName, "Wall") > 0 Then
-
-        If IsDoorExists Then
-     
-            NoteCount = NoteCount + 1
-            Note = Note & vbCrLf & NoteCount & ". DIMENSION FROM BOTTOM OF WALL PANEL TO BOTTOM HORIZONTAL FACE OF DOOR C-CHANNEL."
-        
-        End If
-        
-        NoteCount = NoteCount + 1
-        Note = Note & vbCrLf & NoteCount & ". DIMENSION FROM BOTTOM OF WALL PANEL TO BOTTOM OF CEILING PANELS, USE FOR CEILING L-ANGLE PLACEMENT."
-        
-    End If
-     
-    Set swStructuralNote = swDrawing.CreateText2(Note, 1.99241243641486E-02, 6.92464210842187E-02, 0, 0, 0)
-    swStructuralNote.SetTextJustification swTextJustification_e.swTextJustificationLeft
-End Function
+'Private Function AddStructuralNotes(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Sheet, Is12GAPanelExists As Boolean, _
+'            IsAllPanels12GA As Boolean, IsDoorExists As Boolean, ByRef NoteCount As Integer, wallName As String) As SldWorks.Note
+'
+'    swDrawing.ActivateSheet swSheet.GetName
+'
+'    Dim swStructuralNote As SldWorks.Note
+'    Dim Note As String
+'
+'    If Is12GAPanelExists Then
+'
+'        NoteCount = 2
+'        If IsAllPanels12GA Then
+'
+'            Note = "<FONT size=10PTS style=B>NOTES:" & vbCrLf & _
+'                "<FONT size=8PTS style=R>1. ALL PANELS ARE 12GA." & vbCrLf & _
+'             "2. RIB TO RIB #14 TEK SCREW @12" & Chr(34) & " O.C., UNLESS OTHERWISE SPECIFIED."
+'
+'        Else
+'            Note = "<FONT size=10PTS style=B>NOTES:" & vbCrLf & _
+'                "<FONT size=8PTS style=R>1. ALL CIRCLED PANELS ARE 12GA." & vbCrLf & _
+'             "2. RIB TO RIB #14 TEK SCREW @12" & Chr(34) & " O.C., UNLESS OTHERWISE SPECIFIED."
+'
+'        End If
+'
+'    Else
+'
+'        NoteCount = 1
+'        Note = "<FONT size=10PTS style=B> NOTES:" & vbCrLf & _
+'            "<FONT size=8PTS style=R>1. RIB TO RIB #14 TEK SCREW @12" & Chr(34) & " O.C., UNLESS OTHERWISE SPECIFIED."
+'
+'     End If
+'
+'
+'    If InStr(wallName, "Wall") > 0 Then
+'
+'        If IsDoorExists Then
+'
+'            NoteCount = NoteCount + 1
+'            Note = Note & vbCrLf & NoteCount & ". DIMENSION FROM BOTTOM OF WALL PANEL TO BOTTOM HORIZONTAL FACE OF DOOR C-CHANNEL."
+'
+'        End If
+'
+'        NoteCount = NoteCount + 1
+'        Note = Note & vbCrLf & NoteCount & ". DIMENSION FROM BOTTOM OF WALL PANEL TO BOTTOM OF CEILING PANELS, USE FOR CEILING L-ANGLE PLACEMENT."
+'
+'    End If
+'
+'    Set swStructuralNote = swDrawing.CreateText2(Note, 1.99241243641486E-02, 6.92464210842187E-02, 0, 0, 0)
+'    swStructuralNote.SetTextJustification swTextJustification_e.swTextJustificationLeft
+'End Function
 
 Private Sub InsertSketchBlock(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Sheet, ProjectNo As String)
     
@@ -2382,7 +2359,7 @@ Private Sub UpdateBottomViewPosition(vComps As Variant, swDrawing As SldWorks.Dr
 End Sub
 
 Private Sub CleanUpActivateAndAddViewLabel(swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View, wallName As String, _
-        yPos As Double, Optional InsulationName As String = "")
+        yPos As Double, Optional xPos As Double = 0, Optional InsulationName As String = "")
 
     swDrawing.SetUserPreferenceToggle swUserPreferenceToggle_e.swDisplayOrigins, False
     swDrawing.SetUserPreferenceToggle swUserPreferenceToggle_e.swDisplayPlanes, False
@@ -2413,12 +2390,18 @@ Private Sub CleanUpActivateAndAddViewLabel(swDrawing As SldWorks.ModelDoc2, swVi
     swDrawing.Extension.CustomPropertyManager("").Set2 "SHEET DESCRIPTION", SheetDesc
     swDrawing.Extension.CustomPropertyManager("").Set2 "ISSUED FOR", "CONSTRUCTION"
     
-    Dim vOutline As Variant
-    vOutline = swView.GetOutline
+    If xPos = 0 Then
+    
+        Dim vOutline As Variant
+        vOutline = swView.GetOutline
+        xPos = (vOutline(0) + vOutline(2)) / 2
+        
+    End If
+    
     
     Dim swLabelNote As SldWorks.Note
 
-    Set swLabelNote = swDrawing.CreateText2(LabelText, (vOutline(0) + vOutline(2)) / 2, yPos, 0, 0, 0)
+    Set swLabelNote = swDrawing.CreateText2(LabelText, xPos, yPos, 0, 0, 0)
     swLabelNote.SetTextJustification swTextJustification_e.swTextJustificationCenter
     
     swDrawing.Extension.Rebuild swRebuildOptions_e.swCurrentSheetDisp
@@ -3117,8 +3100,3 @@ Function CombineArr(ByVal MainArr As Variant, ArrToAdd As Variant)
     
 End Function
 
-
-
-Private Sub UserForm_Click()
-
-End Sub
