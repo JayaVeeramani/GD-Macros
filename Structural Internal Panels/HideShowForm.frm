@@ -15,6 +15,8 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
 
+
+
 Option Explicit
 
 Dim swSketchMgr As SldWorks.SketchManager
@@ -531,6 +533,8 @@ Sub AddVerticalDimensionForLTab(swDrawing As SldWorks.DrawingDoc, swView As SldW
                         Set swDisplayDim = SelectAndAddDimension(PrevTabAssy.UpperRightLTab.EndHorizontalEdge, oTabAssy.LowerRightLTab.EndHorizontalEdge, swDrawing, _
                                 oTabAssy.UpperRightXPoint + 0.01, oTabAssy.LowerLeftYPoint - 0.01, swView, False, IsHorizontalDim:=False)
                                 
+                        Call AddManualParanthesis(swDisplayDim)
+                                
                         swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
                         
                     Else
@@ -584,6 +588,9 @@ Sub AddLTabVerticalPosDimension(oTabAssy As ILTabAssy, swBottomEdge As SldWorks.
                         oTabAssy.UpperRightXPoint + 0.01, oTabAssy.LowerLeftYPoint - 0.01, swView, False, IsHorizontalDim:=False)
                         
                         
+    Call AddManualParanthesis(swDisplayDim)
+                        
+                        
     swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
     
 End Sub
@@ -596,7 +603,8 @@ Sub AddLTabVerticalDimension(oLTabAssy As ILTabAssy, swDrawing As SldWorks.Drawi
     Set swDisplayDim = SelectAndAddDimension(oLTabAssy.LowerRightLTab.EndHorizontalEdge, _
                             oLTabAssy.UpperRightLTab.EndHorizontalEdge, swDrawing, _
                         oLTabAssy.UpperRightXPoint + 0.01, oLTabAssy.UpperRightYPoint - (0.00625 * Reverse), swView, False, IsHorizontalDim:=False)
-                        
+                       
+    Call AddManualParanthesis(swDisplayDim)
     swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
     
 End Sub
@@ -841,7 +849,7 @@ Sub AddLTabPosDimension(oLTabAssy As ILTabAssy, oSubAssy As ISubAssy, Clearance 
                         oSubAssy.StartEdge, swDrawing, _
                         oLTabAssy.LowerLeftXPoint - 0.01, oSubAssy.StartComp.yMin - Clearance, swView, False)
                         
-                        
+    Call AddManualParanthesis(swDisplayDim)
     swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
     
 End Sub
@@ -854,7 +862,8 @@ Sub AddLTabLengthDimension(oLTabAssy As ILTabAssy, swDrawing As SldWorks.Drawing
     Set swDisplayDim = SelectAndAddDimension(oLTabAssy.LowerLeftLTab.EndVerticalEdge, _
                             oLTabAssy.LowerRightLTab.EndVerticalEdge, swDrawing, _
                         oLTabAssy.LowerLeftXPoint + 0.01, oLTabAssy.LowerLeftYPoint - 0.005, swView, False)
-                        
+                      
+    Call AddManualParanthesis(swDisplayDim)
     swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
     
 End Sub
