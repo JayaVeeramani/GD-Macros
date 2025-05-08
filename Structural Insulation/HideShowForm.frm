@@ -220,12 +220,19 @@ Private Sub CreateButton_Click()
         
         Call AddCallouts(LowerBodies.Items, swDrawing, swFrontView, oSubAssy.yMin, oSubAssy.yMax, False, True, Clearance)
         
-        Clearance = Clearance + 0.00625
+        If Not IsEmpty(LowerBodies.Items) Then
+        
+            Clearance = Clearance + 0.00625
+            
+        Else
+            
+            Clearance = 0.005
+            
+        End If
+        
         Call AddDimensionFromEnd(UpperBodies.Items, swLeftSketch, oSubAssy.StartEdge, swFrontView, swDrawing, oSubAssy.StartComp.yMin - Clearance)
         Call AddDimensionFromEnd(UpperBodies.Items, swRightSketch, oSubAssy.EndEdge, swFrontView, swDrawing, oSubAssy.StartComp.yMin - Clearance, False)
 
-        
-        
 '
     End If
     
@@ -426,7 +433,7 @@ Function GetComponentCutFeaturesIfAny(swComp As SldWorks.Component2) As Variant
         
         If False = vSuppressed(0) Then
         
-            If swFeat.GetTypeName2 = "ICE" Then
+            If (swFeat.GetTypeName2 = "ICE" And InStr(swFeat.Name, "Cut") > 0) Or swFeat.GetTypeName2 = "Cut" Then
 
                 If Not CutFeaturesDict.Exists(swFeat.Name) Then
                     
