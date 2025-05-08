@@ -22,15 +22,25 @@ Function GetSketchContours(swSketch As SldWorks.Sketch) As IArrListObject
             Set swContour = vSketchContours(i)
             
             If swContour.IsClosed And swContour.GetSketchSegmentsCount = 4 Then
-            
-                Dim swContourSketch As IContourSketch
-                Set swContourSketch = New IContourSketch
                 
-                swContourSketch.Initialize swContour
-            
-                If swContourSketch.isRectangular Then
+                Dim vSketchSegs As Variant
+                vSketchSegs = swContour.GetSketchSegments
                 
-                    vContourArrList.AddtoList swContourSketch
+                Dim swSketchSegment As SldWorks.SketchSegment
+                Set swSketchSegment = vSketchSegs(0)
+                
+                If Not swSketchSegment.ConstructionGeometry Then
+                
+                    Dim swContourSketch As IContourSketch
+                    Set swContourSketch = New IContourSketch
+                    
+                    swContourSketch.Initialize swContour
+                
+                    If swContourSketch.isRectangular Then
+                    
+                        vContourArrList.AddtoList swContourSketch
+                        
+                    End If
                     
                 End If
 
@@ -132,9 +142,7 @@ Sub AddSketchSegmentsAndConstraints(swDrawing As SldWorks.DrawingDoc, swSketchMa
     
     Dim skLine As SldWorks.SketchLine
     Set skLine = skSegment
-    
 
-    
     Call AddConstraint(swDrawing, FirstPoint, skLine.GetStartPoint2, FirstPoint.X, FirstPoint.Y, FirstPoint.Z, SelectionString2, SelectionString3)
     Call AddConstraint(swDrawing, SecondPoint, skLine.GetEndPoint2, SecondPoint.X, SecondPoint.Y, SecondPoint.Z, SelectionString2, SelectionString3)
     

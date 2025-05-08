@@ -21,33 +21,32 @@ Public Dimension As SldWorks.DisplayDimension
 Public AssyLength As Double
 
 
-Function GetMaxLength() As Double
 
-    Dim yMin As Double
-    Dim yMax As Double
+Property Get yMin() As Double
+
+    If Not StartComp Is Nothing And Not EndComp Is Nothing Then
     
-    If StartComp.yMin < EndComp.yMin Then
-    
-        yMin = StartComp.yMin
-    
-    Else
-        
-        yMin = EndComp.yMin
+        If StartComp.yMin < EndComp.yMin Then
+            yMin = StartComp.yMin
+        Else
+            yMin = EndComp.yMin
+        End If
         
     End If
     
-    If StartComp.yMax > EndComp.yMax Then
+End Property
+
+Property Get yMax() As Double
+
+    If Not StartComp Is Nothing And Not EndComp Is Nothing Then
     
-        yMax = StartComp.yMax
-    
-    Else
-    
-        yMax = EndComp.yMax
+        If StartComp.yMax > EndComp.yMax Then
+            yMax = StartComp.yMax
+        Else
+            yMax = EndComp.yMax
+        End If
         
     End If
     
-    GetMaxLength = yMax - yMin
-
-End Function
-
+End Property
 
