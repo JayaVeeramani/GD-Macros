@@ -16,9 +16,10 @@ Attribute VB_Exposed = False
 
 
 
+
 Option Explicit
 
-Dim swMathUtility As SldWorks.MathUtility
+
 Dim swSketchMgr As SldWorks.SketchManager
 Dim xDirectionVector(2) As Double
 Dim yDirectionVector(2) As Double
@@ -192,6 +193,9 @@ Private Sub CreateButton_Click()
 
     Dim subAssylist As IArrListObject
     Set subAssylist = New IArrListObject
+    
+    Call AddCrossMarkForAssyCuts(FlatCompDict.Items, swFrontView, swDrawing)
+
 
     If Not IsEmpty(subAssyEndComponents) Then
 
@@ -229,11 +233,207 @@ Private Sub CreateButton_Click()
 
 
     Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, NoteCount, swBottomEdge, MaxClearance)
-    Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - MaxClearance - 0.0075)
+    Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - MaxClearance - 0.0075, (oSubAssy.StartComp.xMin + oSubAssy.EndComp.xMax) / 2)
+    
+    Call UpdateFrontViewPosition(FlatCompDict.Items, swDrawing, swFrontView)
+
 
     Unload Me
 
 End Sub
+
+Function AddCrossMarkForAssyCuts(vComps As Variant, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc) As Variant
+                
+    If Not IsEmpty(vComps) Then
+    
+        Dim FullAssyName As String
+        FullAssyName = Replace(vComps(0).GetComponent.Name2, "/" & _
+                    Right(vComps(0).GetComponent.Name2, Len(vComps(0).GetComponent.Name2) - InStrRev(vComps(0).GetComponent.Name2, "/")), "")
+        
+        Dim AssyName As String
+        AssyName = Right(FullAssyName, Len(FullAssyName) - InStrRev(FullAssyName, "/"))
+                    
+        Dim swTopLevelAssy As SldWorks.AssemblyDoc
+        Set swTopLevelAssy = swTopLevelModel
+
+        Dim swWallAssy As SldWorks.AssemblyDoc
+        Set swWallAssy = swTopLevelAssy.GetComponentByName(AssyName).GetModelDoc2()
+        
+        Dim Errors As Long
+        swApp.ActivateDoc3 swWallAssy.GetPathName, True, swRebuildOnActivation_e.swDontRebuildActiveDoc, Errors
+        
+        Dim vAssyCutFeatures As Variant
+        vAssyCutFeatures = GetAssyCutFeaturesIfAny(vComps, swWallAssy)
+          
+        Call GetContoursAndAddCrossMark(vAssyCutFeatures, swDrawing, swView, FullAssyName)
+
+        swApp.CloseDoc swWallAssy.GetPathName
+        
+    End If
+    
+
+End Function
+Function GetAssyCutFeaturesIfAny(vComps As Variant, swWallAssy As SldWorks.AssemblyDoc) As Variant
+
+    Dim CutFeaturesDict As Scripting.Dictionary
+    Set CutFeaturesDict = New Scripting.Dictionary
+
+    Dim swFeatManager As SldWorks.FeatureManager
+    Set swFeatManager = swWallAssy.FeatureManager
+    
+    Dim vFeats As Variant
+    vFeats = swFeatManager.GetFeatures(True)
+    
+    Dim i As Integer
+    For i = UBound(vFeats) To LBound(vFeats) Step -1
+    
+        Dim swFeat As SldWorks.Feature
+        Set swFeat = vFeats(i)
+        
+        Debug.Print swFeat.Name
+        Debug.Print swFeat.GetTypeName2
+        
+        If False = swFeat.IsSuppressed Then
+        
+            If swFeat.GetTypeName2 = "Cut" Then
+    
+                If IsFeatureAffectAnyComp(vComps, swWallAssy, swFeat) Then
+            
+                    If Not CutFeaturesDict.Exists(swFeat.Name) Then
+                    
+                        CutFeaturesDict.Add swFeat.Name, swFeat
+                        
+                    End If
+                    
+                End If
+                
+            End If
+            
+        End If
+        
+        If swFeat.GetTypeName2 = "MateGroup" Then
+        
+            Exit For
+            
+        End If
+        
+    Next i
+    
+    GetAssyCutFeaturesIfAny = CutFeaturesDict.Items
+
+End Function
+
+Function IsFeatureAffectAnyComp(vComps As Variant, _
+            swWallAssy As SldWorks.AssemblyDoc, swFeat As SldWorks.Feature) As Boolean
+            
+    IsFeatureAffectAnyComp = False
+      
+    Dim vAffectedComps As Variant
+    vAffectedComps = swWallAssy.GetFeatureScope(swFeat)
+    
+    Dim i As Integer
+    For i = LBound(vAffectedComps) To UBound(vAffectedComps)
+    
+        Dim swFeatAffectedComp As SldWorks.Component2
+        Set swFeatAffectedComp = vAffectedComps(i)
+        
+        Dim swCompModel As SldWorks.ModelDoc2
+        Set swCompModel = swFeatAffectedComp.GetModelDoc2()
+        
+        If Not swCompModel Is Nothing Then
+ 
+        Dim swCompProp As SldWorks.CustomPropertyManager
+        Set swCompProp = swCompModel.Extension.CustomPropertyManager("")
+                
+        Dim Profile As String
+        Dim ValOut As String
+        Dim wasResolved As Boolean
+        swCompProp.Get5 "Profile", False, ValOut, Profile, wasResolved
+        
+        If InStr(Profile, "EXT-") > 0 Then
+        
+            Dim j As Integer
+            For j = LBound(vComps) To UBound(vComps)
+            
+                Dim swComp As SldWorks.Component2
+                Set swComp = vComps(j).GetComponent
+            
+                If InStr(swComp.Name2, swFeatAffectedComp.Name2) > 0 Then
+                    
+                    IsFeatureAffectAnyComp = True
+                    Exit Function
+                    
+                End If
+                
+            Next j
+            
+        End If
+        
+        End If
+
+    Next i
+
+End Function
+
+Sub GetContoursAndAddCrossMark(vCutFeatures As Variant, swDrawing As SldWorks.DrawingDoc, _
+        swView As SldWorks.View, AssyName As String)
+
+    If Not IsEmpty(vCutFeatures) Then
+    
+        Dim i As Integer
+        For i = LBound(vCutFeatures) To UBound(vCutFeatures)
+        
+            Dim swFeat As SldWorks.Feature
+            Set swFeat = vCutFeatures(i)
+            
+            Dim swSubFeat As SldWorks.Feature
+            Set swSubFeat = swFeat.GetFirstSubFeature
+            
+            If swSubFeat.GetTypeName2 = "ProfileFeature" Then
+            
+                Dim swSketch As SldWorks.Sketch
+                Set swSketch = swSubFeat.GetSpecificFeature2
+                
+                Dim vContourArrList As New IArrListObject
+                Set vContourArrList = GetSketchContours(swSketch)
+                
+                Dim vContours As Variant
+                vContours = vContourArrList.Items
+            
+                If Not (IsEmpty(vContours)) Then
+                
+                    Call AddCrossMarkForContours(vContours, swDrawing, swSubFeat, swSketch, swView, AssyName)
+                    
+                End If
+            
+            End If
+
+        Next i
+        
+    End If
+End Sub
+
+
+Private Sub UpdateFrontViewPosition(vComps As Variant, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+    
+    Dim oStartComp As IComp
+    Set oStartComp = vComps(0)
+    
+    Dim oEndComp As IComp
+    Set oEndComp = vComps(UBound(vComps))
+    
+    Dim CenterX As Double
+    CenterX = (oStartComp.xMin + oEndComp.xMax) / 2
+
+    Dim viewPosition As Variant
+    viewPosition = swView.Position
+
+    viewPosition(0) = viewPosition(0) + (viewPosition(0) - CenterX)
+
+    swView.Position = viewPosition
+    
+End Sub
+
 
 Private Sub AddVerticalDimensionsForDoororHVAC(DoorOrHVACList As IArrListObject, swView As SldWorks.View, _
         swDrawing As SldWorks.DrawingDoc, Count As Integer)
@@ -1487,7 +1687,8 @@ Private Sub UpdateBottomViewPosition(vComps As Variant, swDrawing As SldWorks.Dr
     
 End Sub
 
-Private Sub CleanUpActivateAndAddViewLabel(swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View, wallName As String, yPos As Double)
+Private Sub CleanUpActivateAndAddViewLabel(swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View, wallName As String, yPos As Double, _
+    Optional xPos As Double = 0)
 
     swDrawing.SetUserPreferenceToggle swUserPreferenceToggle_e.swDisplayOrigins, False
     swDrawing.SetUserPreferenceToggle swUserPreferenceToggle_e.swDisplayPlanes, False
@@ -1518,12 +1719,17 @@ Private Sub CleanUpActivateAndAddViewLabel(swDrawing As SldWorks.ModelDoc2, swVi
     swDrawing.Extension.CustomPropertyManager("").Set2 "SHEET DESCRIPTION", SheetDesc
     swDrawing.Extension.CustomPropertyManager("").Set2 "ISSUED FOR", "CONSTRUCTION"
     
-    Dim vOutline As Variant
-    vOutline = swView.GetOutline
+    If xPos = 0 Then
+    
+        Dim vOutline As Variant
+        vOutline = swView.GetOutline
+        xPos = (vOutline(0) + vOutline(2)) / 2
+        
+    End If
     
     Dim swLabelNote As SldWorks.Note
 
-    Set swLabelNote = swDrawing.CreateText2(LabelText, (vOutline(0) + vOutline(2)) / 2, yPos, 0, 0, 0)
+    Set swLabelNote = swDrawing.CreateText2(LabelText, xPos, yPos, 0, 0, 0)
     swLabelNote.SetTextJustification swTextJustification_e.swTextJustificationCenter
     
     swDrawing.Extension.Rebuild swRebuildOptions_e.swCurrentSheetDisp
@@ -1632,8 +1838,8 @@ Private Sub AddRibSketchAndNote(oComp As IComp, swView As SldWorks.View, swSketc
         
         If Not swSketchSegmentHor Is Nothing And Not swSketchSegmentVer Is Nothing Then
     
-            Dim bool As Boolean
-            bool = swDrawing.ActivateView(swView.Name)
+            Dim Bool As Boolean
+            Bool = swDrawing.ActivateView(swView.Name)
             
             Call SelectSketchSegment(swSketchSegmentHor, swDrawing, swView, False)
             
@@ -1840,10 +2046,10 @@ Function SelectSketchSegment(swSketchSegment As SldWorks.SketchSegment, swDrawin
     Dim swSketchLine As SldWorks.SketchLine
     Set swSketchLine = swSketchSegment
     
-    Dim swStartPoint As SldWorks.SketchPoint
+    Dim swStartPoint As SldWorks.sketchPoint
     Set swStartPoint = swSketchLine.GetStartPoint2
     
-    Dim swEndPoint As SldWorks.SketchPoint
+    Dim swEndPoint As SldWorks.sketchPoint
     Set swEndPoint = swSketchLine.GetEndPoint2
 
     Dim swCurve As SldWorks.Curve
@@ -3038,45 +3244,6 @@ Private Sub UpdatedConsolidatedList(ByRef vConsolidatedLists As Variant, IsInit 
 
 End Sub
 
-Function GetComponentPointInSheetSpace(swComp As SldWorks.Component2, _
-                vPoint As Variant, swView As SldWorks.View)
-    
-    GetComponentPointInSheetSpace = GetTransformPoint(vPoint, _
-                                swComp.Transform2.Multiply(swView.ModelToViewTransform))
 
-End Function
-
-Function GetTransformPoint(vPoint As Variant, swTransform As SldWorks.MathTransform)
-    
-    Dim swMathPoint As SldWorks.MathPoint
-    Set swMathPoint = swMathUtility.CreatePoint(vPoint)
-    
-    Set swMathPoint = swMathPoint.MultiplyTransform(swTransform)
-    GetTransformPoint = swMathPoint.ArrayData
-
-End Function
-
-Private Function GetSketchPointInSheetSpace(swView As SldWorks.View, vPoint As Variant)
-
-    Dim swSketch As SldWorks.Sketch
-    Set swSketch = swView.GetSketch
-    
-    GetSketchPointInSheetSpace = GetTransformPoint(vPoint, swSketch.ModelToSketchTransform.Inverse)
-
-End Function
-
-Function GetComponentPointInViewSpace(swComp As SldWorks.Component2, _
-                    vPoint As Variant, swView As SldWorks.View)
-    
-    Dim swSketch As SldWorks.Sketch
-    Set swSketch = swView.GetSketch
-    
-    Dim XForm As SldWorks.MathTransform
-    Set XForm = swComp.Transform2.Multiply(swView.ModelToViewTransform)
-    Set XForm = XForm.Multiply(swSketch.ModelToSketchTransform)
-    
-    GetComponentPointInViewSpace = GetTransformPoint(vPoint, XForm)
-
-End Function
 
 
