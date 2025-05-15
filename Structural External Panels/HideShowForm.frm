@@ -17,6 +17,8 @@ Attribute VB_Exposed = False
 
 
 
+
+
 Option Explicit
 
 
@@ -172,7 +174,9 @@ Private Sub CreateButton_Click()
     Dim IsMakeUpExists As Boolean
     Dim subAssyCompDict As Scripting.Dictionary
     Set subAssyCompDict = AddSubAssyComponentsToDictionary(subAssyEndComponents)
-
+    
+    swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
+    
     Call AddCallouts(vConsolidatedList, swDrawing, swFrontView, MaxCompHeight, IsMakeUpExists, subAssyCompDict)
 
     Dim Is12GAPanelExists As Boolean
@@ -194,8 +198,8 @@ Private Sub CreateButton_Click()
     Dim subAssylist As IArrListObject
     Set subAssylist = New IArrListObject
     
-    Call AddCrossMarkForAssyCuts(FlatCompDict.Items, swFrontView, swDrawing)
 
+    
 
     If Not IsEmpty(subAssyEndComponents) Then
 
@@ -207,6 +211,7 @@ Private Sub CreateButton_Click()
 
         Call CheckAndAddDoorOrHVACAssy(subAssylist, DoorOrHVACList, CompNoDict)
 
+
     End If
 
     Dim oSubAssy As ISubAssy
@@ -216,11 +221,17 @@ Private Sub CreateButton_Click()
     Set oSubAssy.EndComp = FlatCompDict.Items(UBound(FlatCompDict.Items))
     Set oSubAssy.StartEdge = swLeftEdge
     Set oSubAssy.EndEdge = swRightEdge
+    Set oSubAssy.BottomEdge = swBottomEdge
+    
     oSubAssy.StartIdx = 0
     oSubAssy.EndIdx = UBound(FlatCompDict.Items)
     Call oSubAssy.AddDoororHVACList(DoorOrHVACList)
 
+
     subAssylist.AddtoList oSubAssy
+    
+    Dim Countourlist As IArrListObject
+    Set Countourlist = AddCrossMarkForAssyCuts(FlatCompDict.Items, swFrontView, swDrawing, oSubAssy)
 
     Dim NoteCount As Integer
     Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists, IsAllPanels12GA, IsZChannelExists, NoteCount, wallName)
@@ -237,12 +248,14 @@ Private Sub CreateButton_Click()
     
     Call UpdateFrontViewPosition(FlatCompDict.Items, swDrawing, swFrontView)
 
-
+    swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, True
+    
     Unload Me
 
 End Sub
 
-Function AddCrossMarkForAssyCuts(vComps As Variant, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc) As Variant
+Function AddCrossMarkForAssyCuts(vComps As Variant, swView As SldWorks.View, _
+                swDrawing As SldWorks.DrawingDoc, oSubAssy As ISubAssy) As IArrListObject
                 
     If Not IsEmpty(vComps) Then
     
@@ -255,9 +268,12 @@ Function AddCrossMarkForAssyCuts(vComps As Variant, swView As SldWorks.View, swD
                     
         Dim swTopLevelAssy As SldWorks.AssemblyDoc
         Set swTopLevelAssy = swTopLevelModel
+        
+        Dim swWallComp As SldWorks.Component2
+        Set swWallComp = swTopLevelAssy.GetComponentByName(AssyName)
 
         Dim swWallAssy As SldWorks.AssemblyDoc
-        Set swWallAssy = swTopLevelAssy.GetComponentByName(AssyName).GetModelDoc2()
+        Set swWallAssy = swWallComp.GetModelDoc2()
         
         Dim Errors As Long
         swApp.ActivateDoc3 swWallAssy.GetPathName, True, swRebuildOnActivation_e.swDontRebuildActiveDoc, Errors
@@ -265,14 +281,14 @@ Function AddCrossMarkForAssyCuts(vComps As Variant, swView As SldWorks.View, swD
         Dim vAssyCutFeatures As Variant
         vAssyCutFeatures = GetAssyCutFeaturesIfAny(vComps, swWallAssy)
           
-        Call GetContoursAndAddCrossMark(vAssyCutFeatures, swDrawing, swView, FullAssyName)
+        Set AddCrossMarkForAssyCuts = GetContoursAndAddCrossMark(vAssyCutFeatures, swDrawing, swView, FullAssyName, swWallComp, oSubAssy)
 
         swApp.CloseDoc swWallAssy.GetPathName
-        
+
     End If
-    
 
 End Function
+
 Function GetAssyCutFeaturesIfAny(vComps As Variant, swWallAssy As SldWorks.AssemblyDoc) As Variant
 
     Dim CutFeaturesDict As Scripting.Dictionary
@@ -375,9 +391,11 @@ Function IsFeatureAffectAnyComp(vComps As Variant, _
 
 End Function
 
-Sub GetContoursAndAddCrossMark(vCutFeatures As Variant, swDrawing As SldWorks.DrawingDoc, _
-        swView As SldWorks.View, AssyName As String)
-
+Function GetContoursAndAddCrossMark(vCutFeatures As Variant, swDrawing As SldWorks.DrawingDoc, _
+        swView As SldWorks.View, AssyName As String, swComp As SldWorks.Component2, oSubAssy As ISubAssy) As IArrListObject
+        
+    Set GetContoursAndAddCrossMark = New IArrListObject
+    
     If Not IsEmpty(vCutFeatures) Then
     
         Dim i As Integer
@@ -394,15 +412,13 @@ Sub GetContoursAndAddCrossMark(vCutFeatures As Variant, swDrawing As SldWorks.Dr
                 Dim swSketch As SldWorks.Sketch
                 Set swSketch = swSubFeat.GetSpecificFeature2
                 
-                Dim vContourArrList As New IArrListObject
-                Set vContourArrList = GetSketchContours(swSketch)
-                
                 Dim vContours As Variant
-                vContours = vContourArrList.Items
-            
+                vContours = GetSketchContours(swSketch, swComp, swView)
+
                 If Not (IsEmpty(vContours)) Then
                 
-                    Call AddCrossMarkForContours(vContours, swDrawing, swSubFeat, swSketch, swView, AssyName)
+                    Call GetContoursAndAddCrossMark.AddItems(vContours)
+                    Call AddCrossMarkAndDimensionsForContours(vContours, swDrawing, swSubFeat, swSketch, swView, AssyName, oSubAssy)
                     
                 End If
             
@@ -411,7 +427,8 @@ Sub GetContoursAndAddCrossMark(vCutFeatures As Variant, swDrawing As SldWorks.Dr
         Next i
         
     End If
-End Sub
+    
+End Function
 
 
 Private Sub UpdateFrontViewPosition(vComps As Variant, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
@@ -1338,7 +1355,7 @@ Private Function GetControlSketch() As SldWorks.Component2
        
 End Function
 
-Private Sub AddSplitLineNote(swSketchSegment As SldWorks.SketchLine, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
+Private Sub AddSplitLineNote(swSketchSegment As SldWorks.sketchLine, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
             NoteText As String, Optional IsRight As Boolean = True, Optional ClearanceVal As Double = 0.005)
 
     
@@ -1743,7 +1760,7 @@ Private Function Add12GACircles(vCompList As Variant, swDrawing As SldWorks.Mode
     IsAllPanels12GA = True
     
     swDrawing.ActivateView swView.Name
-    swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
+    'swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
     
     Dim i As Integer
     For i = LBound(vCompList) To UBound(vCompList)
@@ -1792,7 +1809,7 @@ Private Function Add12GACircles(vCompList As Variant, swDrawing As SldWorks.Mode
     Next i
     
     
-    swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, True
+    'swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, True
         
 End Function
 
@@ -1838,8 +1855,8 @@ Private Sub AddRibSketchAndNote(oComp As IComp, swView As SldWorks.View, swSketc
         
         If Not swSketchSegmentHor Is Nothing And Not swSketchSegmentVer Is Nothing Then
     
-            Dim Bool As Boolean
-            Bool = swDrawing.ActivateView(swView.Name)
+            Dim bool As Boolean
+            bool = swDrawing.ActivateView(swView.Name)
             
             Call SelectSketchSegment(swSketchSegmentHor, swDrawing, swView, False)
             
@@ -1962,15 +1979,15 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
             
             If swCurve.IsLine Then
             
-                Dim vStartPoint As Variant
-                vStartPoint = swEdge.GetStartVertex.GetPoint
-                vStartPoint = GetComponentPointInViewSpace(swComp, vStartPoint, swView)
+                Dim vStartpoint As Variant
+                vStartpoint = swEdge.GetStartVertex.GetPoint
+                vStartpoint = GetComponentPointInViewSpace(swComp, vStartpoint, swView)
                 
                 Dim vEndPoint As Variant
                 vEndPoint = swEdge.GetEndVertex.GetPoint
                 vEndPoint = GetComponentPointInViewSpace(swComp, vEndPoint, swView)
                 
-                If Abs(vStartPoint(idx) - vEndPoint(idx)) <= 0.00001 And Abs(vStartPoint(idx) - ValToMatch) <= 0.00001 Then
+                If Abs(vStartpoint(idx) - vEndPoint(idx)) <= 0.00001 And Abs(vStartpoint(idx) - ValToMatch) <= 0.00001 Then
                     
                     Dim vCurveParam As Variant
                     vCurveParam = swEdge.GetCurveParams2
@@ -2043,7 +2060,7 @@ End Sub
 Function SelectSketchSegment(swSketchSegment As SldWorks.SketchSegment, swDrawing As SldWorks.DrawingDoc, _
         swView As SldWorks.View, Append As Boolean, Optional IsNearEnd As Boolean = True, Optional PercentFromEnd As Double = 0.01)
     
-    Dim swSketchLine As SldWorks.SketchLine
+    Dim swSketchLine As SldWorks.sketchLine
     Set swSketchLine = swSketchSegment
     
     Dim swStartPoint As SldWorks.sketchPoint

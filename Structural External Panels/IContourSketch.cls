@@ -9,12 +9,15 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 
 Private oContour As SldWorks.SketchContour
+Private cComp As SldWorks.Component2
+Private cView As SldWorks.View
+Private cSketch As SldWorks.Sketch
 
-'Private cxMin As Double
-'Private cxMax As Double
-'
-'Private czMin As Double
-'Private czMax As Double
+Private cxMin As Double
+Private cxMax As Double
+
+Private cyMin As Double
+Private cyMax As Double
 
 Private bLeftPoint As SldWorks.sketchPoint
 Private bRightPoint As SldWorks.sketchPoint
@@ -48,6 +51,30 @@ Property Get Width() As Double
         Width = leftSegment.GetLength
         
     End If
+
+End Property
+
+Property Get xMin() As Double
+
+    xMin = cxMin
+
+End Property
+
+Property Get xMax() As Double
+
+    xMax = cxMax
+
+End Property
+
+Property Get yMin() As Double
+
+    yMin = cyMin
+
+End Property
+
+Property Get yMax() As Double
+    
+    yMax = cyMax
 
 End Property
 
@@ -106,8 +133,11 @@ Property Get RightSketchLine() As SldWorks.SketchSegment
     
 End Property
 
-Public Sub Initialize(swContour As SldWorks.SketchContour)
+Public Sub Initialize(swContour As SldWorks.SketchContour, swSketch As SldWorks.Sketch, swComp As SldWorks.Component2, swView As SldWorks.View)
     
+    Set cSketch = swSketch
+    Set cView = swView
+    Set cComp = swComp
     Set oContour = swContour
     cisRectangular = GetRectangularLimits
 
@@ -133,35 +163,52 @@ Private Function GetRectangularLimits() As Boolean
     Dim tempHorizontalLine As SldWorks.SketchSegment
     Dim tempYVal As Double
 
-    
     Dim i As Integer
     For i = LBound(vSketchSegments) To UBound(vSketchSegments)
             
         Dim swSketchSegment As SldWorks.SketchSegment
         Set swSketchSegment = vSketchSegments(i)
             
-        Dim swSketchLine As SldWorks.SketchLine
+        Dim swSketchLine As SldWorks.sketchLine
         Set swSketchLine = swSketchSegment
 
         Dim swStartPoint As SldWorks.sketchPoint
         Set swStartPoint = swSketchLine.GetStartPoint2
         
+        Dim StartPoint(2) As Double
+        StartPoint(0) = swStartPoint.X
+        StartPoint(1) = swStartPoint.Y
+        StartPoint(2) = swStartPoint.Z
+        
+        Dim vStartpoint As Variant
+        vStartpoint = GetComponentPointInSheetSpace(cComp, GetTransformPoint(StartPoint, cSketch.ModelToSketchTransform), cView)
+        
         Dim swEndPoint As SldWorks.sketchPoint
         Set swEndPoint = swSketchLine.GetEndPoint2
         
-        If Abs(swStartPoint.X - swEndPoint.X) <= 0.000001 Then
+        Dim EndPoint(2) As Double
+        EndPoint(0) = swEndPoint.X
+        EndPoint(1) = swEndPoint.Y
+        EndPoint(2) = swEndPoint.Z
+        
+        Dim vEndPoint As Variant
+        vEndPoint = GetComponentPointInSheetSpace(cComp, GetTransformPoint(EndPoint, cSketch.ModelToSketchTransform), cView)
+        
+        If Abs(vStartpoint(0) - vEndPoint(0)) <= 0.000001 Then
         
             xCount = xCount + 1
             If xCount = 1 Then
             
                 Set tempVerticalLine = swSketchSegment
-                tempXVal = swStartPoint.X
+                tempXVal = vStartpoint(0)
                 Call GetMinMaxYSketchPoint(swStartPoint, swEndPoint, tempYMinSketchPoint, tempYMaxSketchPoint)
 
             ElseIf xCount = 2 Then
             
-                If tempXVal < swStartPoint.X Then
+                If tempXVal < vStartpoint(0) Then
                     
+                    cxMin = tempXVal
+                    cxMax = vStartpoint(0)
                     Set leftSegment = tempVerticalLine
                     Set rightSegment = swSketchSegment
                     Set bLeftPoint = tempYMinSketchPoint
@@ -169,7 +216,8 @@ Private Function GetRectangularLimits() As Boolean
                     Call GetMinMaxYSketchPoint(swStartPoint, swEndPoint, bRightPoint, tRightPoint)
                 
                 Else
-                
+                    cxMin = vStartpoint(0)
+                    cxMax = tempXVal
                     Set leftSegment = swSketchSegment
                     Set rightSegment = tempVerticalLine
                     Set bRightPoint = tempYMinSketchPoint
@@ -185,23 +233,27 @@ Private Function GetRectangularLimits() As Boolean
                 
             End If
         
-        ElseIf Abs(swStartPoint.Y - swEndPoint.Y) <= 0.000001 Then
+        ElseIf Abs(vStartpoint(1) - vEndPoint(1)) <= 0.000001 Then
             
             yCount = yCount + 1
             If yCount = 1 Then
                 
                 Set tempHorizontalLine = swSketchSegment
-                tempYVal = swStartPoint.Y
+                tempYVal = vStartpoint(1)
             
             ElseIf yCount = 2 Then
                 
-                If tempYVal < swStartPoint.Y Then
+                If tempYVal < vStartpoint(1) Then
                 
+                    cyMin = tempYVal
+                    cyMax = vStartpoint(1)
                     Set bottomSegment = tempHorizontalLine
                     Set topSegment = swSketchSegment
                 
                 Else
                 
+                    cyMin = vStartpoint(1)
+                    cyMax = tempYVal
                     Set bottomSegment = swSketchSegment
                     Set topSegment = tempHorizontalLine
                 

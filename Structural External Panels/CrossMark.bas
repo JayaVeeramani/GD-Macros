@@ -1,6 +1,6 @@
 Attribute VB_Name = "CrossMark"
 
-Function GetSketchContours(swSketch As SldWorks.Sketch) As IArrListObject
+Function GetSketchContours(swSketch As SldWorks.Sketch, swComp As SldWorks.Component2, swView As SldWorks.View) As Variant
 
     Dim IsInit As Boolean
     IsInit = True
@@ -34,7 +34,9 @@ Function GetSketchContours(swSketch As SldWorks.Sketch) As IArrListObject
                     Dim swContourSketch As IContourSketch
                     Set swContourSketch = New IContourSketch
                     
-                    swContourSketch.Initialize swContour
+                    
+                    
+                    swContourSketch.Initialize swContour, swSketch, swComp, swView
                 
                     If swContourSketch.isRectangular Then
                     
@@ -50,12 +52,13 @@ Function GetSketchContours(swSketch As SldWorks.Sketch) As IArrListObject
         
     End If
     
-    Set GetSketchContours = vContourArrList
+    GetSketchContours = vContourArrList.Items
 
 End Function
 
-Sub AddCrossMarkForContours(vContours As Variant, swDrawing As SldWorks.DrawingDoc, _
-            swFeat As SldWorks.Feature, swSketch As SldWorks.Sketch, swView As SldWorks.View, AssyName As String)
+Sub AddCrossMarkAndDimensionsForContours(vContours As Variant, swDrawing As SldWorks.DrawingDoc, _
+            swFeat As SldWorks.Feature, swSketch As SldWorks.Sketch, swView As SldWorks.View, _
+                AssyName As String, oSubAssy As ISubAssy)
     
     swView.FocusLocked = True
     
@@ -102,6 +105,42 @@ Sub AddCrossMarkForContours(vContours As Variant, swDrawing As SldWorks.DrawingD
         Call AddSketchSegmentsAndConstraints(swDrawing, swSketchManager, OffsetX, OffsetY, swSketchContour.bottomLeftPoint, swSketchContour.topRightPoint, SelectionString2, SelectionString3)
         Call AddSketchSegmentsAndConstraints(swDrawing, swSketchManager, OffsetX, OffsetY, swSketchContour.TopLeftPoint, swSketchContour.BottomRightPoint, SelectionString2, SelectionString3)
         
+        Dim swDisplayDim As SldWorks.DisplayDimension
+        
+        If Abs(oSubAssy.StartComp.xMin - swSketchContour.xMin) < Abs(oSubAssy.EndComp.xMax - swSketchContour.xMax) Then
+            
+            Call SelectLine(swDrawing, swSketchContour.LeftSketchLine, SelectionString2, SelectionString3, False)
+            swView.SelectEntity oSubAssy.StartEdge, True
+            
+            Set swDisplayDim = swDrawing.AddHorizontalDimension2(oSubAssy.StartComp.xMin + 0.001, swSketchContour.yMin - 0.005, 0)
+            Call CenterAndManualParanthesis(swDisplayDim)
+
+            
+            Call SelectLine(swDrawing, swSketchContour.RightSketchLine, SelectionString2, SelectionString3, False)
+            Set swDisplayDim = swDrawing.AddVerticalDimension2(swSketchContour.xMax + 0.005, swSketchContour.yMin + 0.001, 0)
+            Call CenterAndManualParanthesis(swDisplayDim)
+
+        Else
+        
+            Call SelectLine(swDrawing, swSketchContour.RightSketchLine, SelectionString2, SelectionString3, False)
+            swView.SelectEntity oSubAssy.EndEdge, True
+            
+            Set swDisplayDim = swDrawing.AddHorizontalDimension2(oSubAssy.EndComp.xMax - 0.001, swSketchContour.yMin - 0.005, 0)
+            Call CenterAndManualParanthesis(swDisplayDim)
+            
+            Call SelectLine(swDrawing, swSketchContour.LeftSketchLine, SelectionString2, SelectionString3, False)
+            Set swDisplayDim = swDrawing.AddVerticalDimension2(swSketchContour.xMin - 0.005, swSketchContour.yMin + 0.001, 0)
+            Call CenterAndManualParanthesis(swDisplayDim)
+
+        End If
+            
+        Call SelectLine(swDrawing, swSketchContour.BottomSketchLine, SelectionString2, SelectionString3, False)
+        swView.SelectEntity oSubAssy.BottomEdge, True
+        Set swDisplayDim = swDrawing.AddVerticalDimension2(swSketchContour.xMax + 0.005, oSubAssy.StartComp.yMin + 0.001, 0)
+        
+        Call SelectLine(swDrawing, swSketchContour.TopSketchLine, SelectionString2, SelectionString3, False)
+        Set swDisplayDim = swDrawing.AddHorizontalDimension2(swSketchContour.xMin + 0.001, swSketchContour.yMax + 0.005, 0)
+        
     Next i
 
     
@@ -140,7 +179,7 @@ Sub AddSketchSegmentsAndConstraints(swDrawing As SldWorks.DrawingDoc, swSketchMa
     skSegment.ConstructionGeometry = True
     skSegment.Layer = Layername
     
-    Dim skLine As SldWorks.SketchLine
+    Dim skLine As SldWorks.sketchLine
     Set skLine = skSegment
 
     Call AddConstraint(swDrawing, FirstPoint, skLine.GetStartPoint2, FirstPoint.X, FirstPoint.Y, FirstPoint.Z, SelectionString2, SelectionString3)
@@ -151,11 +190,11 @@ End Sub
 Sub AddConstraint(swDrawing As SldWorks.DrawingDoc, sketchPoint As SldWorks.sketchPoint, linePoint As SldWorks.sketchPoint, xVal, yVal, _
     zVal, SelectionString2 As String, SelectionString3 As String)
 
-    Dim Bool As Boolean
-    Bool = swDrawing.Extension.SelectByID2("Point" & sketchPoint.GetID(1) & "@" & SelectionString2 _
+    Dim bool As Boolean
+    bool = swDrawing.Extension.SelectByID2("Point" & sketchPoint.GetID(1) & "@" & SelectionString2 _
         & SelectionString3, "EXTSKETCHPOINT", xVal, yVal, zVal, False, 0, Nothing, 0)
 
-    If Bool Then
+    If bool Then
         
         linePoint.Select4 True, Nothing
         swDrawing.SketchAddConstraints "sgCOINCIDENT"
@@ -164,6 +203,15 @@ Sub AddConstraint(swDrawing As SldWorks.DrawingDoc, sketchPoint As SldWorks.sket
     
  
 End Sub
+
+Function SelectLine(swDrawing As SldWorks.DrawingDoc, sketchLine As SldWorks.SketchSegment, _
+        SelectionString2 As String, SelectionString3 As String, Append As Boolean) As Boolean
+
+    SelectLine = swDrawing.Extension.SelectByID2("Line" & sketchLine.GetID(1) & "@" & SelectionString2 _
+        & SelectionString3, "EXTSKETCHSEGMENT", 0, 0, 0, Append, 0, Nothing, 0)
+
+End Function
+
 
 Function ExtractCompNameForSelectByID(TopLevelCompName As String, ChildName As String)
 
@@ -193,3 +241,19 @@ Function ExtractCompNameForSelectByID(TopLevelCompName As String, ChildName As S
     ExtractCompNameForSelectByID = TempString
     
 End Function
+
+Sub CenterAndManualParanthesis(swDisplayDim As SldWorks.DisplayDimension, Optional BottomText As String = "")
+
+    swDisplayDim.CenterText = True
+    
+    swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextPrefix, "("
+    swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextSuffix, ")"
+
+    If Not (BottomText = "") Then
+    
+        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, BottomText
+    
+    End If
+    
+
+End Sub

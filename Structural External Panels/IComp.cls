@@ -8,12 +8,12 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 Private cComp As SldWorks.Component2
-Private cXMin As Double
-Private cYMin As Double
+Private cxMin As Double
+Private cyMin As Double
 Private cZMin As Double
 
-Private cXMax As Double
-Private cYMax As Double
+Private cxMax As Double
+Private cyMax As Double
 Private cZMax As Double
 
 'Private cViewXMin As Double
@@ -53,11 +53,11 @@ Property Get IsMakeUpPanel() As Boolean
 End Property
 
 Property Get xMin() As Double
-    xMin = cXMin
+    xMin = cxMin
 End Property
 
 Property Get yMin() As Double
-    yMin = cYMin
+    yMin = cyMin
 End Property
 
 Property Get zMin() As Double
@@ -65,11 +65,11 @@ Property Get zMin() As Double
 End Property
 
 Property Get xMax() As Double
-    xMax = cXMax
+    xMax = cxMax
 End Property
 
 Property Get yMax() As Double
-    yMax = cYMax
+    yMax = cyMax
 End Property
 
 Property Get zMax() As Double
@@ -144,8 +144,8 @@ Sub Initialize(swComp As IComponent2, MinPoint As Variant, MaxPoint As Variant, 
     Set cComp = swComp
    cFaces = vFaces
     
-    Call GetMaxMinPoint(MinPoint(0), MaxPoint(0), cXMin, cXMax)
-    Call GetMaxMinPoint(MinPoint(1), MaxPoint(1), cYMin, cYMax)
+    Call GetMaxMinPoint(MinPoint(0), MaxPoint(0), cxMin, cxMax)
+    Call GetMaxMinPoint(MinPoint(1), MaxPoint(1), cyMin, cyMax)
     Call GetMaxMinPoint(MinPoint(2), MaxPoint(2), cZMin, cZMax)
 
     cModelMinPoint = ModelMinPoint
@@ -200,8 +200,8 @@ End Sub
 
 Sub UpdateSheetMaxMinDimensions(swView As SldWorks.View, MinPoint As Variant, MaxPoint As Variant)
 
-    Call GetMaxMinPoint(MinPoint(0), MaxPoint(0), cXMin, cXMax)
-    Call GetMaxMinPoint(MinPoint(1), MaxPoint(1), cYMin, cYMax)
+    Call GetMaxMinPoint(MinPoint(0), MaxPoint(0), cxMin, cxMax)
+    Call GetMaxMinPoint(MinPoint(1), MaxPoint(1), cyMin, cyMax)
     Call GetMaxMinPoint(MinPoint(2), MaxPoint(2), cZMin, cZMax)
     
 End Sub

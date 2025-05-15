@@ -21,6 +21,7 @@ Public Dimension As SldWorks.DisplayDimension
 Public AssyLength As Double
 
 Private DoorOrHVACAssyList As IArrListObject
+'Private ContourCutlist As IArrListObject
 Private HVACAssyList As IArrListObject
 Private DoorAssyList As IArrListObject
 Private cDoorArea As Double
@@ -37,6 +38,9 @@ Property Get GetHVACAssemblies() As Variant
     GetHVACAssemblies = HVACAssyList.Items
 End Property
 
+'Property Get GetContourSketches() As Variant
+'    GetContourSketches = ContourCutlist.Items
+'End Property
 Function GetMaxLength() As Double
 
     Dim yMin As Double
@@ -106,6 +110,33 @@ Sub AddDoororHVACList(DoorOrHVACList As IArrListObject)
     
 End Sub
 
+'Sub AddContourList(ContourList As IArrListObject)
+'
+'    Dim i As Integer
+'
+'    Dim vContourItems As Variant
+'    vContourItems = ContourList.Items
+'
+'    If Not IsEmpty(vContourItems) Then
+'
+'        For i = LBound(vContourItems) To UBound(vContourItems)
+'
+'            Dim oContour As IContourSketch
+'            Set oContour = vContourItems(i)
+'
+'            ContourCutlist.AddtoList oContour
+'
+'        Next i
+'
+'    End If
+'
+'End Sub
+'
+'Sub AddContourSketch(oContour As IContourSketch)
+'
+'    ContourCutlist.AddtoList oContour
+'
+'End Sub
 
 Sub AddDoororHVACAssy(doororHVACAssy As IDoorOrHVACAssy)
     
@@ -146,5 +177,6 @@ Private Sub Class_Initialize()
     Set DoorOrHVACAssyList = New IArrListObject
     Set HVACAssyList = New IArrListObject
     Set DoorAssyList = New IArrListObject
+    Set ContourCutlist = New IArrListObject
 
 End Sub

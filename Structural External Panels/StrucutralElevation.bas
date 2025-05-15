@@ -99,6 +99,8 @@ Function GetComponentPointInViewSpace(swComp As SldWorks.Component2, _
     GetComponentPointInViewSpace = GetTransformPoint(vPoint, XForm)
 
 End Function
+
+
             
 
 

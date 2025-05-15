@@ -16,11 +16,47 @@ Property Get Items() As Variant
 
 End Property
 
-Property Set AddItems(InputItems As Variant)
+Property Get Count() As Long
     
-    vItems = InputItems
+    If IsEmpty(vItems) Then
+        
+        Count = 0
+        
+    Else
     
+        Count = UBound(vItems) + 1
+        
+    End If
+
 End Property
+
+
+ Sub AddItems(InputItems As Variant)
+
+    If Not IsEmpty(InputItems) Then
+    
+        If IsEmpty(vItems) Then
+    
+            vItems = InputItems
+            
+        Else
+        
+            Dim i As Integer
+            For i = LBound(InputItems) To UBound(InputItems)
+                
+                Dim Obj As Object
+                Obj = InputItems(i)
+                
+                Call AddtoList(Obj)
+
+            Next i
+            
+        
+        End If
+        
+    End If
+    
+End Sub
 
 
 Private Sub Class_Initialize()
