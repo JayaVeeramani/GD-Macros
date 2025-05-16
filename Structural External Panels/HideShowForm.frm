@@ -19,6 +19,7 @@ Attribute VB_Exposed = False
 
 
 
+
 Option Explicit
 
 
@@ -123,9 +124,12 @@ Private Sub CreateButton_Click()
 
     Dim zChannelList As IArrListObject
     Set zChannelList = New IArrListObject
+    
+    Dim lAngleList As IArrListObject
+    Set lAngleList = New IArrListObject
 
     Set CompList = GetComponentsSortedWithYPosition(swFrontView, swDrawing, swViewNormalVector, ViewWidth, _
-                ViewHeight, MaxHeightComp, IsZChannelExists, zChannelList, cChannelList)
+                ViewHeight, MaxHeightComp, IsZChannelExists, zChannelList, cChannelList, lAngleList)
 
     Dim IsMultipleAssembly As Boolean
     IsMultipleAssembly = CheckForMultipleAssembly(ViewWidth / swFrontView.ScaleDecimal, ViewHeight / swFrontView.ScaleDecimal)
@@ -165,9 +169,11 @@ Private Sub CreateButton_Click()
 
     Set zChannelList = GetChannelCompsWithPos(zChannelList, swFrontView)
     Set cChannelList = GetChannelCompsWithPos(cChannelList, swFrontView)
+    Set lAngleList = GetChannelCompsWithPos(lAngleList, swFrontView)
 
     Call CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList, zChannelList, True)
     Call CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList, cChannelList)
+    Call CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList, lAngleList, IsLAngle:=True)
 
     swDrawing.ActivateView swFrontView.Name
 
@@ -197,7 +203,6 @@ Private Sub CreateButton_Click()
 
     Dim subAssylist As IArrListObject
     Set subAssylist = New IArrListObject
-    
 
     If Not IsEmpty(subAssyEndComponents) Then
 
@@ -229,10 +234,13 @@ Private Sub CreateButton_Click()
     
     Dim Countourlist As IArrListObject
     Set Countourlist = AddCrossMarkForAssyCuts(FlatCompDict.Items, swFrontView, swDrawing, oSubAssy)
+    
     Call AddCrossMarkForDoor(oSubAssy, swFrontView, swDrawing)
+    Call AddCrossMarkForHVAC(oSubAssy, swFrontView, swDrawing)
 
     Dim NoteCount As Integer
-    Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists, IsAllPanels12GA, IsZChannelExists, NoteCount, wallName)
+    Dim AssyNoteNo As Integer
+    Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists, IsAllPanels12GA, IsZChannelExists, NoteCount, wallName, Countourlist.Count)
 
     Dim MaxClearance As Double
     Call AddDimensionsForDoororHVACInEachSubAssy(subAssylist, swDrawing, swFrontView, MaxClearance)
@@ -325,6 +333,113 @@ Sub AddCrossMarkForDoor(oSubAssy As ISubAssy, swView As SldWorks.View, _
                 Call CreateSketchSegmentAndAddRelation(swSketchManager, swDrawing, swView, vLowerRightPoint, vUpperLeftPoint, DoorRightEdge, DoorLeftEdge, DoorBottomEdge, DoorTopEdge)
             
             End If
+        Next i
+        
+    End If
+
+End Sub
+
+Sub AddCrossMarkForHVAC(oSubAssy As ISubAssy, swView As SldWorks.View, _
+                swDrawing As SldWorks.DrawingDoc)
+                
+    Dim vHVACAssy As Variant
+    vHVACAssy = oSubAssy.GetHVACAssemblies
+    
+    If Not IsEmpty(vHVACAssy) Then
+    
+        swDrawing.ActivateSheet swDrawing.GetCurrentSheet.GetName
+        swDrawing.ActivateView swView.Name
+        
+        swView.FocusLocked = True
+    
+        Dim i As Integer
+        For i = LBound(vHVACAssy) To UBound(vHVACAssy)
+            
+            Dim oHVACAssy As IDoorOrHVACAssy
+            Set oHVACAssy = vHVACAssy(i)
+
+            If oHVACAssy.cChannelCompList.Count = oHVACAssy.lAngleComplist.Count Then
+            
+                oHVACAssy.lAngleComplist.SortItems "yMin", False
+                oHVACAssy.cChannelCompList.SortItems "yMin", False
+            
+                Dim HVACLeftEdge As SldWorks.Edge
+                Set HVACLeftEdge = GetEdgeInView(oHVACAssy.StartComp, swView, False, True)
+                
+                Dim HVACRightEdge As SldWorks.Edge
+                Set HVACRightEdge = GetEdgeInView(oHVACAssy.EndComp, swView, False, False)
+
+                Dim vChannelItems As Variant
+                vChannelItems = oHVACAssy.cChannelCompList.Items
+                
+                Dim vLAngleItems As Variant
+                vLAngleItems = oHVACAssy.lAngleComplist.Items
+                
+                If Not IsEmpty(vLAngleItems) And Not IsEmpty(vChannelItems) Then
+                
+                    Dim j As Integer
+                    For j = LBound(vLAngleItems) To UBound(vLAngleItems)
+                    
+                        Dim cChannelComp As IComp
+                        Set cChannelComp = vChannelItems(j)
+                        
+                        Dim lAngleComp As IComp
+                        Set lAngleComp = vLAngleItems(j)
+                        
+                        If cChannelComp.yMax < lAngleComp.yMin Then
+
+                            Dim HVACBottomEdge As SldWorks.Edge
+                            Set HVACBottomEdge = GetEdgeInView(cChannelComp, swView, True, True)
+                            
+                            Dim HVACTopEdge As SldWorks.Edge
+                            Set HVACTopEdge = GetEdgeInView(lAngleComp, swView, True, False)
+                            
+                            Dim LowerLeftPoint(2) As Double
+                            LowerLeftPoint(0) = oHVACAssy.StartComp.xMax
+                            LowerLeftPoint(1) = cChannelComp.yMax
+                            LowerLeftPoint(2) = 0
+                            
+                            Dim vLowerLeftPoint As Variant
+                            vLowerLeftPoint = GetSheetPointInViewSpace(swView, LowerLeftPoint)
+                
+                            Dim LowerRightPoint(2) As Double
+                            LowerRightPoint(0) = oHVACAssy.EndComp.xMin
+                            LowerRightPoint(1) = cChannelComp.yMax
+                            LowerRightPoint(2) = 0
+                            
+                            Dim vLowerRightPoint As Variant
+                            vLowerRightPoint = GetSheetPointInViewSpace(swView, LowerRightPoint)
+                
+                            Dim UpperLeftPoint(2) As Double
+                            UpperLeftPoint(0) = oHVACAssy.StartComp.xMax
+                            UpperLeftPoint(1) = lAngleComp.yMin
+                            UpperLeftPoint(2) = 0
+                            
+                            Dim vUpperLeftPoint As Variant
+                            vUpperLeftPoint = GetSheetPointInViewSpace(swView, UpperLeftPoint)
+                
+                            Dim UpperRightPoint(2) As Double
+                            UpperRightPoint(0) = oHVACAssy.EndComp.xMin
+                            UpperRightPoint(1) = lAngleComp.yMin
+                            UpperRightPoint(2) = 0
+                            
+                            Dim vUpperRightPoint As Variant
+                            vUpperRightPoint = GetSheetPointInViewSpace(swView, UpperRightPoint)
+                            
+                            Dim swSketchManager As SldWorks.SketchManager
+                            Set swSketchManager = swDrawing.SketchManager
+                            
+                            Call CreateSketchSegmentAndAddRelation(swSketchManager, swDrawing, swView, vLowerLeftPoint, vUpperRightPoint, HVACLeftEdge, HVACRightEdge, HVACBottomEdge, HVACTopEdge)
+                            Call CreateSketchSegmentAndAddRelation(swSketchManager, swDrawing, swView, vLowerRightPoint, vUpperLeftPoint, HVACRightEdge, HVACLeftEdge, HVACBottomEdge, HVACTopEdge)
+                            
+                        End If
+
+                    Next j
+                    
+                End If
+
+            End If
+            
         Next i
         
     End If
@@ -742,7 +857,8 @@ Private Function GetChannelCompsWithPos(ChannelList As IArrListObject, swView As
 
 End Function
 
-Private Sub CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList As IArrListObject, ChannelList As IArrListObject, Optional IsZChannel As Boolean = False)
+Private Sub CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList As IArrListObject, ChannelList As IArrListObject, _
+        Optional IsZChannel As Boolean = False, Optional IsLAngle As Boolean = False)
     
     Dim vDoorOrHVACItems As Variant
     vDoorOrHVACItems = DoorOrHVACList.Items
@@ -769,7 +885,7 @@ Private Sub CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList As IArrListObject
                 Dim oDoorOrHVACAssy As IDoorOrHVACAssy
                 Set oDoorOrHVACAssy = vDoorOrHVACItems(j)
     
-                If oDoorOrHVACAssy.AddToChannelList(oComp, IsZChannel) Then
+                If oDoorOrHVACAssy.AddToChannelList(oComp, IsZChannel, IsLAngle) Then
                     
                     LastSubAssyIdx = j
                     Exit For
@@ -1082,7 +1198,7 @@ Private Sub AddDimensionsForDoororHVAC(vDoorOrHVACItems As Variant, oSubAssy As 
             Set swDoorOrHVACStartEdge = GetEdgeInView(oStartComp, swView, False, True)
 
             Set swDisplayDim = SelectAndAddDimension(oSubAssy.StartEdge, swDoorOrHVACStartEdge, swDrawing, _
-                        oStartComp.xMin - 0.01, oStartComp.yMin - Clearance, swView, False)
+                        oStartComp.xMin - 0.001, oStartComp.yMin - Clearance, swView, False)
                         
             If oDoorOrHVACAssy.IsDoor Then
             
@@ -1093,7 +1209,7 @@ Private Sub AddDimensionsForDoororHVAC(vDoorOrHVACItems As Variant, oSubAssy As 
                 Set swDoorOrHVACEndEdge = GetEdgeInView(oEndComp, swView, False, False)
                 
                 Set swDisplayDim = SelectAndAddDimension(swDoorOrHVACStartEdge, swDoorOrHVACEndEdge, swDrawing, _
-                        oEndComp.xMin - 0.01, oStartComp.yMin - Clearance, swView, False)
+                        oEndComp.xMin - 0.001, oStartComp.yMin - Clearance, swView, False)
                         
             Else
             
@@ -1732,7 +1848,8 @@ Private Sub GetViewMaxMinPoints(oComp As IComp, swView As SldWorks.View, ByRef x
 End Sub
  
 Private Function AddStructuralNotes(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Sheet, Is12GAPanelExists As Boolean, _
-            IsAllPanels12GA As Boolean, IsDoorExists As Boolean, ByRef NoteCount As Integer, wallName As String) As SldWorks.Note
+            IsAllPanels12GA As Boolean, IsDoorExists As Boolean, ByRef NoteCount As Integer, _
+                wallName As String, AssyCutCount As Integer) As SldWorks.Note
 
     swDrawing.ActivateSheet swSheet.GetName
     
@@ -1764,6 +1881,14 @@ Private Function AddStructuralNotes(swDrawing As SldWorks.DrawingDoc, swSheet As
      End If
      
     
+    If AssyCutCount > 0 Then
+        
+        NoteCount = NoteCount + 1
+        Note = Note & vbCrLf & NoteCount & ". VERIFY THE POSITION OF OEM BLOCKOUT WITH RESPECT TO L-TABS IN LINER PANEL."
+        
+    End If
+     
+    
     If InStr(wallName, "Wall") > 0 Then
 
         If IsDoorExists Then
@@ -1780,6 +1905,7 @@ Private Function AddStructuralNotes(swDrawing As SldWorks.DrawingDoc, swSheet As
      
     Set swStructuralNote = swDrawing.CreateText2(Note, 1.99241243641486E-02, 6.92464210842187E-02, 0, 0, 0)
     swStructuralNote.SetTextJustification swTextJustification_e.swTextJustificationLeft
+    
 End Function
 
 Private Sub InsertSketchBlock(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Sheet, ProjectNo As String)
@@ -2385,8 +2511,9 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
             Else
             
                 If BalloonCount < 1 Then
-                
+                    
                     xPos = oComp.xMax - 4 * 0.0254 * swView.ScaleDecimal '(oComp.xMin + oComp.xMax) / 2 + Abs((oComp.xMin - oComp.xMax) / 2) - 3.5 * 0.0254 * swView.ScaleDecimal
+                    AnnXPos = xPos
                     
                     If oList.Qty > 2 Then
                     
@@ -2402,8 +2529,7 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
                 End If
                 
             End If
-            
-            
+
             AnnYPos = MaxCompHeight + BalloonCount * Increment
             BalloonCount = BalloonCount + AddorSub
             
@@ -2720,7 +2846,7 @@ End Function
 Function GetComponentsSortedWithYPosition(swView As SldWorks.View, swDrawing As SldWorks.ModelDoc2, _
             swViewNormalVector As SldWorks.MathVector, ByRef ViewWidth As Double, ByRef ViewHeight As Double, _
                 ByRef MaxHeightComp As IComp, ByRef IsZChannelExists As Boolean, ByRef zChannelList As IArrListObject, _
-                    ByRef cChannelList As IArrListObject) As IArrListObject
+                    ByRef cChannelList As IArrListObject, ByRef lAngleList As IArrListObject) As IArrListObject
     
     swDrawing.ActivateView swView.Name
 
@@ -2777,6 +2903,10 @@ Function GetComponentsSortedWithYPosition(swView As SldWorks.View, swDrawing As 
                 'Debug.Print swCompFromRoot.Name2
                 'Debug.Print swComp.Name2
                 cChannelList.AddtoList swCompFromRoot
+                
+            ElseIf InStr(Profile, "L-ANGLE") > 0 Then
+            
+                lAngleList.AddtoList swCompFromRoot
                 
             End If
         
