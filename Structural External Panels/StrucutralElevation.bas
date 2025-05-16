@@ -100,7 +100,14 @@ Function GetComponentPointInViewSpace(swComp As SldWorks.Component2, _
 
 End Function
 
+Function GetSheetPointInViewSpace(swView As SldWorks.View, vPoint As Variant)
 
+    Dim swSketch As SldWorks.Sketch
+    Set swSketch = swView.GetSketch
+    
+    GetSheetPointInViewSpace = GetTransformPoint(vPoint, swSketch.ModelToSketchTransform)
+
+End Function
             
 
 

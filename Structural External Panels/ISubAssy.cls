@@ -11,6 +11,8 @@ Attribute VB_Exposed = False
 Public StartEdge As SldWorks.Edge
 Public EndEdge As SldWorks.Edge
 
+Public BottomEdge As SldWorks.Edge
+
 Public StartIdx As Integer
 Public EndIdx As Integer
 

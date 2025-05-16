@@ -199,8 +199,6 @@ Private Sub CreateButton_Click()
     Set subAssylist = New IArrListObject
     
 
-    
-
     If Not IsEmpty(subAssyEndComponents) Then
 
         Dim vSubAssyComponentsIdx As Variant
@@ -227,11 +225,11 @@ Private Sub CreateButton_Click()
     oSubAssy.EndIdx = UBound(FlatCompDict.Items)
     Call oSubAssy.AddDoororHVACList(DoorOrHVACList)
 
-
     subAssylist.AddtoList oSubAssy
     
     Dim Countourlist As IArrListObject
     Set Countourlist = AddCrossMarkForAssyCuts(FlatCompDict.Items, swFrontView, swDrawing, oSubAssy)
+    Call AddCrossMarkForDoor(oSubAssy, swFrontView, swDrawing)
 
     Dim NoteCount As Integer
     Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists, IsAllPanels12GA, IsZChannelExists, NoteCount, wallName)
@@ -241,8 +239,6 @@ Private Sub CreateButton_Click()
     Call AddDimensionNames(subAssylist, wallName, swFrontView)
     Call AddVerticalDimensionsForDoororHVAC(DoorOrHVACList, swFrontView, swDrawing, NoteCount)
 
-
-
     Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, NoteCount, swBottomEdge, MaxClearance)
     Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - MaxClearance - 0.0075, (oSubAssy.StartComp.xMin + oSubAssy.EndComp.xMax) / 2)
     
@@ -251,6 +247,87 @@ Private Sub CreateButton_Click()
     swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, True
     
     Unload Me
+
+End Sub
+
+Sub AddCrossMarkForDoor(oSubAssy As ISubAssy, swView As SldWorks.View, _
+                swDrawing As SldWorks.DrawingDoc)
+                
+    Dim vDoorAssy As Variant
+    vDoorAssy = oSubAssy.GetDoorAssemblies
+    
+    If Not IsEmpty(vDoorAssy) Then
+    
+        swDrawing.ActivateSheet swDrawing.GetCurrentSheet.GetName
+        swDrawing.ActivateView swView.Name
+        
+        swView.FocusLocked = True
+    
+        Dim i As Integer
+        For i = LBound(vDoorAssy) To UBound(vDoorAssy)
+            
+            Dim oDoorAssy As IDoorOrHVACAssy
+            Set oDoorAssy = vDoorAssy(i)
+            
+            If oDoorAssy.cChannelCompList.Count = 1 Then
+            
+                Dim DoorLeftEdge As SldWorks.Edge
+                Set DoorLeftEdge = GetEdgeInView(oDoorAssy.StartComp, swView, False, True)
+                
+                Dim DoorRightEdge As SldWorks.Edge
+                Set DoorRightEdge = GetEdgeInView(oDoorAssy.EndComp, swView, False, False)
+                
+                Dim DoorBottomEdge As SldWorks.Edge
+                Set DoorBottomEdge = GetEdgeInView(oDoorAssy.StartComp, swView, True, False)
+                
+                Dim cChannelComp As IComp
+                Set cChannelComp = oDoorAssy.cChannelCompList.Items(0)
+                
+                Dim DoorTopEdge As SldWorks.Edge
+                Set DoorTopEdge = GetEdgeInView(cChannelComp, swView, True, False)
+
+                Dim LowerLeftPoint(2) As Double
+                LowerLeftPoint(0) = oDoorAssy.StartComp.xMax
+                LowerLeftPoint(1) = oDoorAssy.StartComp.yMin
+                LowerLeftPoint(2) = 0
+                
+                Dim vLowerLeftPoint As Variant
+                vLowerLeftPoint = GetSheetPointInViewSpace(swView, LowerLeftPoint)
+    
+                Dim LowerRightPoint(2) As Double
+                LowerRightPoint(0) = oDoorAssy.EndComp.xMin
+                LowerRightPoint(1) = oDoorAssy.StartComp.yMin
+                LowerRightPoint(2) = 0
+                
+                Dim vLowerRightPoint As Variant
+                vLowerRightPoint = GetSheetPointInViewSpace(swView, LowerRightPoint)
+    
+                Dim UpperLeftPoint(2) As Double
+                UpperLeftPoint(0) = oDoorAssy.StartComp.xMax
+                UpperLeftPoint(1) = cChannelComp.yMin
+                UpperLeftPoint(2) = 0
+                
+                Dim vUpperLeftPoint As Variant
+                vUpperLeftPoint = GetSheetPointInViewSpace(swView, UpperLeftPoint)
+    
+                Dim UpperRightPoint(2) As Double
+                UpperRightPoint(0) = oDoorAssy.EndComp.xMin
+                UpperRightPoint(1) = cChannelComp.yMin
+                UpperRightPoint(2) = 0
+                
+                Dim vUpperRightPoint As Variant
+                vUpperRightPoint = GetSheetPointInViewSpace(swView, UpperRightPoint)
+                
+                Dim swSketchManager As SldWorks.SketchManager
+                Set swSketchManager = swDrawing.SketchManager
+                
+                Call CreateSketchSegmentAndAddRelation(swSketchManager, swDrawing, swView, vLowerLeftPoint, vUpperRightPoint, DoorLeftEdge, DoorRightEdge, DoorBottomEdge, DoorTopEdge)
+                Call CreateSketchSegmentAndAddRelation(swSketchManager, swDrawing, swView, vLowerRightPoint, vUpperLeftPoint, DoorRightEdge, DoorLeftEdge, DoorBottomEdge, DoorTopEdge)
+            
+            End If
+        Next i
+        
+    End If
 
 End Sub
 
@@ -288,6 +365,50 @@ Function AddCrossMarkForAssyCuts(vComps As Variant, swView As SldWorks.View, _
     End If
 
 End Function
+
+Sub CreateSketchSegmentAndAddRelation(swSketchManager, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, FirstPoint As Variant, SecondPoint As Variant, FirstPtVerticalEdge As SldWorks.Edge, _
+                SecondPtVerticalEdge As SldWorks.Edge, FirstPtHorEdge As SldWorks.Edge, SecondPtHorEdge As SldWorks.Edge)
+    
+    
+    
+    Dim swSketchSegment As SketchSegment
+    Set swSketchSegment = swSketchManager.CreateLine(FirstPoint(0), FirstPoint(1), FirstPoint(2), _
+                        SecondPoint(0), SecondPoint(1), SecondPoint(2))
+    swSketchSegment.ConstructionGeometry = True
+    
+    If Not swSketchSegment Is Nothing Then
+        
+        Dim swSketchLine As SldWorks.sketchLine
+        Set swSketchLine = swSketchSegment
+        
+        Dim swFirstPoint As SldWorks.sketchPoint
+        Set swFirstPoint = swSketchLine.GetStartPoint2
+        
+        Call AddCoincidentRelationbwPointAndEdge(FirstPtVerticalEdge, swFirstPoint, swDrawing, swView)
+        Call AddCoincidentRelationbwPointAndEdge(FirstPtHorEdge, swFirstPoint, swDrawing, swView)
+        
+        
+        Dim swSecondPoint As SldWorks.sketchPoint
+        Set swSecondPoint = swSketchLine.GetEndPoint2
+        
+        Call AddCoincidentRelationbwPointAndEdge(SecondPtVerticalEdge, swSecondPoint, swDrawing, swView)
+        Call AddCoincidentRelationbwPointAndEdge(SecondPtHorEdge, swSecondPoint, swDrawing, swView)
+
+    End If
+    
+End Sub
+
+Sub AddCoincidentRelationbwPointAndEdge(swEdge As SldWorks.Edge, swSketchPoint As SldWorks.sketchPoint, _
+        swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+
+    swView.SelectEntity swEdge, False
+    swSketchPoint.Select4 True, Nothing
+    
+    swDrawing.SketchAddConstraints "sgCOINCIDENT"
+    
+    
+End Sub
+
 
 Function GetAssyCutFeaturesIfAny(vComps As Variant, swWallAssy As SldWorks.AssemblyDoc) As Variant
 
@@ -2213,6 +2334,7 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
     
                         AddorSub = 1
                         BalloonCount = 1
+                        
     
                     End If
     
@@ -2249,6 +2371,8 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
                 
             End If
             
+            AnnXPos = xPos
+            
             If AddorSub = 1 Then
             
                 If BalloonCount > maxNoOfBalloons Then
@@ -2263,13 +2387,23 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
                 If BalloonCount < 1 Then
                 
                     xPos = oComp.xMax - 4 * 0.0254 * swView.ScaleDecimal '(oComp.xMin + oComp.xMax) / 2 + Abs((oComp.xMin - oComp.xMax) / 2) - 3.5 * 0.0254 * swView.ScaleDecimal
-                    BalloonCount = maxNoOfBalloons
+                    
+                    If oList.Qty > 2 Then
+                    
+                        BalloonCount = 1
+                        AnnXPos = xPos + 0.5 * (oComp.xMax - oComp.xMin)
+                        
+                    Else
+                    
+                        BalloonCount = maxNoOfBalloons
+                        
+                    End If
                     
                 End If
                 
             End If
             
-            AnnXPos = xPos
+            
             AnnYPos = MaxCompHeight + BalloonCount * Increment
             BalloonCount = BalloonCount + AddorSub
             
