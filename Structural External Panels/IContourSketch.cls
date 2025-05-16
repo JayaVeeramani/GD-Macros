@@ -138,6 +138,8 @@ Public Sub Initialize(swContour As SldWorks.SketchContour, swSketch As SldWorks.
     Set cSketch = swSketch
     Set cView = swView
     Set cComp = swComp
+    
+    'Debug.Print swComp.Name2
     Set oContour = swContour
     cisRectangular = GetRectangularLimits
 
@@ -181,7 +183,7 @@ Private Function GetRectangularLimits() As Boolean
         StartPoint(2) = swStartPoint.Z
         
         Dim vStartpoint As Variant
-        vStartpoint = GetComponentPointInSheetSpace(cComp, GetTransformPoint(StartPoint, cSketch.ModelToSketchTransform), cView)
+        vStartpoint = GetComponentPointInSheetSpace(cComp, GetTransformPoint(StartPoint, cSketch.ModelToSketchTransform.Inverse), cView)
         
         Dim swEndPoint As SldWorks.sketchPoint
         Set swEndPoint = swSketchLine.GetEndPoint2
@@ -192,7 +194,7 @@ Private Function GetRectangularLimits() As Boolean
         EndPoint(2) = swEndPoint.Z
         
         Dim vEndPoint As Variant
-        vEndPoint = GetComponentPointInSheetSpace(cComp, GetTransformPoint(EndPoint, cSketch.ModelToSketchTransform), cView)
+        vEndPoint = GetComponentPointInSheetSpace(cComp, GetTransformPoint(EndPoint, cSketch.ModelToSketchTransform.Inverse), cView)
         
         If Abs(vStartpoint(0) - vEndPoint(0)) <= 0.000001 Then
         

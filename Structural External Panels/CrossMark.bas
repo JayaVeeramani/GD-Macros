@@ -68,6 +68,8 @@ Sub AddCrossMarkAndDimensionsForContours(vContours As Variant, swDrawing As SldW
     Dim ContourList As IArrListObject
     Set ContourList = New IArrListObject
     
+    ContourList.AddItems vContours
+    
     ContourList.SortItems "xMin", False
 
     Call GetOffsetValues(OffsetX, OffsetY, swDrawing, swView)
@@ -105,7 +107,6 @@ Sub AddCrossMarkAndDimensionsForContours(vContours As Variant, swDrawing As SldW
     Dim ConsolidatedHorizontalDict As Scripting.Dictionary
     Set ConsolidatedHorizontalDict = New Scripting.Dictionary
     
-
 
     Dim i As Integer
     For i = LBound(vContours) To UBound(vContours)
@@ -169,13 +170,14 @@ Sub AddCrossMarkAndDimensionsForContours(vContours As Variant, swDrawing As SldW
     Dim ConsolidatedVerticalDict As Scripting.Dictionary
     Set ConsolidatedVerticalDict = ConsolidateContoursVertically(ContourList.Items)
     
+    Call AddHorizontalDimension(ConsolidatedHorizontalDict, oSubAssy, swDrawing, swView, SelectionString2, SelectionString3)
     Call AddVerticalDimension(ConsolidatedVerticalDict, oSubAssy, swDrawing, swView, SelectionString2, SelectionString3)
  
 End Sub
 
 Function ConsolidateContoursVertically(vContours As Variant) As Scripting.Dictionary
 
-    ConsolidateContoursVertically = New Scripting.Dictionary
+    Set ConsolidateContoursVertically = New Scripting.Dictionary
     
     Dim i As Integer
     For i = LBound(vContours) To UBound(vContours)
@@ -192,6 +194,83 @@ Function ConsolidateContoursVertically(vContours As Variant) As Scripting.Dictio
 
 End Function
 
+Sub AddHorizontalDimension(Dict As Scripting.Dictionary, oSubAssy As ISubAssy, _
+        swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, SelectionString2 As String, SelectionString3 As String)
+
+    Dim vKeys As Variant
+    vKeys = Dict.Keys
+    
+    Dim i As Integer
+    For i = LBound(vKeys) To UBound(vKeys)
+    
+        Dim ArrList As IArrListObject
+        Set ArrList = Dict.Item(vKeys(i))
+        
+        ArrList.SortItems "yMin", False
+        
+        Dim vContours As Variant
+        vContours = ArrList.Items
+        
+        Dim PosSketchContour As IContourSketch
+        Set PosSketchContour = vContours(0)
+        
+        Dim IsRight As Boolean
+        Dim PosSketchLine As SldWorks.SketchSegment
+        Dim AssyEdge As SldWorks.Edge
+        Dim XDimPos As Double
+        
+        If Abs(oSubAssy.StartComp.xMin - PosSketchContour.xMin) < Abs(oSubAssy.EndComp.xMax - PosSketchContour.xMax) Then
+
+            IsRight = False
+            Set PosSketchLine = PosSketchContour.LeftSketchLine
+            Set AssyEdge = oSubAssy.StartEdge
+            XDimPos = oSubAssy.StartComp.xMin + 0.001
+        
+        Else
+
+            IsRight = True
+            Set PosSketchLine = PosSketchContour.RightSketchLine
+            Set AssyEdge = oSubAssy.EndEdge
+            XDimPos = oSubAssy.EndComp.xMax - 0.001
+            
+        End If
+        
+        
+        Call SelectLine(swDrawing, PosSketchLine, SelectionString2, SelectionString3, False)
+        swView.SelectEntity AssyEdge, True
+        
+        Dim swDisplayDim As SldWorks.DisplayDimension
+        Set swDisplayDim = swDrawing.AddHorizontalDimension2(XDimPos, (PosSketchContour.yMax + PosSketchContour.yMin) / 2, 0)
+        Call CenterAndManualParanthesis(swDisplayDim, ArrList.Count)
+        
+        Dim LengthContourDict As Scripting.Dictionary
+        
+        Dim LengthContourQtyDict As Scripting.Dictionary
+        Set LengthContourQtyDict = New Scripting.Dictionary
+        
+        Set LengthContourDict = ConsolidateBasedOnWidthorLength(vContours, LengthContourQtyDict, "Length")
+
+        Dim vLengthKeys As Variant
+        vLengthKeys = LengthContourDict.Keys
+        
+        Dim j As Integer
+        For j = LBound(vLengthKeys) To UBound(vLengthKeys)
+        
+            Dim swSketchContour As IContourSketch
+            Set swSketchContour = LengthContourDict.Item(vLengthKeys(j))
+            
+
+            Call SelectLine(swDrawing, swSketchContour.BottomSketchLine, SelectionString2, SelectionString3, False)
+            Set swDisplayDim = swDrawing.AddHorizontalDimension2(swSketchContour.xMax - 0.001, swSketchContour.yMin - 0.005, 0)
+            Call CenterAndManualParanthesis(swDisplayDim, LengthContourQtyDict.Item(vLengthKeys(j)))
+
+        Next j
+
+    Next i
+    
+    
+End Sub
+
 Sub AddVerticalDimension(Dict As Scripting.Dictionary, oSubAssy As ISubAssy, _
         swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, SelectionString2 As String, SelectionString3 As String)
 
@@ -204,19 +283,44 @@ Sub AddVerticalDimension(Dict As Scripting.Dictionary, oSubAssy As ISubAssy, _
         Dim ArrList As IArrListObject
         Set ArrList = Dict.Item(vKeys(i))
         
-        ArrList.SortItems "xMin", True
+        ArrList.SortItems "xMin", False
         
         Dim vContours As Variant
         vContours = ArrList.Items
+        
+        Dim PosSketchContour As IContourSketch
+        Set PosSketchContour = vContours(0)
+        
+        Dim XDimPos As Double
+        Dim IsRight As Boolean
+        
+        If Abs(oSubAssy.StartComp.xMin - PosSketchContour.xMin) < Abs(oSubAssy.EndComp.xMax - PosSketchContour.xMax) Then
+            
+            XDimPos = PosSketchContour.xMax + 0.005
+            IsRight = True
+        
+        Else
+        
+            XDimPos = PosSketchContour.xMin - 0.005
+            IsRight = False
+            
+        End If
+        
+        
+        Call SelectLine(swDrawing, PosSketchContour.BottomSketchLine, SelectionString2, SelectionString3, False)
+        swView.SelectEntity oSubAssy.BottomEdge, True
+        
+        Dim swDisplayDim As SldWorks.DisplayDimension
+        Set swDisplayDim = swDrawing.AddVerticalDimension2(XDimPos, oSubAssy.StartComp.yMin + 0.001, 0)
+        Call CenterAndManualParanthesis(swDisplayDim, ArrList.Count)
         
         Dim widthContourDict As Scripting.Dictionary
         
         Dim widthContourQtyDict As Scripting.Dictionary
         Set widthContourQtyDict = New Scripting.Dictionary
         
-        Set widthContourDict = ConsolidateBasedOnWidth(vContours, widthContourQtyDict)
+        Set widthContourDict = ConsolidateBasedOnWidthorLength(vContours, widthContourQtyDict)
 
-        
         Dim vWidthKeys As Variant
         vWidthKeys = widthContourDict.Keys
         
@@ -224,16 +328,23 @@ Sub AddVerticalDimension(Dict As Scripting.Dictionary, oSubAssy As ISubAssy, _
         For j = LBound(vWidthKeys) To UBound(vWidthKeys)
         
             Dim swSketchContour As IContourSketch
-            Set swSketchContour = widthContourDict.Item(vWidthKeys(i))
+            Set swSketchContour = widthContourDict.Item(vWidthKeys(j))
             
-            
-            
-            If widthContourQtyDict.Item(vWidthKeys(i)) > 1 Then
-            
+            Dim swSketchLine As SldWorks.SketchSegment
+            If IsRight Then
+
+                Set swSketchLine = swSketchContour.RightSketchLine
+                
+            Else
+                
+                Set swSketchLine = swSketchContour.LeftSketchLine
+                
             End If
             
-        
-        
+            Call SelectLine(swDrawing, swSketchContour.RightSketchLine, SelectionString2, SelectionString3, False)
+            Set swDisplayDim = swDrawing.AddVerticalDimension2(swSketchContour.xMax + 0.005, swSketchContour.yMin + 0.001, 0)
+            Call CenterAndManualParanthesis(swDisplayDim, widthContourQtyDict.Item(vWidthKeys(j)))
+
         Next j
 
     Next i
@@ -241,9 +352,9 @@ Sub AddVerticalDimension(Dict As Scripting.Dictionary, oSubAssy As ISubAssy, _
     
 End Sub
 
-Function ConsolidateBasedOnWidth(vContours As Variant, ByRef ConsolidatedQtyDict As Scripting.Dictionary) As Scripting.Dictionary
+Function ConsolidateBasedOnWidthorLength(vContours As Variant, ByRef ConsolidatedQtyDict As Scripting.Dictionary, Optional SortParam As String = "Width") As Scripting.Dictionary
     
-    Set ConsolidateBasedOnWidth = New Scripting.Dictionary
+    Set ConsolidateBasedOnWidthorLength = New Scripting.Dictionary
     
     Dim j As Integer
     For j = LBound(vContours) To UBound(vContours)
@@ -252,15 +363,15 @@ Function ConsolidateBasedOnWidth(vContours As Variant, ByRef ConsolidatedQtyDict
         Set swSketchContour = vContours(j)
         
         Dim keyVal As Double
-        keyVal = Round(swSketchContour.Width, 4)
+        keyVal = Round(CallByName(swSketchContour, SortParam, VbGet), 4)
         
-        If ConsolidateBasedOnWidth.Exists(keyVal) Then
+        If ConsolidateBasedOnWidthorLength.Exists(keyVal) Then
         
             ConsolidatedQtyDict.Item(keyVal) = ConsolidatedQtyDict.Item(keyVal) + 1
             
         Else
         
-            ConsolidateBasedOnWidth.Add , swSketchContour
+            ConsolidateBasedOnWidthorLength.Add keyVal, swSketchContour
             ConsolidatedQtyDict.Add keyVal, 1
         
         End If
@@ -269,7 +380,10 @@ Function ConsolidateBasedOnWidth(vContours As Variant, ByRef ConsolidatedQtyDict
  
 End Function
 
-Sub CheckAddToDict(ByRef Dict As Scripting.Dictionary, keyVal As Double, swSketchContour As IContourSketch)
+
+
+Function CheckAddToDict(ByRef Dict As Scripting.Dictionary, keyVal As Double, swSketchContour As IContourSketch)
+    
     
     Dim ArrList As IArrListObject
     
@@ -282,9 +396,9 @@ Sub CheckAddToDict(ByRef Dict As Scripting.Dictionary, keyVal As Double, swSketc
     
         If Dict.Count > 0 Then
             
-            If Abs(Dict.Keys(UBound(Dict.Keys)) - keyVal) <= 0.001 Then
+            If Abs(Dict.Keys(UBound(Dict.Keys)) - keyVal) <= 0.0001 Then
             
-                Set ArrList = Dict.Item(keyVal)
+                Set ArrList = Dict.Item(Dict.Keys(UBound(Dict.Keys)))
                 ArrList.AddtoList swSketchContour
                 
             Else
@@ -308,7 +422,7 @@ Sub CheckAddToDict(ByRef Dict As Scripting.Dictionary, keyVal As Double, swSketc
     
     End If
     
-End Sub
+End Function
 
 Sub HorizontalDimensionsForContours(vContours As Variant, swDrawing As SldWorks.DrawingDoc, swSketchMgr As SldWorks.SketchManager)
 
@@ -426,16 +540,26 @@ Function ExtractCompNameForSelectByID(TopLevelCompName As String, ChildName As S
     
 End Function
 
-Sub CenterAndManualParanthesis(swDisplayDim As SldWorks.DisplayDimension, Optional BottomText As String = "")
-
-    swDisplayDim.CenterText = True
+Sub CenterAndManualParanthesis(swDisplayDim As SldWorks.DisplayDimension, Optional Qty As Long, Optional BottomText As String = "")
     
-    swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextPrefix, "("
-    swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextSuffix, ")"
-
-    If Not (BottomText = "") Then
+    If Not swDisplayDim Is Nothing Then
     
-        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, BottomText
+        swDisplayDim.CenterText = True
+        
+        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextPrefix, "("
+        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextSuffix, ")"
+    
+        If Not (BottomText = "") Then
+        
+            swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, BottomText
+        
+        End If
+        
+        If Qty > 1 Then
+        
+            swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextPrefix, Qty & "X ("
+            
+        End If
     
     End If
     

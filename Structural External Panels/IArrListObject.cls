@@ -45,7 +45,7 @@ End Property
             For i = LBound(InputItems) To UBound(InputItems)
                 
                 Dim Obj As Object
-                Obj = InputItems(i)
+                Set Obj = InputItems(i)
                 
                 Call AddtoList(Obj)
 
