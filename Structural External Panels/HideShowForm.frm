@@ -20,6 +20,7 @@ Attribute VB_Exposed = False
 
 
 
+
 Option Explicit
 
 
@@ -236,16 +237,31 @@ Private Sub CreateButton_Click()
     Set Countourlist = AddCrossMarkForAssyCuts(FlatCompDict.Items, swFrontView, swDrawing, oSubAssy)
     
     Call AddCrossMarkForDoor(oSubAssy, swFrontView, swDrawing)
-    Call AddCrossMarkForHVAC(oSubAssy, swFrontView, swDrawing)
+    
+    Dim UniqueHVACDict As Scripting.Dictionary
+    Set UniqueHVACDict = AddCrossMarkForHVAC(oSubAssy, swFrontView, swDrawing)
 
     Dim NoteCount As Integer
     Dim AssyNoteNo As Integer
     Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists, IsAllPanels12GA, IsZChannelExists, NoteCount, wallName, Countourlist.Count)
-
+    
+    Dim IsSectionViewNeeded As Boolean
+    IsSectionViewNeeded = False
+    Dim GapForSection As Double
+        
+    If oSubAssy.GetWidth <= (15.75 - 2.5 * (UBound(UniqueHVACDict.Items) + 1)) * 0.0254 Then
+            
+        IsSectionViewNeeded = True
+        GapForSection = (15.75 * 0.0254 - oSubAssy.GetWidth) / 2
+        
+    End If
+        
     Dim MaxClearance As Double
-    Call AddDimensionsForDoororHVACInEachSubAssy(subAssylist, swDrawing, swFrontView, MaxClearance)
+    Call AddDimensionsForDoororHVACInEachSubAssy(subAssylist, swDrawing, swFrontView, MaxClearance, IsSectionViewNeeded)
     Call AddDimensionNames(subAssylist, wallName, swFrontView)
-    Call AddVerticalDimensionsForDoororHVAC(DoorOrHVACList, swFrontView, swDrawing, NoteCount)
+    Call AddVerticalDimensionsForDoor(oSubAssy.GetDoorAssemblies, swFrontView, swDrawing, NoteCount)
+
+    Call AddVerticalDimensionsForHVAC(UniqueHVACDict.Items, swFrontView, swDrawing, oSubAssy, IsSectionViewNeeded, GapForSection)
 
     Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, NoteCount, swBottomEdge, MaxClearance)
     Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - MaxClearance - 0.0075, (oSubAssy.StartComp.xMin + oSubAssy.EndComp.xMax) / 2)
@@ -256,6 +272,241 @@ Private Sub CreateButton_Click()
     
     Unload Me
 
+End Sub
+
+Private Sub AddVerticalDimensionsForHVAC(vHVACItems As Variant, swView As SldWorks.View, _
+        swDrawing As SldWorks.DrawingDoc, oSubAssy As ISubAssy, IsSectionViewNeeded As Boolean, GapForSection As Double)
+
+    Const LeftBorderPoint  As Double = 0.01590679
+    If Not IsEmpty(vHVACItems) Then
+    
+        Dim i As Integer
+        For i = LBound(vHVACItems) To UBound(vHVACItems)
+        
+            Dim HVACArrList As IArrListObject
+            Set HVACArrList = vHVACItems(i)
+            
+            Dim FirstHVACAssy As IDoorOrHVACAssy
+            Set FirstHVACAssy = HVACArrList.Items(0)
+            
+            Dim oStartComp As IComp
+            Set oStartComp = FirstHVACAssy.StartComp
+                
+            Dim swHVACBottomEdge As SldWorks.Edge
+            Set swHVACBottomEdge = GetEdgeInView(oStartComp, swView, True, False)
+            
+            Dim swDisplayDim As SldWorks.DisplayDimension
+
+            Dim vCChannelItems As Variant
+            vCChannelItems = FirstHVACAssy.cChannelCompList.Items
+            
+            Dim vLAngleItems As Variant
+            vLAngleItems = FirstHVACAssy.lAngleComplist.Items
+            
+            Dim VerticalSectionView As SldWorks.View
+            Dim HorSectionView As SldWorks.View
+            
+            Dim VerticalSectionOutline As Variant
+
+            Dim j As Integer
+            Dim PrevEdge As SldWorks.Edge
+            Dim ViewToAddDimension As SldWorks.View
+            Dim DimXPos As Double
+            Dim Qty As Integer
+            
+            For j = LBound(vCChannelItems) To UBound(vCChannelItems)
+            
+                Dim oChannelComp As IComp
+                Set oChannelComp = vCChannelItems(j)
+                
+                Dim oLAngleComp As IComp
+                Set oLAngleComp = vLAngleItems(j)
+                
+                Dim cChannelTopEdge As SldWorks.Edge
+                Dim lAngleBottomEdge As SldWorks.Edge
+                
+                Dim swSketchManager As SldWorks.SketchManager
+                Set swSketchManager = swDrawing.SketchManager
+
+                If j = 0 Then
+
+                    Set cChannelTopEdge = GetEdgeInView(oChannelComp, swView, True, True)
+                    Set lAngleBottomEdge = GetEdgeInView(oLAngleComp, swView, True, False)
+                    
+                    Set swDisplayDim = SelectAndAddDimension(cChannelTopEdge, swHVACBottomEdge, swDrawing, _
+                                (oStartComp.xMin + oStartComp.xMax) / 2, oStartComp.yMin + 0.01, swView, False)
+                    Call AddQtyToDimension(swDisplayDim, HVACArrList.Count)
+
+                    If IsSectionViewNeeded Then
+                    
+                        swDrawing.ActivateView swView.Name
+                        swView.FocusLocked = True
+                        
+                        Dim VerticalLowerPoint(2) As Double
+                        VerticalLowerPoint(0) = 0.75 * oChannelComp.xMin + 0.25 * oChannelComp.xMax
+                        VerticalLowerPoint(1) = oChannelComp.yMin - 10 * swView.ScaleDecimal * 0.0254
+                        VerticalLowerPoint(2) = 0
+                        
+                        Dim vVerticalLowerPoint As Variant
+                        vVerticalLowerPoint = GetSheetPointInViewSpace(swView, VerticalLowerPoint)
+            
+                        Dim VerticalUpperPoint(2) As Double
+                        VerticalUpperPoint(0) = VerticalLowerPoint(0)
+                        VerticalUpperPoint(1) = FirstHVACAssy.lAngleComplist.Items(UBound(FirstHVACAssy.lAngleComplist.Items)).yMax + 10 * swView.ScaleDecimal * 0.0254
+                        VerticalUpperPoint(2) = 0
+                        
+                        Dim vVerticalUpperPoint As Variant
+                        vVerticalUpperPoint = GetSheetPointInViewSpace(swView, VerticalUpperPoint)
+                        
+                        Dim swSketchSegment As SketchSegment
+                        Set swSketchSegment = swSketchManager.CreateLine(vVerticalLowerPoint(0), vVerticalLowerPoint(1), vVerticalLowerPoint(2), _
+                                            vVerticalUpperPoint(0), vVerticalUpperPoint(1), vVerticalUpperPoint(2))
+                                            
+                        swSketchSegment.Select4 False, Nothing
+                        
+                        Dim vExcludedComps As Variant
+                        Set VerticalSectionView = swDrawing.CreateSectionViewAt5(LeftBorderPoint + ((i + 1) * GapForSection / (UBound(vHVACItems) + 2)), (VerticalLowerPoint(1) + VerticalUpperPoint(1)) / 2, 0, "A", swCreateSectionViewAtOptions_e.swCreateSectionView_Partial + _
+                                            swCreateSectionViewAtOptions_e.swCreateSectionView_NotAligned, vExcludedComps, 0.005)
+                                      
+
+                        VerticalSectionView.GetSection.Layer = "FORMAT"
+                                      
+                        Dim HorizontalLeftPoint(2) As Double
+                        HorizontalLeftPoint(0) = FirstHVACAssy.StartComp.xMax - 4 * swView.ScaleDecimal * 0.0254
+                        HorizontalLeftPoint(1) = (oChannelComp.yMax + oLAngleComp.yMin) / 2
+                        HorizontalLeftPoint(2) = 0
+                        
+                        Dim vHorizontalLeftPoint As Variant
+                        vHorizontalLeftPoint = GetSheetPointInViewSpace(swView, HorizontalLeftPoint)
+                        
+                        Dim HorizontalRightPoint(2) As Double
+                        HorizontalRightPoint(0) = FirstHVACAssy.EndComp.xMin + 4 * swView.ScaleDecimal * 0.0254
+                        HorizontalRightPoint(1) = HorizontalLeftPoint(1)
+                        HorizontalRightPoint(2) = 0
+                        
+                        Dim vHorizontalRightPoint As Variant
+                        vHorizontalRightPoint = GetSheetPointInViewSpace(swView, HorizontalRightPoint)
+                        
+                        Set swSketchSegment = swSketchManager.CreateLine(vHorizontalRightPoint(0), vHorizontalRightPoint(1), vHorizontalRightPoint(2), _
+                                            vHorizontalLeftPoint(0), vHorizontalLeftPoint(1), vHorizontalLeftPoint(2))
+                                            
+                        swSketchSegment.Select4 False, Nothing
+                        
+                        Set HorSectionView = swDrawing.CreateSectionViewAt5(LeftBorderPoint + ((i + 1) * GapForSection / (UBound(vHVACItems) + 2)), oSubAssy.StartComp.yMin - 0.02, 0, "B", swCreateSectionViewAtOptions_e.swCreateSectionView_Partial + _
+                                            swCreateSectionViewAtOptions_e.swCreateSectionView_NotAligned, vExcludedComps, 0.005)
+                                            
+                        HorSectionView.GetSection.Layer = "FORMAT"
+                        
+                        If VerticalSectionView Is Nothing Then
+                            
+                            Set ViewToAddDimension = swView
+                            DimXPos = (oStartComp.xMin + oStartComp.xMax) / 2
+                            Qty = HVACArrList.Count
+                              
+                        Else
+                        
+                            VerticalSectionOutline = VerticalSectionView.GetOutline
+                            Set ViewToAddDimension = VerticalSectionView
+                            DimXPos = VerticalSectionOutline(0) - 0.005
+                            
+                            Set cChannelTopEdge = GetEdgeInView(oChannelComp, VerticalSectionView, True, True, IsSection:=IsSectionViewNeeded)
+                            Set lAngleBottomEdge = GetEdgeInView(oLAngleComp, VerticalSectionView, True, False, IsSection:=IsSectionViewNeeded)
+                            Qty = 1
+                            
+                            Call UpdateSectionLabel(VerticalSectionView, HVACArrList.Count)
+
+                        End If
+                        
+                        If Not HorSectionView Is Nothing Then
+                        
+                            Dim HorOutline As Variant
+                            HorOutline = HorSectionView.GetOutline
+
+                            Dim LeftCompEdge As SldWorks.Edge
+                            Set LeftCompEdge = GetEdgeInView(oStartComp, HorSectionView, False, True, IsSection:=IsSectionViewNeeded)
+                            
+                            Dim RightCompEdge As SldWorks.Edge
+                            Set RightCompEdge = GetEdgeInView(FirstHVACAssy.EndComp, HorSectionView, False, False, IsSection:=IsSectionViewNeeded)
+                            
+                            Set swDisplayDim = SelectAndAddDimension(LeftCompEdge, RightCompEdge, swDrawing, _
+                                (HorOutline(0) + HorOutline(2)) / 2, HorOutline(3) + 0.0025, HorSectionView, False)
+                                
+                            Call UpdateSectionLabel(HorSectionView, HVACArrList.Count)
+                           
+                        End If
+                
+                    End If
+                
+                Else
+                    
+                    Set cChannelTopEdge = GetEdgeInView(oChannelComp, ViewToAddDimension, True, True, IsSection:=IsSectionViewNeeded)
+                    Set lAngleBottomEdge = GetEdgeInView(oLAngleComp, ViewToAddDimension, True, False, IsSection:=IsSectionViewNeeded)
+
+                    Set swDisplayDim = SelectAndAddDimension(cChannelTopEdge, PrevEdge, swDrawing, _
+                                DimXPos, oChannelComp.yMin, ViewToAddDimension, False)
+                                
+                    Call AddQtyToDimension(swDisplayDim, Qty)
+                    
+                End If
+                
+                Set swDisplayDim = SelectAndAddDimension(lAngleBottomEdge, cChannelTopEdge, swDrawing, _
+                            DimXPos, oChannelComp.yMax + 0.001, ViewToAddDimension, False)
+                                    
+                Call AddQtyToDimension(swDisplayDim, Qty)
+                Set PrevEdge = lAngleBottomEdge
+                Call SelectAndAddAnnotation(oChannelComp.GetComponent, cChannelTopEdge, swDrawing, ViewToAddDimension, Qty)
+                Call SelectAndAddAnnotation(oLAngleComp.GetComponent, lAngleBottomEdge, swDrawing, ViewToAddDimension, Qty)
+  
+            Next j
+
+        Next i
+
+
+    End If
+
+End Sub
+
+Sub UpdateSectionLabel(swView As SldWorks.View, Qty As Integer)
+    
+    If Qty > 1 Then
+    
+        Dim swNote As SldWorks.Note
+        Set swNote = swView.GetFirstNote
+                                
+        swNote.SetText "<VLNAME> <VLLABEL>" & vbCrLf & "<FONT size=8PTS style=R>TYP. @ " & Qty & " PLACES"
+    
+    End If
+
+End Sub
+
+Sub SelectAndAddAnnotation(swComp As SldWorks.Component2, swEdge As SldWorks.Edge, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, Qty As Integer)
+
+    Dim IsSelected As Boolean
+    IsSelected = swView.SelectEntity(swEdge, False)
+    
+    If IsSelected Then
+    
+        Dim vStartPoint As Variant
+        vStartPoint = swEdge.GetStartVertex.GetPoint
+        vStartPoint = GetComponentPointInSheetSpace(swComp, vStartPoint, swView)
+    
+        Dim swAnn As SldWorks.Annotation
+        Dim swNote As SldWorks.Note
+        
+        Set swAnn = InsertBalloonAndGetAnnotations(swDrawing, Qty, vStartPoint(0) + 0.005, vStartPoint(1) + 0.005, swNote)
+        
+    End If
+
+End Sub
+
+Sub AddQtyToDimension(swDisplayDim As SldWorks.DisplayDimension, Qty As Integer)
+
+    If Qty > 1 Then
+                                    
+        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextPrefix, Qty & "X "
+                            
+    End If
+   
 End Sub
 
 Sub AddCrossMarkForDoor(oSubAssy As ISubAssy, swView As SldWorks.View, _
@@ -339,11 +590,13 @@ Sub AddCrossMarkForDoor(oSubAssy As ISubAssy, swView As SldWorks.View, _
 
 End Sub
 
-Sub AddCrossMarkForHVAC(oSubAssy As ISubAssy, swView As SldWorks.View, _
-                swDrawing As SldWorks.DrawingDoc)
+Function AddCrossMarkForHVAC(oSubAssy As ISubAssy, swView As SldWorks.View, _
+                swDrawing As SldWorks.DrawingDoc) As Scripting.Dictionary
                 
     Dim vHVACAssy As Variant
     vHVACAssy = oSubAssy.GetHVACAssemblies
+    
+    Set AddCrossMarkForHVAC = New Scripting.Dictionary
     
     If Not IsEmpty(vHVACAssy) Then
     
@@ -376,7 +629,24 @@ Sub AddCrossMarkForHVAC(oSubAssy As ISubAssy, swView As SldWorks.View, _
                 vLAngleItems = oHVACAssy.lAngleComplist.Items
                 
                 If Not IsEmpty(vLAngleItems) And Not IsEmpty(vChannelItems) Then
-                
+                    
+                    Dim keyVal As Double
+                    keyVal = Round(vChannelItems(0).yMax, 4)
+                    
+                    If AddCrossMarkForHVAC.Exists(keyVal) Then
+                        
+                        AddCrossMarkForHVAC.Item(keyVal).AddtoList oHVACAssy
+
+                    Else
+                    
+                        Dim ArrList As IArrListObject
+                        Set ArrList = New IArrListObject
+                        
+                        ArrList.AddtoList oHVACAssy
+                        AddCrossMarkForHVAC.Add keyVal, ArrList
+
+                    End If
+
                     Dim j As Integer
                     For j = LBound(vLAngleItems) To UBound(vLAngleItems)
                     
@@ -444,7 +714,7 @@ Sub AddCrossMarkForHVAC(oSubAssy As ISubAssy, swView As SldWorks.View, _
         
     End If
 
-End Sub
+End Function
 
 Function AddCrossMarkForAssyCuts(vComps As Variant, swView As SldWorks.View, _
                 swDrawing As SldWorks.DrawingDoc, oSubAssy As ISubAssy) As IArrListObject
@@ -688,12 +958,9 @@ Private Sub UpdateFrontViewPosition(vComps As Variant, swDrawing As SldWorks.Dra
 End Sub
 
 
-Private Sub AddVerticalDimensionsForDoororHVAC(DoorOrHVACList As IArrListObject, swView As SldWorks.View, _
+Private Sub AddVerticalDimensionsForDoor(vDoorOrHVACItems As Variant, swView As SldWorks.View, _
         swDrawing As SldWorks.DrawingDoc, Count As Integer)
 
-    Dim vDoorOrHVACItems As Variant
-    vDoorOrHVACItems = DoorOrHVACList.Items
-    
     If Not IsEmpty(vDoorOrHVACItems) Then
     
         Dim DoorOrHVACDict As Scripting.Dictionary
@@ -1130,7 +1397,7 @@ Private Function GetPlaneName(wallName As String, IsLeftPanel As Boolean) As Str
 End Function
 
 Private Sub AddDimensionsForDoororHVACInEachSubAssy(subAssylist As IArrListObject, swDrawing As SldWorks.DrawingDoc, _
-            swView As SldWorks.View, MaxClearance As Double)
+            swView As SldWorks.View, MaxClearance As Double, IsSectionNeeded As Boolean)
 
     Dim vSubAssy As Variant
     vSubAssy = subAssylist.Items
@@ -1148,7 +1415,7 @@ Private Sub AddDimensionsForDoororHVACInEachSubAssy(subAssylist As IArrListObjec
         
         If (UBound(vSubAssy)) = 0 Or i < UBound(vSubAssy) Then
             
-            Call AddDimensionsForDoororHVAC(oSubAssy.GetDoorOrHVACAssemblies, oSubAssy, swDrawing, swView, Clearance)
+            Call AddDimensionsForDoororHVAC(oSubAssy.GetDoorOrHVACAssemblies, oSubAssy, swDrawing, swView, Clearance, IsSectionNeeded)
             
         Else
         
@@ -1178,7 +1445,7 @@ Private Sub AddOverallDimension(oSubAssy As ISubAssy, swDrawing As SldWorks.Draw
 End Sub
 
 Private Sub AddDimensionsForDoororHVAC(vDoorOrHVACItems As Variant, oSubAssy As ISubAssy, swDrawing As SldWorks.DrawingDoc, _
-                    swView As SldWorks.View, ByRef Clearance As Double, Optional IsDoor As Boolean = True)
+                    swView As SldWorks.View, ByRef Clearance As Double, IsSectionNeeded As Boolean)
 
     Dim j As Integer
     
@@ -1200,7 +1467,7 @@ Private Sub AddDimensionsForDoororHVAC(vDoorOrHVACItems As Variant, oSubAssy As 
             Set swDisplayDim = SelectAndAddDimension(oSubAssy.StartEdge, swDoorOrHVACStartEdge, swDrawing, _
                         oStartComp.xMin - 0.001, oStartComp.yMin - Clearance, swView, False)
                         
-            If oDoorOrHVACAssy.IsDoor Then
+            If oDoorOrHVACAssy.IsDoor Or False = IsSectionNeeded Then
             
                 Dim oEndComp As IComp
                 Set oEndComp = oDoorOrHVACAssy.EndComp
@@ -1211,9 +1478,9 @@ Private Sub AddDimensionsForDoororHVAC(vDoorOrHVACItems As Variant, oSubAssy As 
                 Set swDisplayDim = SelectAndAddDimension(swDoorOrHVACStartEdge, swDoorOrHVACEndEdge, swDrawing, _
                         oEndComp.xMin - 0.001, oStartComp.yMin - Clearance, swView, False)
                         
-            Else
-            
-                swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
+'            Else
+'
+'                swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextCalloutBelow, "TYP."
             
             End If
             
@@ -2151,7 +2418,8 @@ Private Sub AddCollinearRelation(swDrawing As SldWorks.DrawingDoc, swEdge As Sld
 End Sub
 
 Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
-    IsHorizontal As Boolean, IsMax As Boolean, Optional CheckAllVisibleEdgesOnly As Boolean = True) As SldWorks.Edge
+    IsHorizontal As Boolean, IsMax As Boolean, _
+    Optional CheckAllVisibleEdgesOnly As Boolean = True, Optional IsSection As Boolean = False) As SldWorks.Edge
     
     
     Dim xMin As Double
@@ -2196,17 +2464,26 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
     
 
      Dim TempLength As Double
-     TempLength = 0
-        
+     Dim IsInit As Boolean
+     IsInit = True
 
     Dim vEnts As Variant
-    If CheckAllVisibleEdgesOnly Then
+    Dim vPolyLinesBuffer As Variant
     
-        vEnts = swView.GetVisibleEntities2(swComp, swViewEntityType_e.swViewEntityType_Edge)
-        
+    If IsSection Then
+    
+        vEnts = swView.GetPolylines7(1, vPolyLinesBuffer)
+    
     Else
-    
-        vEnts = GetComponentEdges(swComp)
+        If CheckAllVisibleEdgesOnly Then
+        
+            vEnts = swView.GetVisibleEntities2(swComp, swViewEntityType_e.swViewEntityType_Edge)
+            
+        Else
+        
+            vEnts = GetComponentEdges(swComp)
+            
+        End If
         
     End If
 
@@ -2218,37 +2495,74 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
             Dim swEdge As SldWorks.Edge
             Set swEdge = vEnts(i)
             
+            Dim swEntity As SldWorks.Entity
+            Set swEntity = swEdge
+                    
+            Dim swEntityComp As SldWorks.Component2
+            Set swEntityComp = swEntity.GetComponent
+            
+            
+
             Dim IsSelected As Boolean
             'IsSelected = SelectEntity(swEdge, False, swView)
             
             Dim swCurve As SldWorks.Curve
             Set swCurve = swEdge.GetCurve
             
-            If swCurve.IsLine Then
-            
-                Dim vStartpoint As Variant
-                vStartpoint = swEdge.GetStartVertex.GetPoint
-                vStartpoint = GetComponentPointInViewSpace(swComp, vStartpoint, swView)
+                If swCurve.IsLine Then
                 
-                Dim vEndPoint As Variant
-                vEndPoint = swEdge.GetEndVertex.GetPoint
-                vEndPoint = GetComponentPointInViewSpace(swComp, vEndPoint, swView)
-                
-                If Abs(vStartpoint(idx) - vEndPoint(idx)) <= 0.00001 And Abs(vStartpoint(idx) - ValToMatch) <= 0.00001 Then
+                    Dim vStartPoint As Variant
+                    vStartPoint = swEdge.GetStartVertex.GetPoint
+                    vStartPoint = GetComponentPointInViewSpace(swComp, vStartPoint, swView)
                     
-                    Dim vCurveParam As Variant
-                    vCurveParam = swEdge.GetCurveParams2
+                    Dim vEndPoint As Variant
+                    vEndPoint = swEdge.GetEndVertex.GetPoint
+                    vEndPoint = GetComponentPointInViewSpace(swComp, vEndPoint, swView)
                     
-                    If swCurve.GetLength2(vCurveParam(6), vCurveParam(7)) > TempLength Then
+                    If Abs(vStartPoint(idx) - vEndPoint(idx)) <= 0.00001 And Abs(vStartPoint(idx) - ValToMatch) <= 0.00001 And _
+                                Abs(vStartPoint(2) - vEndPoint(2)) <= 0.000001 Then
                         
-                        TempLength = swCurve.GetLength2(vCurveParam(6), vCurveParam(7))
-                        Set GetEdgeInView = swEdge
+                        Dim vCurveParam As Variant
+                        vCurveParam = swEdge.GetCurveParams2
+                        
+    '                    If IsInit Then
+    '
+    '                        TempLength = vStartpoint(2)
+    '                        IsInit = False
+    '                        Set GetEdgeInView = swEdge
+    '
+    '                    End If
+    '
+    '                    If vStartpoint(2) > TempLength Then
+    '
+    '                        TempLength = vStartpoint(2)
+    '                        Set GetEdgeInView = swEdge
+    '
+    '                    End If
+    
+                        If IsSection Then
+                            
+                            If Not InStr(swComp.Name2, swEntityComp.Name2) > 0 Then
+                                
+                                GoTo NextIteration
+                                
+                            End If
+                            
+                        End If
+    '
+                        
+                        If swCurve.GetLength2(vCurveParam(6), vCurveParam(7)) > TempLength Then
+    
+                            TempLength = swCurve.GetLength2(vCurveParam(6), vCurveParam(7))
+                            Set GetEdgeInView = swEdge
+    
+                        End If
                         
                     End If
-                    
+                
                 End If
-            
-            End If
+                
+NextIteration:
             
         Next i
 
@@ -2555,32 +2869,16 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
         Call SelectComponent(swDrawing, oComp, xPos, yPos, 1, IsSelected, swView)
         
         If IsSelected Then
-        
-            Dim swBalloonParams As SldWorks.BalloonOptions
-            Set swBalloonParams = swDrawing.Extension.CreateBalloonOptions()
-            swBalloonParams.Size = swBalloonFit_e.swBF_Tightest
-            swBalloonParams.Style = swBalloonStyle_e.swBS_Inspection
-            
-            If oList.Qty > 1 Then
-    
-                swBalloonParams.ShowQuantity = True
-                swBalloonParams.QuantityOverride = True
-                swBalloonParams.QuantityOverrideValue = CStr(oList.Qty)
-                
-            End If
-            
+
             Dim swComp As SldWorks.Component2
             Set swComp = oComp.GetComponent
             'Debug.Print Right(swComp.Name2, Len(swComp.Name2) - InStrRev(swComp.Name2, "/"))
             
+            Dim swAnn As SldWorks.Annotation
             Dim swNote As SldWorks.Note
-            Set swNote = swDrawing.Extension.InsertBOMBalloon2(swBalloonParams)
-            
-            If Not swNote Is Nothing Then
+            Set swAnn = InsertBalloonAndGetAnnotations(swDrawing, oList.Qty, AnnXPos, AnnYPos, swNote)
 
-                Dim swAnn As SldWorks.Annotation
-                Set swAnn = swNote.GetAnnotation
-                swAnn.SetPosition2 AnnXPos, AnnYPos, 0
+            If Not swAnn Is Nothing Then
                 
                 Dim HeadStyle As Integer
                 
@@ -2622,6 +2920,33 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
     Call UpdateHatchProperties(swView)
 
 End Sub
+
+
+Function InsertBalloonAndGetAnnotations(swDrawing As SldWorks.DrawingDoc, Qty As Integer, AnnXPos As Double, AnnYPos As Double, ByRef swNote As SldWorks.Note) As SldWorks.Annotation
+        
+    Dim swBalloonParams As SldWorks.BalloonOptions
+    Set swBalloonParams = swDrawing.Extension.CreateBalloonOptions()
+    swBalloonParams.Size = swBalloonFit_e.swBF_Tightest
+    swBalloonParams.Style = swBalloonStyle_e.swBS_Inspection
+           
+    If Qty > 1 Then
+    
+        swBalloonParams.ShowQuantity = True
+        swBalloonParams.QuantityOverride = True
+        swBalloonParams.QuantityOverrideValue = CStr(Qty)
+                
+    End If
+    
+    Set swNote = swDrawing.Extension.InsertBOMBalloon2(swBalloonParams)
+            
+    If Not swNote Is Nothing Then
+
+        Set InsertBalloonAndGetAnnotations = swNote.GetAnnotation
+        InsertBalloonAndGetAnnotations.SetPosition2 AnnXPos, AnnYPos, 0
+        
+    End If
+    
+End Function
 
 Private Sub AddHatchForMakeUpPanel(oComp As IComp, swDrawing As SldWorks.ModelDoc2, ByRef IsMakeUpExists As Boolean, swView As SldWorks.View)
     

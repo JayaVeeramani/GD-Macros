@@ -424,25 +424,6 @@ Function CheckAddToDict(ByRef Dict As Scripting.Dictionary, keyVal As Double, sw
     
 End Function
 
-Sub HorizontalDimensionsForContours(vContours As Variant, swDrawing As SldWorks.DrawingDoc, swSketchMgr As SldWorks.SketchManager)
-
-    Dim i As Integer
-    For i = LBound(vContours) To UBound(vContours)
-        
-        Dim swSketchContour As IContourSketch
-        Set swSketchContour = vContours(i)
-        
-        If i = 0 Then
-            
-            
-        Else
-        
-        
-        End If
-    
-    Next i
-
-End Sub
 
 Sub GetOffsetValues(ByRef OffsetX As Double, ByRef OffsetZ As Double, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
     

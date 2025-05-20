@@ -17,6 +17,7 @@ Attribute VB_Exposed = False
 
 
 
+
 Private Sub OkButton_Click()
 
     IsSubAssyFormClicked = True
@@ -25,3 +26,8 @@ Private Sub OkButton_Click()
 End Sub
 
 
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+
+    IsSubAssyFormClicked = True
+
+End Sub

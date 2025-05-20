@@ -72,6 +72,11 @@ Function GetMaxLength() As Double
 
 End Function
 
+Function GetWidth() As Double
+
+    GetWidth = Abs(StartComp.xMin - EndComp.xMax)
+
+End Function
 
 
 Property Get TotalDoorArea() As Double
