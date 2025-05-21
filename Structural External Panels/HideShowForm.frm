@@ -28,6 +28,7 @@ Dim swSketchMgr As SldWorks.SketchManager
 Dim xDirectionVector(2) As Double
 Dim yDirectionVector(2) As Double
 Dim zDirectionVector(2) As Double
+Const SheetPosForLastBalloon As Double = 0.266
 
 
 Private Sub CloseButton_Click()
@@ -462,8 +463,8 @@ Private Sub AddVerticalDimensionsForHVAC(vHVACItems As Variant, swView As SldWor
                                     
                 Call AddQtyToDimension(swDisplayDim, Qty)
                 Set PrevEdge = lAngleBottomEdge
-                Call SelectAndAddAnnotation(oChannelComp.GetComponent, cChannelTopEdge, swDrawing, ViewToAddDimension, Qty)
-                Call SelectAndAddAnnotation(oLAngleComp.GetComponent, lAngleBottomEdge, swDrawing, ViewToAddDimension, Qty)
+                Call SelectAndAddAnnotationForEdge(oChannelComp.GetComponent, cChannelTopEdge, swDrawing, ViewToAddDimension, Qty, 0.0025, -0.0075)
+                Call SelectAndAddAnnotationForEdge(oLAngleComp.GetComponent, lAngleBottomEdge, swDrawing, ViewToAddDimension, Qty, 0.0025)
   
             Next j
 
@@ -487,25 +488,66 @@ Sub UpdateSectionLabel(swView As SldWorks.View, Qty As Integer)
 
 End Sub
 
-Sub SelectAndAddAnnotation(swComp As SldWorks.Component2, swEdge As SldWorks.Edge, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, Qty As Integer)
+Function SelectAndAddAnnotationForEdge(swComp As SldWorks.Component2, swEdge As SldWorks.Edge, swDrawing As SldWorks.DrawingDoc, _
+                swView As SldWorks.View, Qty As Integer, Optional XClearance As Double = 0, _
+                        Optional YClearance As Double = 0.0075, Optional PercentageFromStart As Double = 0.5, _
+                            Optional BalloonStyle As swBalloonStyle_e = swBalloonStyle_e.swBS_Inspection) As SldWorks.Annotation
 
     Dim IsSelected As Boolean
-    IsSelected = swView.SelectEntity(swEdge, False)
+    Dim SelXPos As Double
+    Dim SelYPos As Double
+    IsSelected = SelectEdgeWithSelectData(swEdge, swView, swDrawing, swComp, SelXPos, SelYPos, PercentageFromStart)
     
     If IsSelected Then
-    
-        Dim vStartPoint As Variant
-        vStartPoint = swEdge.GetStartVertex.GetPoint
-        vStartPoint = GetComponentPointInSheetSpace(swComp, vStartPoint, swView)
-    
-        Dim swAnn As SldWorks.Annotation
+
         Dim swNote As SldWorks.Note
-        
-        Set swAnn = InsertBalloonAndGetAnnotations(swDrawing, Qty, vStartPoint(0) + 0.005, vStartPoint(1) + 0.005, swNote)
+        Set SelectAndAddAnnotationForEdge = InsertBalloonAndGetAnnotations(swDrawing, Qty, SelXPos + XClearance, SelYPos + YClearance, BalloonStyle)
         
     End If
 
-End Sub
+End Function
+
+Function SelectEdgeWithSelectData(swEdge As SldWorks.Edge, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc, _
+                swComp As SldWorks.Component2, ByRef SelXPos As Double, ByRef SelYPos As Double, Optional PercentageFromStart As Double = 0.5) As Boolean
+
+    Dim swSelectMgr As SldWorks.SelectionMgr
+    Set swSelectMgr = swDrawing.SelectionManager
+    
+    Dim swSelectData As SldWorks.SelectData
+    Set swSelectData = swSelectMgr.CreateSelectData
+    
+    Dim vStartPoint As Variant
+    vStartPoint = swEdge.GetStartVertex.GetPoint
+    vStartPoint = GetComponentPointInSheetSpace(swComp, vStartPoint, swView)
+    
+    Dim vEndPoint As Variant
+    vEndPoint = swEdge.GetEndVertex.GetPoint
+    vEndPoint = GetComponentPointInSheetSpace(swComp, vEndPoint, swView)
+    
+    Dim swMathStartPoint As SldWorks.MathPoint
+    Set swMathStartPoint = swMathUtility.CreatePoint(vStartPoint)
+    
+    Dim swMathEndPoint As SldWorks.MathPoint
+    Set swMathEndPoint = swMathUtility.CreatePoint(vEndPoint)
+    
+    Dim swPosVector As SldWorks.MathVector
+    Set swPosVector = swMathEndPoint.Subtract(swMathStartPoint)
+    
+    Set swMathStartPoint = swMathStartPoint.AddVector(swPosVector.Scale(PercentageFromStart))
+    
+    SelXPos = swMathStartPoint.ArrayData(0)
+    SelYPos = swMathStartPoint.ArrayData(1)
+    
+    swSelectData.View = swView
+    swSelectData.X = SelXPos '(vStartPoint(0) + vEndPoint(0)) / 2
+    swSelectData.Y = SelYPos 'vStartPoint(1)
+    
+    Dim swEntity As SldWorks.Entity
+    Set swEntity = swEdge
+
+    SelectEdgeWithSelectData = swEntity.Select4(False, swSelectData)
+    
+End Function
 
 Sub AddQtyToDimension(swDisplayDim As SldWorks.DisplayDimension, Qty As Integer)
 
@@ -967,7 +1009,7 @@ End Sub
 
 
 Private Sub AddVerticalDimensionsForDoor(vDoorOrHVACItems As Variant, swView As SldWorks.View, _
-        swDrawing As SldWorks.DrawingDoc, Count As Integer)
+        swDrawing As SldWorks.ModelDoc2, Count As Integer)
 
     If Not IsEmpty(vDoorOrHVACItems) Then
     
@@ -995,6 +1037,64 @@ Private Sub AddVerticalDimensionsForDoor(vDoorOrHVACItems As Variant, swView As 
             
             Dim vCChannelItems As Variant
             vCChannelItems = oDoorOrHVACAssy.cChannelCompList.Items
+            
+            Dim vZChannelItems As Variant
+            vZChannelItems = oDoorOrHVACAssy.zChannelComplist.Items
+            
+            If Not IsEmpty(vZChannelItems) Then
+            
+                If UBound(vZChannelItems) = 0 Then
+                
+                    Dim zChannelComp As IComp
+                    Set zChannelComp = vZChannelItems(0)
+                    
+                    Dim zChannelEdge As SldWorks.Edge
+                    Set zChannelEdge = GetEdgeInView(zChannelComp, swView, True, True)
+                    
+                    Dim IsSelected As Boolean
+                    Dim SelXPos As Double
+                    Dim SelYPos As Double
+                    IsSelected = SelectEdgeWithSelectData(zChannelEdge, swView, swDrawing, zChannelComp.GetComponent, SelXPos, SelYPos, 0.35)
+    
+                    If IsSelected Then
+                        
+                        Dim swStackedBalloonOptions As SldWorks.StackedBalloonOptions
+                        Set swStackedBalloonOptions = swDrawing.Extension.CreateStackedBalloonOptions
+                        
+                        swStackedBalloonOptions.StackDirection = swStackedBalloonDirection_e.swStackedBalloonDir_Up
+                        swStackedBalloonOptions.Style = swBalloonStyle_e.swBS_Box
+                        swStackedBalloonOptions.Size = swBalloonFit_e.swBF_Tightest
+                        swStackedBalloonOptions.UpperTextContent = swBalloonTextContent_e.swBalloonTextCustom
+                        swStackedBalloonOptions.UpperText = "1411009"
+                        swStackedBalloonOptions.ShowQuantity = False
+
+                        Dim swNote As SldWorks.Note
+                        Set swNote = swDrawing.Extension.InsertStackedBalloon2(swStackedBalloonOptions)
+                        
+                        If Not swNote Is Nothing Then
+                            
+                            Dim swAnn As SldWorks.Annotation
+                            Set swAnn = swNote.GetAnnotation
+                            
+                            swAnn.SetPosition2 SelXPos, SheetPosForLastBalloon + 0.001, 0
+                            
+                            If swNote.IsStackedBalloon Then
+                                
+                                Dim swBalloonStack As SldWorks.BalloonStack
+                                Set swBalloonStack = swNote.GetBalloonStack
+                                
+                                Dim StackedNote As SldWorks.Note
+                                Set StackedNote = swBalloonStack.AddTo(swBalloonTextContent_e.swBalloonTextCustom, "Z-CHANNEL ASSEMBLY", swBalloonTextContent_e.swBalloonTextCustom, "")
+                            
+                            End If
+                        
+                        End If
+
+                    End If
+
+                End If
+            
+            End If
                 
             If Not IsEmpty(vCChannelItems) Then
             
@@ -1473,7 +1573,7 @@ Private Sub AddDimensionsForDoororHVAC(vDoorOrHVACItems As Variant, oSubAssy As 
             Set swDoorOrHVACStartEdge = GetEdgeInView(oStartComp, swView, False, True)
 
             Set swDisplayDim = SelectAndAddDimension(oSubAssy.StartEdge, swDoorOrHVACStartEdge, swDrawing, _
-                        oStartComp.xMin - 0.001, oStartComp.yMin - Clearance, swView, False)
+                        oStartComp.xMax - 0.001, oStartComp.yMin - Clearance, swView, False)
                         
             If oDoorOrHVACAssy.IsDoor Or False = IsSectionNeeded Then
             
@@ -2082,7 +2182,7 @@ Private Function AddDimensionInFrontView(swView As SldWorks.View, FlatCompList A
 End Function
 
 Private Function SelectAndAddDimension(swEdge1 As SldWorks.Edge, swEdge2 As SldWorks.Edge, swDrawing As SldWorks.ModelDoc2, _
-            xPos As Double, yPos As Double, swView As SldWorks.View, Optional IsDual As Boolean = True) As SldWorks.DisplayDimension
+            xPos As Double, YPos As Double, swView As SldWorks.View, Optional IsDual As Boolean = True) As SldWorks.DisplayDimension
     
     If Not (swEdge1 Is Nothing) And Not (swEdge2 Is Nothing) Then
         
@@ -2090,7 +2190,7 @@ Private Function SelectAndAddDimension(swEdge1 As SldWorks.Edge, swEdge2 As SldW
         Call SelectEntity(swEdge1, False, swView)
         Call SelectEntity(swEdge2, True, swView)
         
-        Set SelectAndAddDimension = swDrawing.AddHorizontalDimension2(xPos, yPos, 0)
+        Set SelectAndAddDimension = swDrawing.AddHorizontalDimension2(xPos, YPos, 0)
         
         If Not SelectAndAddDimension Is Nothing Then
         
@@ -2226,7 +2326,7 @@ Private Sub UpdateBottomViewPosition(vComps As Variant, swDrawing As SldWorks.Dr
     
 End Sub
 
-Private Sub CleanUpActivateAndAddViewLabel(swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View, wallName As String, yPos As Double, _
+Private Sub CleanUpActivateAndAddViewLabel(swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View, wallName As String, YPos As Double, _
     Optional xPos As Double = 0)
 
     swDrawing.SetUserPreferenceToggle swUserPreferenceToggle_e.swDisplayOrigins, False
@@ -2268,7 +2368,7 @@ Private Sub CleanUpActivateAndAddViewLabel(swDrawing As SldWorks.ModelDoc2, swVi
     
     Dim swLabelNote As SldWorks.Note
 
-    Set swLabelNote = swDrawing.CreateText2(LabelText, xPos, yPos, 0, 0, 0)
+    Set swLabelNote = swDrawing.CreateText2(LabelText, xPos, YPos, 0, 0, 0)
     swLabelNote.SetTextJustification swTextJustification_e.swTextJustificationCenter
     
     swDrawing.Extension.Rebuild swRebuildOptions_e.swCurrentSheetDisp
@@ -2469,11 +2569,8 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
     
     Dim swComp As SldWorks.Component2
     Set swComp = oComp.GetComponent
-    
 
-     Dim TempLength As Double
-     Dim IsInit As Boolean
-     IsInit = True
+    Dim TempLength As Double
 
     Dim vEnts As Variant
     Dim vPolyLinesBuffer As Variant
@@ -2510,7 +2607,6 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
             Set swEntityComp = swEntity.GetComponent
             
             
-
             Dim IsSelected As Boolean
             'IsSelected = SelectEntity(swEdge, False, swView)
             
@@ -2532,21 +2628,6 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
                         
                         Dim vCurveParam As Variant
                         vCurveParam = swEdge.GetCurveParams2
-                        
-    '                    If IsInit Then
-    '
-    '                        TempLength = vStartpoint(2)
-    '                        IsInit = False
-    '                        Set GetEdgeInView = swEdge
-    '
-    '                    End If
-    '
-    '                    If vStartpoint(2) > TempLength Then
-    '
-    '                        TempLength = vStartpoint(2)
-    '                        Set GetEdgeInView = swEdge
-    '
-    '                    End If
     
                         If IsSection Then
                             
@@ -2557,7 +2638,6 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
                             End If
                             
                         End If
-    '
                         
                         If swCurve.GetLength2(vCurveParam(6), vCurveParam(7)) > TempLength Then
     
@@ -2579,7 +2659,7 @@ NextIteration:
 End Function
 
 
-Sub AddNoteToView(swDrawing As SldWorks.DrawingDoc, NoteText As String, xPos As Double, yPos As Double)
+Sub AddNoteToView(swDrawing As SldWorks.DrawingDoc, NoteText As String, xPos As Double, YPos As Double)
             
     Dim swNote As SldWorks.Note
     Set swNote = swDrawing.InsertNote(NoteText)
@@ -2591,7 +2671,7 @@ Sub AddNoteToView(swDrawing As SldWorks.DrawingDoc, NoteText As String, xPos As 
 
         If Not swAnnotation Is Nothing Then
 
-            swAnnotation.SetPosition xPos, yPos, 0
+            swAnnotation.SetPosition xPos, YPos, 0
 
         End If
 
@@ -2724,7 +2804,7 @@ End Sub
 Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View, _
         MaxCompHeight As Double, ByRef IsMakeUpExists As Boolean, subAssyCompDict As Scripting.Dictionary)
     
-    Const SheetPosForLastBalloon As Double = 0.266
+
     Const Increment As Double = 0.005
     Const MaxBalloonWidth As Double = 0.015875
     
@@ -2763,10 +2843,10 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
         swDrawing.ClearSelection2 True
 
         Dim xPos As Double
-        Dim yPos As Double
+        Dim YPos As Double
       
         xPos = oComp.xMin + 4 * 0.0254 * swView.ScaleDecimal  '(oComp.xMin + oComp.xMax) / 2 - Abs((oComp.xMin - oComp.xMax) / 2) + 3.5 * 0.0254 * swView.ScaleDecimal
-        yPos = 0.075 * oComp.yMin + 0.925 * oComp.yMax
+        YPos = 0.075 * oComp.yMin + 0.925 * oComp.yMax
         
         If oComp.IsTop Then
         
@@ -2858,23 +2938,23 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
         ElseIf oComp.IsBottom Then
         
             xPos = (oComp.xMin + oComp.xMax) / 2
-            yPos = 0.7 * oComp.yMin + 0.3 * oComp.yMax
+            YPos = 0.7 * oComp.yMin + 0.3 * oComp.yMax
             AnnXPos = xPos
             AnnYPos = oComp.yMin - Increment
             
         Else
         
             xPos = (oComp.xMin + oComp.xMax) / 2
-            yPos = 0.3 * oComp.yMin + 0.7 * oComp.yMax
+            YPos = 0.3 * oComp.yMin + 0.7 * oComp.yMax
             AnnXPos = oComp.xMin - 3 * Increment
-            AnnYPos = yPos - 2 * Increment
+            AnnYPos = YPos - 2 * Increment
             
         End If
        
     
         Dim IsSelected As Boolean
         IsSelected = False
-        Call SelectComponent(swDrawing, oComp, xPos, yPos, 1, IsSelected, swView)
+        Call SelectComponent(swDrawing, oComp, xPos, YPos, 1, IsSelected, swView)
         
         If IsSelected Then
 
@@ -2883,10 +2963,12 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
             'Debug.Print Right(swComp.Name2, Len(swComp.Name2) - InStrRev(swComp.Name2, "/"))
             
             Dim swAnn As SldWorks.Annotation
-            Dim swNote As SldWorks.Note
-            Set swAnn = InsertBalloonAndGetAnnotations(swDrawing, oList.Qty, AnnXPos, AnnYPos, swNote)
+            Set swAnn = InsertBalloonAndGetAnnotations(swDrawing, oList.Qty, AnnXPos, AnnYPos)
 
             If Not swAnn Is Nothing Then
+            
+                Dim swNote As SldWorks.Note
+                Set swNote = swAnn.GetSpecificAnnotation
                 
                 Dim HeadStyle As Integer
                 
@@ -2930,12 +3012,12 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
 End Sub
 
 
-Function InsertBalloonAndGetAnnotations(swDrawing As SldWorks.DrawingDoc, Qty As Integer, AnnXPos As Double, AnnYPos As Double, ByRef swNote As SldWorks.Note) As SldWorks.Annotation
+Function InsertBalloonAndGetAnnotations(swDrawing As SldWorks.DrawingDoc, Qty As Integer, AnnXPos As Double, AnnYPos As Double, Optional BalloonStyle As swBalloonStyle_e = swBalloonStyle_e.swBS_Inspection) As SldWorks.Annotation
         
     Dim swBalloonParams As SldWorks.BalloonOptions
     Set swBalloonParams = swDrawing.Extension.CreateBalloonOptions()
     swBalloonParams.Size = swBalloonFit_e.swBF_Tightest
-    swBalloonParams.Style = swBalloonStyle_e.swBS_Inspection
+    swBalloonParams.Style = BalloonStyle
            
     If Qty > 1 Then
     
@@ -2945,6 +3027,7 @@ Function InsertBalloonAndGetAnnotations(swDrawing As SldWorks.DrawingDoc, Qty As
                 
     End If
     
+    Dim swNote As SldWorks.Note
     Set swNote = swDrawing.Extension.InsertBOMBalloon2(swBalloonParams)
             
     If Not swNote Is Nothing Then
@@ -2982,9 +3065,9 @@ Private Sub AddHatchForMakeUpPanel(oComp As IComp, swDrawing As SldWorks.ModelDo
 End Sub
 
 Private Sub SelectComponent(swDrawing As SldWorks.ModelDoc2, oComp As IComp, xPos As Double, _
-    yPos As Double, Count As Integer, IsSelected As Boolean, swView As SldWorks.View)
+    YPos As Double, Count As Integer, IsSelected As Boolean, swView As SldWorks.View)
     
-    IsSelected = swDrawing.Extension.SelectByID2("", "FACE", xPos, yPos, _
+    IsSelected = swDrawing.Extension.SelectByID2("", "FACE", xPos, YPos, _
                     0, False, -1, Nothing, 1)
                     
     If Count > 2 Then
@@ -3010,13 +3093,13 @@ Private Sub SelectComponent(swDrawing As SldWorks.ModelDoc2, oComp As IComp, xPo
         If Not (Right(swComp.Name, Len(swComp.Name) - InStrRev(swComp.Name, "/")) = _
             Right(oComp.GetComponent.Name2, Len(oComp.GetComponent.Name2) - InStrRev(oComp.GetComponent.Name2, "/"))) Then
             
-            Call SelectComponent(swDrawing, oComp, (oComp.xMax + oComp.xMin) / 2, yPos, Count + 1, IsSelected, swView)
+            Call SelectComponent(swDrawing, oComp, (oComp.xMax + oComp.xMin) / 2, YPos, Count + 1, IsSelected, swView)
             
         End If
         
     Else
     
-        Call SelectComponent(swDrawing, oComp, (oComp.xMax + oComp.xMin) / 2, yPos, Count + 1, IsSelected, swView)
+        Call SelectComponent(swDrawing, oComp, (oComp.xMax + oComp.xMin) / 2, YPos, Count + 1, IsSelected, swView)
         
     End If
     
