@@ -21,6 +21,7 @@ Attribute VB_Exposed = False
 
 
 
+
 Option Explicit
 
 
@@ -227,36 +228,36 @@ Private Sub CreateButton_Click()
     Set oSubAssy.StartEdge = swLeftEdge
     Set oSubAssy.EndEdge = swRightEdge
     Set oSubAssy.BottomEdge = swBottomEdge
-    
+
     oSubAssy.StartIdx = 0
     oSubAssy.EndIdx = UBound(FlatCompDict.Items)
     Call oSubAssy.AddDoororHVACList(DoorOrHVACList)
 
     subAssylist.AddtoList oSubAssy
-    
+
     Dim Countourlist As IArrListObject
     Set Countourlist = AddCrossMarkForAssyCuts(FlatCompDict.Items, swFrontView, swDrawing, oSubAssy)
-    
+
     Call AddCrossMarkForDoor(oSubAssy, swFrontView, swDrawing)
-    
+
     Dim UniqueHVACDict As Scripting.Dictionary
     Set UniqueHVACDict = AddCrossMarkForHVAC(oSubAssy, swFrontView, swDrawing)
 
     Dim NoteCount As Integer
     Dim AssyNoteNo As Integer
     Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists, IsAllPanels12GA, IsZChannelExists, NoteCount, wallName, Countourlist.Count)
-    
+
     Dim IsSectionViewNeeded As Boolean
     IsSectionViewNeeded = False
     Dim GapForSection As Double
-        
+
     If oSubAssy.GetWidth <= (15.75 - 2.5 * (UBound(UniqueHVACDict.Items) + 1)) * 0.0254 Then
-            
+
         IsSectionViewNeeded = True
         GapForSection = (15.75 * 0.0254 - oSubAssy.GetWidth) / 2
-        
+
     End If
-        
+
     Dim MaxClearance As Double
     Call AddDimensionsForDoororHVACInEachSubAssy(subAssylist, swDrawing, swFrontView, MaxClearance, IsSectionViewNeeded)
     Call AddDimensionNames(subAssylist, wallName, swFrontView)
@@ -266,7 +267,7 @@ Private Sub CreateButton_Click()
 
     Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, NoteCount, swBottomEdge, MaxClearance)
     Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - MaxClearance - 0.0075, (oSubAssy.StartComp.xMin + oSubAssy.EndComp.xMax) / 2)
-    
+
     Call UpdateFrontViewPosition(FlatCompDict.Items, swDrawing, swFrontView)
 
     swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, True
@@ -2830,6 +2831,12 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
     
     Dim AnnXPos As Double
     Dim AnnYPos As Double
+    Dim PrevXPos As Double
+    Dim ChangeForNoOFTime As Boolean
+    ChangeForNoOFTime = False
+    
+    Dim NoOfTimes As Integer
+    NoOfTimes = 0
     
     Dim i As Integer
     For i = LBound(vConsolidatedList) To UBound(vConsolidatedList)
@@ -2844,6 +2851,7 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
 
         Dim xPos As Double
         Dim YPos As Double
+
       
         xPos = oComp.xMin + 4 * 0.0254 * swView.ScaleDecimal  '(oComp.xMin + oComp.xMax) / 2 - Abs((oComp.xMin - oComp.xMax) / 2) + 3.5 * 0.0254 * swView.ScaleDecimal
         YPos = 0.075 * oComp.yMin + 0.925 * oComp.yMax
@@ -2857,18 +2865,25 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
     
                 If AddorSub = -1 Then
     
-                    If Abs(prevComp.xMin - oComp.xMin) > 2 * MaxBalloonWidth Or _
-                        Abs(prevComp.xMin - oComp.xMin) > MaxBalloonWidth And BalloonCount > 2 Then
+                    If Abs(PrevXPos - oComp.xMin) > 2 * MaxBalloonWidth Or _
+                        Abs(PrevXPos - oComp.xMin) > MaxBalloonWidth And BalloonCount > 2 Then
     
                         AddorSub = 1
                         BalloonCount = 1
-                        
-    
+                    
+                    ElseIf Abs(PrevXPos - oComp.xMax) > MaxBalloonWidth And BalloonCount >= 1 Then
+ 
+                        AddorSub = 1
+                        NoOfTimes = BalloonCount
+                        BalloonCount = 1
+                        ChangeForNoOFTime = True
+                         xPos = oComp.xMax - 4 * 0.0254 * swView.ScaleDecimal
+                         
                     End If
     
                 Else
-    
-                    If Abs(prevComp.xMin - oComp.xMin) > MaxBalloonWidth Then
+
+                    If Abs(PrevXPos - oComp.xMin) > MaxBalloonWidth Then
     
                         AddorSub = 1
                         BalloonCount = 1
@@ -2899,15 +2914,31 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
                 
             End If
             
+            If ChangeForNoOFTime Then
+                
+                NoOfTimes = NoOfTimes - 1
+                
+                If NoOfTimes < 0 Then
+
+                    ChangeForNoOFTime = False
+                    BalloonCount = maxNoOfBalloons
+                    AddorSub = -1
+                    
+                End If
+                
+            End If
+            
             AnnXPos = xPos
             
             If AddorSub = 1 Then
-            
+                
                 If BalloonCount > maxNoOfBalloons Then
                     
                     AddorSub = -1
                     BalloonCount = BalloonCount + AddorSub
                     
+                   
+
                 End If
             
             Else
@@ -2934,6 +2965,9 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
 
             AnnYPos = MaxCompHeight + BalloonCount * Increment
             BalloonCount = BalloonCount + AddorSub
+            PrevXPos = xPos
+            
+
             
         ElseIf oComp.IsBottom Then
         
@@ -2980,7 +3014,7 @@ Private Sub AddCallouts(vConsolidatedList As Variant, swDrawing As SldWorks.Mode
                 If oComp.IsTop Then
                 
                     If AddorSub = 1 Then
-                    
+                         
                         Dim vNoteExtents As Variant
                         vNoteExtents = swNote.GetExtent
      
@@ -3602,6 +3636,8 @@ Function GetNormalFaces(vFaces As Variant, CompTransform As IMathTransform, _
             Angle = Arccos(DotProduct) * 180# / 3.14159265359
             
         End If
+        
+        If Not swSurface Is Nothing Then
  
         If swSurface.IsPlane And Angle <= 0.01 Then
             
@@ -3613,6 +3649,8 @@ Function GetNormalFaces(vFaces As Variant, CompTransform As IMathTransform, _
             Set NormalFaces(FaceCount) = swEnt
             FaceCount = FaceCount + 1
             
+        End If
+        
         End If
 
     Next i
