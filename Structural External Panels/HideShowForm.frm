@@ -434,6 +434,14 @@ Private Sub AddVerticalDimensionsForHVAC(vHVACItems As Variant, swView As SldWor
                             Call UpdateSectionLabel(HorSectionView, HVACArrList.Count)
                            
                         End If
+                        
+                        
+                    Else
+                    
+                        Set ViewToAddDimension = swView
+                        DimXPos = (oStartComp.xMin + oStartComp.xMax) / 2
+                        Qty = HVACArrList.Count
+                        
                 
                     End If
                 
