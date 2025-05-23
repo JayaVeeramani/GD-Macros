@@ -22,6 +22,7 @@ Attribute VB_Exposed = False
 
 
 
+
 Option Explicit
 
 
@@ -51,59 +52,19 @@ Private Function GetOppositeVector(Dir As Variant) As Double()
     GetOppositeVector = Temp
 End Function
 
-Function SelectEntity(swEnt As Object, Append As Boolean, swView As SldWorks.View) As Boolean 'swView As SldWorks.View
-
-    Dim swEntity As SldWorks.Entity
-    Set swEntity = swEnt
-    
-    'SelectEntity = swEntity.Select4(Append, Nothing)
-    
-    SelectEntity = swView.SelectEntity(swEnt, Append)
-    
-End Function
-
 Private Sub CreateButton_Click()
 
-    xDirectionVector(0) = 1
-    xDirectionVector(1) = 0
-    xDirectionVector(2) = 0
-    
-    yDirectionVector(0) = 0
-    yDirectionVector(1) = 1
-    yDirectionVector(2) = 0
-    
-    zDirectionVector(0) = 0
-    zDirectionVector(1) = 0
-    zDirectionVector(2) = 1
-
     Me.Hide
-    
-    Dim wallName As String
-    wallName = WallDrawingForm.WallNameComboBox.Value
-    
+
     Dim ProjectNo As String
-    ProjectNo = WallDrawingForm.ProjectNoBox.Value
+    ProjectNo = DrawingForm.ProjectNoBox.Value
     
-    Unload WallDrawingForm
-    
-    Dim viewName As String
-    viewName = GetViewName(wallName)
-    
-    If viewName = "" Then
-    
-        MsgBox "View Name not selected", vbExclamation, "Not Selected!"
-        Unload Me
-        Exit Sub
-        
-    End If
-    
+    Unload DrawingForm
+
     Set swMathUtility = swApp.GetMathUtility
 
-    Dim swViewNormalVector As SldWorks.MathVector
-    Set swViewNormalVector = swMathUtility.CreateVector(GetViewVector(viewName))
-    
     Dim swDrawing As SldWorks.DrawingDoc
-    Set swDrawing = swApp.NewDocument("C:\FBD\COMMON\FBD Templates\DEFAULT\ASSEMBLY DRAWING.drwdot", 0, 0, 0)
+    Set swDrawing = swApp.NewDocument("C:\FBD\COMMON\FBD Templates\DEFAULT\METAL FAB DRAWING.DRWDOT", 0, 0, 0)
 
     Set swSketchMgr = swDrawing.SketchManager
 
@@ -111,164 +72,139 @@ Private Sub CreateButton_Click()
     Set swSheet = swDrawing.GetCurrentSheet
 
     Call InsertSketchBlock(swDrawing, swSheet, ProjectNo)
-    Call AddLegendBlocks(swDrawing, swSheet)
 
-    Dim swFrontView As SldWorks.View
-    Set swFrontView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), viewName, 0.21593179, 0.19172741, 0)
+    Dim swTopView As SldWorks.View
+    Set swTopView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), "*Top", 0.21593179, 0.19172741, 0)
 
-    Dim IsZChannelExists As Boolean
+    Dim oFloorComp As IComp
+    Set oFloorComp = New IComp
+    
+    oFloorComp.Initialize swFloorWeldment, swTopView
+    
     Dim ViewWidth As Double
+    ViewWidth = oFloorComp.xMax - oFloorComp.xMin
+    
     Dim ViewHeight As Double
-    Dim MaxHeightComp As IComp
-    Dim CompList As IArrListObject
-
-    Dim cChannelList As IArrListObject
-    Set cChannelList = New IArrListObject
-
-    Dim zChannelList As IArrListObject
-    Set zChannelList = New IArrListObject
+    ViewHeight = oFloorComp.yMax - oFloorComp.yMin
     
-    Dim lAngleList As IArrListObject
-    Set lAngleList = New IArrListObject
-
-    Set CompList = GetComponentsSortedWithYPosition(swFrontView, swDrawing, swViewNormalVector, ViewWidth, _
-                ViewHeight, MaxHeightComp, IsZChannelExists, zChannelList, cChannelList, lAngleList)
-
-    Dim IsMultipleAssembly As Boolean
-    IsMultipleAssembly = CheckForMultipleAssembly(ViewWidth / swFrontView.ScaleDecimal, ViewHeight / swFrontView.ScaleDecimal)
-
-    Dim subAssyEndComponents As Variant
-    If IsMultipleAssembly Then
-
-        Call ActivateDrawingDocument(swTopLevelModel)
-        SubAssyForm.Show vbModeless
-
-        IsSubAssyFormClicked = False
-        Do While IsSubAssyFormClicked = False
-
-            DoEvents
-
-        Loop
-
-        subAssyEndComponents = GetSelectedComponents
-        Call ActivateDrawingDocument(swDrawing)
-
-    End If
-
-    Dim swBottomView As SldWorks.View
-    Set swBottomView = ScaleAndInsertBottomView(swDrawing, swFrontView, ViewWidth, ViewHeight)
-
-    Dim FlatCompList As Variant
-    Dim DetailedCompList As Variant
-    Dim MaxCompHeight As Double
-    DetailedCompList = GetComponentsSortedWithXPosition(CompList.Items, FlatCompList, swFrontView, MaxCompHeight)
-
-    Dim vConsolidatedList As Variant
-
-    Dim DoorOrHVACList As IArrListObject
-    Set DoorOrHVACList = New IArrListObject
-
-    vConsolidatedList = GetConsolidatedList(DetailedCompList, DoorOrHVACList)
-
-    Set zChannelList = GetChannelCompsWithPos(zChannelList, swFrontView)
-    Set cChannelList = GetChannelCompsWithPos(cChannelList, swFrontView)
-    Set lAngleList = GetChannelCompsWithPos(lAngleList, swFrontView)
-
-    Call CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList, zChannelList, True)
-    Call CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList, cChannelList)
-    Call CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList, lAngleList, IsLAngle:=True)
-
-    swDrawing.ActivateView swFrontView.Name
-
-    Dim IsMakeUpExists As Boolean
-    Dim subAssyCompDict As Scripting.Dictionary
-    Set subAssyCompDict = AddSubAssyComponentsToDictionary(subAssyEndComponents)
+    Call RotateAndScaleView(swDrawing, swTopView, ViewWidth, ViewHeight)
     
-    swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
+    Dim WeldBodyList As IArrListObject
+    Set WeldBodyList = oFloorComp.GetBodiesList(swTopView)
     
-    Call AddCallouts(vConsolidatedList, swDrawing, swFrontView, MaxCompHeight, IsMakeUpExists, subAssyCompDict)
+    Debug.Print WeldBodyList.Count
 
-    Dim Is12GAPanelExists As Boolean
-    Dim IsAllPanels12GA As Boolean
-    Is12GAPanelExists = Add12GACircles(FlatCompList, swDrawing, swBottomView, wallName, IsAllPanels12GA)
-
-    Call UpdateBottomViewPosition(FlatCompList, swDrawing, swBottomView)
-
-    Dim swLeftEdge As SldWorks.Edge
-    Dim swRightEdge As SldWorks.Edge
-
-    Dim swBottomEdge As SldWorks.Edge
-    Set swBottomEdge = AddDimensionInFrontView(swFrontView, FlatCompList, DetailedCompList, MaxHeightComp, swDrawing, swLeftEdge, swRightEdge)
-
-    Dim FlatCompDict As Scripting.Dictionary
-    Dim CompNoDict As New Scripting.Dictionary
-    Set FlatCompDict = GetCompDictionary(FlatCompList, CompNoDict)
-
-    Dim subAssylist As IArrListObject
-    Set subAssylist = New IArrListObject
-
-    If Not IsEmpty(subAssyEndComponents) Then
-
-        Dim vSubAssyComponentsIdx As Variant
-        vSubAssyComponentsIdx = GetSubAssyComponentsIndexSorted(subAssyEndComponents, CompNoDict)
-
-        Set subAssylist = AddSplitLines(vSubAssyComponentsIdx, swDrawing, swFrontView, FlatCompDict, CompNoDict, True, swLeftEdge, swRightEdge, False)
-        Call AddSplitLines(vSubAssyComponentsIdx, swDrawing, swBottomView, FlatCompDict, CompNoDict, False, swLeftEdge, swRightEdge)
-
-        Call CheckAndAddDoorOrHVACAssy(subAssylist, DoorOrHVACList, CompNoDict)
-
-
-    End If
-
-    Dim oSubAssy As ISubAssy
-    Set oSubAssy = New ISubAssy
-
-    Set oSubAssy.StartComp = FlatCompDict.Items(0)
-    Set oSubAssy.EndComp = FlatCompDict.Items(UBound(FlatCompDict.Items))
-    Set oSubAssy.StartEdge = swLeftEdge
-    Set oSubAssy.EndEdge = swRightEdge
-    Set oSubAssy.BottomEdge = swBottomEdge
-
-    oSubAssy.StartIdx = 0
-    oSubAssy.EndIdx = UBound(FlatCompDict.Items)
-    Call oSubAssy.AddDoororHVACList(DoorOrHVACList)
-
-    subAssylist.AddtoList oSubAssy
-
-    Dim Countourlist As IArrListObject
-    Set Countourlist = AddCrossMarkForAssyCuts(FlatCompDict.Items, swFrontView, swDrawing, oSubAssy)
-
-    Call AddCrossMarkForDoor(oSubAssy, swFrontView, swDrawing)
-
-    Dim UniqueHVACDict As Scripting.Dictionary
-    Set UniqueHVACDict = AddCrossMarkForHVAC(oSubAssy, swFrontView, swDrawing)
-
-    Dim NoteCount As Integer
-    Dim AssyNoteNo As Integer
-    Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists, IsAllPanels12GA, IsZChannelExists, NoteCount, wallName, Countourlist.Count)
-
-    Dim IsSectionViewNeeded As Boolean
-    IsSectionViewNeeded = False
-    Dim GapForSection As Double
-
-    If oSubAssy.GetWidth <= (15.75 - 2.5 * (UBound(UniqueHVACDict.Items) + 1)) * 0.0254 Then
-
-        IsSectionViewNeeded = True
-        GapForSection = (15.75 * 0.0254 - oSubAssy.GetWidth) / 2
-
-    End If
-
-    Dim MaxClearance As Double
-    Call AddDimensionsForDoororHVACInEachSubAssy(subAssylist, swDrawing, swFrontView, MaxClearance, IsSectionViewNeeded)
-    Call AddDimensionNames(subAssylist, wallName, swFrontView)
-    Call AddVerticalDimensionsForDoor(oSubAssy.GetDoorAssemblies, swFrontView, swDrawing, NoteCount)
-
-    Call AddVerticalDimensionsForHVAC(UniqueHVACDict.Items, swFrontView, swDrawing, oSubAssy, IsSectionViewNeeded, GapForSection)
-
-    Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, NoteCount, swBottomEdge, MaxClearance)
-    Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - MaxClearance - 0.0075, (oSubAssy.StartComp.xMin + oSubAssy.EndComp.xMax) / 2)
-
-    Call UpdateFrontViewPosition(FlatCompDict.Items, swDrawing, swFrontView)
+'    Dim FlatCompList As Variant
+'    Dim DetailedCompList As Variant
+'    Dim MaxCompHeight As Double
+'    DetailedCompList = GetComponentsSortedWithXPosition(CompList.Items, FlatCompList, swFrontView, MaxCompHeight)
+'
+'    Dim vConsolidatedList As Variant
+'
+'    Dim DoorOrHVACList As IArrListObject
+'    Set DoorOrHVACList = New IArrListObject
+'
+'    vConsolidatedList = GetConsolidatedList(DetailedCompList, DoorOrHVACList)
+'
+'    Set zChannelList = GetChannelCompsWithPos(zChannelList, swFrontView)
+'    Set cChannelList = GetChannelCompsWithPos(cChannelList, swFrontView)
+'    Set lAngleList = GetChannelCompsWithPos(lAngleList, swFrontView)
+'
+'    Call CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList, zChannelList, True)
+'    Call CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList, cChannelList)
+'    Call CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList, lAngleList, IsLAngle:=True)
+'
+'    swDrawing.ActivateView swFrontView.Name
+'
+'    Dim IsMakeUpExists As Boolean
+'    Dim subAssyCompDict As Scripting.Dictionary
+'    Set subAssyCompDict = AddSubAssyComponentsToDictionary(subAssyEndComponents)
+'
+'    swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
+'
+'    Call AddCallouts(vConsolidatedList, swDrawing, swFrontView, MaxCompHeight, IsMakeUpExists, subAssyCompDict)
+'
+'    Dim Is12GAPanelExists As Boolean
+'    Dim IsAllPanels12GA As Boolean
+'    Is12GAPanelExists = Add12GACircles(FlatCompList, swDrawing, swBottomView, wallName, IsAllPanels12GA)
+'
+'    Call UpdateBottomViewPosition(FlatCompList, swDrawing, swBottomView)
+'
+'    Dim swLeftEdge As SldWorks.Edge
+'    Dim swRightEdge As SldWorks.Edge
+'
+'    Dim swBottomEdge As SldWorks.Edge
+'    Set swBottomEdge = AddDimensionInFrontView(swFrontView, FlatCompList, DetailedCompList, MaxHeightComp, swDrawing, swLeftEdge, swRightEdge)
+'
+'    Dim FlatCompDict As Scripting.Dictionary
+'    Dim CompNoDict As New Scripting.Dictionary
+'    Set FlatCompDict = GetCompDictionary(FlatCompList, CompNoDict)
+'
+'    Dim subAssylist As IArrListObject
+'    Set subAssylist = New IArrListObject
+'
+'    If Not IsEmpty(subAssyEndComponents) Then
+'
+'        Dim vSubAssyComponentsIdx As Variant
+'        vSubAssyComponentsIdx = GetSubAssyComponentsIndexSorted(subAssyEndComponents, CompNoDict)
+'
+'        Set subAssylist = AddSplitLines(vSubAssyComponentsIdx, swDrawing, swFrontView, FlatCompDict, CompNoDict, True, swLeftEdge, swRightEdge, False)
+'        Call AddSplitLines(vSubAssyComponentsIdx, swDrawing, swBottomView, FlatCompDict, CompNoDict, False, swLeftEdge, swRightEdge)
+'
+'        Call CheckAndAddDoorOrHVACAssy(subAssylist, DoorOrHVACList, CompNoDict)
+'
+'
+'    End If
+'
+'    Dim oSubAssy As ISubAssy
+'    Set oSubAssy = New ISubAssy
+'
+'    Set oSubAssy.StartComp = FlatCompDict.Items(0)
+'    Set oSubAssy.EndComp = FlatCompDict.Items(UBound(FlatCompDict.Items))
+'    Set oSubAssy.StartEdge = swLeftEdge
+'    Set oSubAssy.EndEdge = swRightEdge
+'    Set oSubAssy.BottomEdge = swBottomEdge
+'
+'    oSubAssy.StartIdx = 0
+'    oSubAssy.EndIdx = UBound(FlatCompDict.Items)
+'    Call oSubAssy.AddDoororHVACList(DoorOrHVACList)
+'
+'    subAssylist.AddtoList oSubAssy
+'
+'    Dim Countourlist As IArrListObject
+'    Set Countourlist = AddCrossMarkForAssyCuts(FlatCompDict.Items, swFrontView, swDrawing, oSubAssy)
+'
+'    Call AddCrossMarkForDoor(oSubAssy, swFrontView, swDrawing)
+'
+'    Dim UniqueHVACDict As Scripting.Dictionary
+'    Set UniqueHVACDict = AddCrossMarkForHVAC(oSubAssy, swFrontView, swDrawing)
+'
+'    Dim NoteCount As Integer
+'    Dim AssyNoteNo As Integer
+'    Call AddStructuralNotes(swDrawing, swSheet, Is12GAPanelExists, IsAllPanels12GA, IsZChannelExists, NoteCount, wallName, Countourlist.Count)
+'
+'    Dim IsSectionViewNeeded As Boolean
+'    IsSectionViewNeeded = False
+'    Dim GapForSection As Double
+'
+'    If oSubAssy.GetWidth <= (15.75 - 2.5 * (UBound(UniqueHVACDict.Items) + 1)) * 0.0254 Then
+'
+'        IsSectionViewNeeded = True
+'        GapForSection = (15.75 * 0.0254 - oSubAssy.GetWidth) / 2
+'
+'    End If
+'
+'    Dim MaxClearance As Double
+'    Call AddDimensionsForDoororHVACInEachSubAssy(subAssylist, swDrawing, swFrontView, MaxClearance, IsSectionViewNeeded)
+'    Call AddDimensionNames(subAssylist, wallName, swFrontView)
+'    Call AddVerticalDimensionsForDoor(oSubAssy.GetDoorAssemblies, swFrontView, swDrawing, NoteCount)
+'
+'    Call AddVerticalDimensionsForHVAC(UniqueHVACDict.Items, swFrontView, swDrawing, oSubAssy, IsSectionViewNeeded, GapForSection)
+'
+'    Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, NoteCount, swBottomEdge, MaxClearance)
+'    Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - MaxClearance - 0.0075, (oSubAssy.StartComp.xMin + oSubAssy.EndComp.xMax) / 2)
+'
+'    Call UpdateFrontViewPosition(FlatCompDict.Items, swDrawing, swFrontView)
 
     swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, True
     
@@ -635,6 +571,7 @@ Sub AddCrossMarkForDoor(oSubAssy As ISubAssy, swView As SldWorks.View, _
                 Call CreateSketchSegmentAndAddRelation(swSketchManager, swDrawing, swView, vLowerRightPoint, vUpperLeftPoint, DoorRightEdge, DoorLeftEdge, DoorBottomEdge, DoorTopEdge)
             
             End If
+            
         Next i
         
     End If
@@ -844,7 +781,6 @@ Sub AddCoincidentRelationbwPointAndEdge(swEdge As SldWorks.Edge, swSketchPoint A
     
     
 End Sub
-
 
 Function GetAssyCutFeaturesIfAny(vComps As Variant, swWallAssy As SldWorks.AssemblyDoc) As Variant
 
@@ -2093,42 +2029,6 @@ Private Function CheckForMultipleAssembly(ViewWidth As Double, ViewHeight As Dou
 
 End Function
 
-Private Sub AddLegendBlocks(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Sheet)
-
-    swDrawing.ActivateSheet swSheet.GetName
-    
-    Dim vSheetProp As Variant
-    vSheetProp = swSheet.GetProperties
-    
-    Dim vPt(2) As Double
-    vPt(0) = 0.1025 * vSheetProp(3)
-    vPt(1) = 0.0161 * vSheetProp(3)
-    vPt(2) = 0
-    
-    Dim SketchBlockInsertionPt As SldWorks.MathPoint
-    Set SketchBlockInsertionPt = swMathUtility.CreatePoint(vPt)
-    
-    Dim swBlockDefinition As SldWorks.SketchBlockDefinition
-    
-'    If IsZChannelExists Then
-    
-         Set swBlockDefinition = swDrawing.SketchManager.MakeSketchBlockFromFile(SketchBlockInsertionPt, _
-                "C:\FBD\COMMON\BLOCKS\MAKE UP+ASSEMBLY+ PART NUMBER LEGEND.SLDBLK", False, 0.02, 0)
-
-'    Else
-'
-'        Set swBlockDefinition = swDrawing.SketchManager.MakeSketchBlockFromFile(Nothing, _
-'                "C:\FBD\COMMON\BLOCKS\MAKEUP PANEL LEGEND FOR 6 SERIES.SLDBLK", False, vSheetProp(2) / vSheetProp(3), 0)
-'
-'    End If
-    
-
-    'Set swBlockInst = swDrawing.SketchManager.InsertSketchBlockInstance(swBlockDefinition, SketchBlockInsertionPt, 1, 0)
-
-    
-    swDrawing.GraphicsRedraw2
-
-End Sub
 
 Private Function AddDimensionInFrontView(swView As SldWorks.View, FlatCompList As Variant, _
             DetailedCompList As Variant, MaxCompHeight As IComp, swDrawing As SldWorks.ModelDoc2, _
@@ -2301,7 +2201,7 @@ Private Sub InsertSketchBlock(swDrawing As SldWorks.DrawingDoc, swSheet As SldWo
     
     Dim swBlockDefinition As SldWorks.SketchBlockDefinition
     Set swBlockDefinition = swDrawing.SketchManager.MakeSketchBlockFromFile(SketchBlockInsertionPt, _
-                "C:\FBD\COMMON\BLOCKS\" & ProjectNo & " INTERNAL ELEVATION KEY.SLDBLK", True, 1, 0)
+                "C:\FBD\COMMON\BLOCKS\" & ProjectNo & " EXTERNAL ELEVATION KEY.SLDBLK", True, 1, 0)
                 
 
 End Sub
@@ -3145,39 +3045,7 @@ Private Sub SelectComponent(swDrawing As SldWorks.ModelDoc2, oComp As IComp, xPo
     
 End Sub
 
-Function GetViewName(wallName As String)
 
-    Select Case wallName
-        
-        Case "Wall-A"
-            
-            GetViewName = "*Back"
-        
-        Case "Wall-B"
-            
-            GetViewName = "*Right"
-        
-        Case "Wall-C"
-        
-            GetViewName = "*Front"
-        
-        Case "Wall-D"
-            
-            GetViewName = "*Left"
-            
-        Case "Ceiling"
-            
-            GetViewName = "*Top"
-            
-        Case Else
-            
-            ViewNameForm.Show
-            GetViewName = ViewNameForm.ViewNameBox.Value
-            Unload ViewNameForm
-    
-    End Select
-    
-End Function
 
 Function GetViewVector(viewName As String) As Double()
 
@@ -3243,9 +3111,20 @@ Function GetViewVector(viewName As String) As Double()
        
 End Function
 
-Function ScaleAndInsertBottomView(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
+Function RotateAndScaleView(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
             ViewWidth As Double, ViewHeight As Double) As SldWorks.View
-            
+    
+
+    If ViewHeight > ViewWidth Then
+        
+        swView.Angle = 1.57079632679
+        
+        Dim TempVal As Double
+        TempVal = ViewHeight
+        ViewHeight = ViewWidth
+        ViewWidth = TempVal
+        
+    End If
 
     Dim xScale As Integer
     Dim yScale As Integer
@@ -3268,14 +3147,6 @@ Function ScaleAndInsertBottomView(swDrawing As SldWorks.DrawingDoc, swView As Sl
         End If
         
     End If
-    
-    Dim IsViewSelected As Boolean
-    
-    Dim swDrawingModel As SldWorks.ModelDoc2
-    Set swDrawingModel = swDrawing
-    
-    IsViewSelected = swDrawingModel.Extension.SelectByID2(swView.Name, "DRAWINGVIEW", 0, 0, 0, False, 0, Nothing, 0)
-    Set ScaleAndInsertBottomView = swDrawing.CreateUnfoldedViewAt3(0.21593179, 0.08, 0, False)
 
 End Function
 
@@ -3477,15 +3348,6 @@ Private Sub GetMinMaxBodyPointsInSheetSpace(swComp As SldWorks.Component2, _
         ByRef MinPoint As Variant, ByRef MaxPoint As Variant, ByRef vBodyMinPoint() As Double, _
             ByRef vBodyMaxPoint() As Double, swView As SldWorks.View, Optional IsCorZ As Boolean = False)
             
-'    Debug.Print swComp.GetModelDoc2.ConfigurationManager.ActiveConfiguration.Name
-'    Debug.Print swComp.ReferencedConfiguration
-'
-'    If Not swComp.GetModelDoc2.ConfigurationManager.ActiveConfiguration.Name = swComp.ReferencedConfiguration Then
-'
-'        Debug.Print "no"
-'
-'    End If
-'
 
     Dim vBodies As Variant
 
