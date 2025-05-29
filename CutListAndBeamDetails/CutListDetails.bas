@@ -41,6 +41,19 @@ Function PopulateDisplayStateInForm()
     
 End Function
 
+Function ResolveAndGetModelDoc(swComp As SldWorks.Component2) As SldWorks.ModelDoc2
+
+    If swComp.GetSuppression = swComponentSuppressionState_e.swComponentLightweight Then
+
+        Dim bRet As Integer
+        bRet = swComp.SetSuppression2(swComponentSuppressionState_e.swComponentResolved)
+
+    End If
+    
+    Set ResolveAndGetModelDoc = swComp.GetModelDoc2()
+    
+End Function
+
 
 Sub GetMaxMinPoint(LowerBoundPoint As Variant, HigherBoundPoint As Variant, _
             ByRef OutLower As Double, ByRef OutHigher As Double)

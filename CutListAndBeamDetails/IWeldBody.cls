@@ -20,10 +20,40 @@ Private cZMax As Double
 Private cView As SldWorks.View
 Private cBodyMinPoint(2) As Double
 Private cBodyMaxPoint(2) As Double
+Private cIsVertical As Boolean
+Private cCutlist As ICutlist
 
+Private cBeforeSubWeldment As IArrListObject
+Private cAfterSubWeldment As IArrListObject
+
+Public IsPerimeter As Boolean
+
+Property Get IsSubWeldment() As Boolean
+    
+    IsSubWeldment = False
+    
+    If cAfterSubWeldment.Count > 0 Or cBeforeSubWeldment.Count > 0 Then
+
+        IsSubWeldment = True
+        
+    End If
+
+End Property
 Property Get GetComponent() As SldWorks.Component2
 
     Set GetComponent = cComp
+    
+End Property
+
+Property Get Cutlist() As ICutlist
+    
+    Set Cutlist = cCutlist
+    
+End Property
+
+Property Get IsVertical() As Boolean
+    
+    IsVertical = cIsVertical
     
 End Property
 
@@ -70,11 +100,12 @@ Property Get zMax() As Double
     
 End Property
 
-Sub Initialize(swComp As SldWorks.Component2, swBody As SldWorks.Body2, swView As SldWorks.View)
+Sub Initialize(swComp As SldWorks.Component2, swBody As SldWorks.Body2, oCutlist As ICutlist, swView As SldWorks.View)
     
     Set cComp = swComp
     Set cBody = swBody
     Set cView = swView
+    Set cCutlist = oCutlist
 
     Dim vBodyBounds As Variant
     vBodyBounds = swBody.GetBodyBox
@@ -88,6 +119,19 @@ Sub Initialize(swComp As SldWorks.Component2, swBody As SldWorks.Body2, swView A
     cBodyMaxPoint(2) = vBodyBounds(5)
 
     Call UpdateSheetMaxMinDimensions(swView)
+    
+    Set cBeforeSubWeldment = New IArrListObject
+    Set cAfterSubWeldment = New IArrListObject
+    
+    If Abs(cxMin - cxMax) > Abs(cyMin - cyMax) Then
+        
+        cIsVertical = False
+            
+    Else
+        
+        cIsVertical = True
+        
+    End If
 
 End Sub
 
@@ -142,3 +186,20 @@ Private Function IsViewChanged(swView As SldWorks.View) As Boolean
     End If
     
 End Function
+
+Sub AddToSubWeldmentList(IsAfter As Boolean, oWeldBody As IWeldBody)
+
+    If IsAfter Then
+    
+        cAfterSubWeldment.AddtoList oWeldBody
+        
+    Else
+    
+        cBeforeSubWeldment.AddtoList oWeldBody
+        
+    End If
+
+End Sub
+
+
+

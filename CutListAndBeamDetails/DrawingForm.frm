@@ -13,6 +13,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
 Option Explicit
 
 Private Sub CloseButton_Click()
@@ -60,9 +61,28 @@ Private Sub weldmentSelectionButton_Click()
         Set swFloorWeldment = swSelect.GetSelectedObjectsComponent4(1, -1)
         
         If Not swFloorWeldment Is Nothing Then
-        
-            Me.FloorSelectionTextBox.Value = "Selected"
-            Me.FloorSelectionTextBox.BackColor = vbGreen
+            
+            Dim swFloorModel As SldWorks.ModelDoc2
+            Set swFloorModel = ResolveAndGetModelDoc(swFloorWeldment)
+            
+            If swFloorModel.GetType = swDocumentTypes_e.swDocPART Then
+                
+                If swFloorModel.IsWeldment Then
+            
+                    Me.FloorSelectionTextBox.Value = "Selected"
+                    Me.FloorSelectionTextBox.BackColor = vbGreen
+                    
+                Else
+                
+                    MsgBox "Warning! Select component is not a weldment. Please select the floor weldment part", vbCritical, "Selection Warning!"
+                
+                End If
+                
+            Else
+            
+                MsgBox "Warning! Selected component is not a part. Please select the floor weldment part", vbCritical, "Selection Warning!"
+                
+            End If
             
         Else
         

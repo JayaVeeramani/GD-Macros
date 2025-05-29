@@ -7,24 +7,24 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
-Private vItems As Variant
+Private vitems As Variant
 Private IsInit As Boolean
 
 Property Get Items() As Variant
     
-    Items = vItems
+    Items = vitems
 
 End Property
 
 Property Get Count() As Long
     
-    If IsEmpty(vItems) Then
+    If IsEmpty(vitems) Then
         
         Count = 0
         
     Else
     
-        Count = UBound(vItems) + 1
+        Count = UBound(vitems) + 1
         
     End If
 
@@ -35,9 +35,9 @@ End Property
 
     If Not IsEmpty(InputItems) Then
     
-        If IsEmpty(vItems) Then
+        If IsEmpty(vitems) Then
     
-            vItems = InputItems
+            vitems = InputItems
             
         Else
         
@@ -70,13 +70,13 @@ Function AddtoList(Val As Object)
     If IsInit Then
         
         IsInit = False
-        ReDim vItems(0)
-        Set vItems(0) = Val
+        ReDim vitems(0)
+        Set vitems(0) = Val
     
     Else
     
-        ReDim Preserve vItems(UBound(vItems) + 1)
-        Set vItems(UBound(vItems)) = Val
+        ReDim Preserve vitems(UBound(vitems) + 1)
+        Set vitems(UBound(vitems)) = Val
     
     End If
     
@@ -84,9 +84,9 @@ End Function
 
 Public Sub SortItems(SortParam As String, Optional SortDescending As Boolean = True)
     
-    If Not IsEmpty(vItems) Then
+    If Not IsEmpty(vitems) Then
     
-        vItems = MergeSort(vItems, SortParam, SortDescending)
+        vitems = MergeSort(vitems, SortParam, SortDescending)
         
     End If
 
@@ -202,10 +202,10 @@ Function Clone() As IArrListObject
     Dim CloneList As IArrListObject
     Set CloneList = New IArrListObject
     
-    For i = LBound(vItems) To UBound(vItems)
+    For i = LBound(vitems) To UBound(vitems)
         
         Dim Obj As Object
-        Set Obj = vItems(i)
+        Set Obj = vitems(i)
         
         CloneList.AddtoList Obj
 

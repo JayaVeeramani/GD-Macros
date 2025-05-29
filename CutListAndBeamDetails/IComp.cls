@@ -19,7 +19,8 @@ Private cZMax As Double
 Private cView As SldWorks.View
 Private cModelMinPoint(2) As Double
 Private cModelMaxPoint(2) As Double
-Private cBodiesList As IArrListObject
+Private cVerticalBodiesList As IArrListObject
+Private cHorizontalBodiesList As IArrListObject
 Private Part As SldWorks.PartDoc
 
 Property Get GetMinPointInModel() As Variant
@@ -29,6 +30,19 @@ End Property
 Property Get GetMaxPointInModel() As Variant
     GetMaxPointInModel = cModelMaxPoint
 End Property
+
+Property Get HorizontalBodyList() As IArrListObject
+
+    Set HorizontalBodyList = cHorizontalBodiesList
+    
+End Property
+
+Property Get VerticalBodyList() As IArrListObject
+
+    Set VerticalBodyList = cVerticalBodiesList
+    
+End Property
+
 
 Property Get xMin() As Double
  
@@ -82,9 +96,10 @@ End Property
 Sub Initialize(swComp As IComponent2, swView As SldWorks.View)
 
     Set cComp = swComp
+    Set cVerticalBodiesList = New IArrListObject
+    Set cHorizontalBodiesList = New IArrListObject
     
-    Dim swCompModel As SldWorks.ModelDoc2
-    Set swCompModel = cComp.GetModelDoc2()
+    Set swCompModel = ResolveAndGetModelDoc(swComp)
         
     If swCompModel.GetType = swDocumentTypes_e.swDocPART Then
 
@@ -104,61 +119,69 @@ Sub Initialize(swComp As IComponent2, swView As SldWorks.View)
         Set cView = swView
         
         Call UpdateSheetMaxMinDimensions(cView)
-        
-        
+
     End If
 
 End Sub
 
-Function GetBodiesList(swView As SldWorks.View) As IArrListObject
+Sub GetBodiesList(swView As SldWorks.View)
+
+    Dim vCutlists As Variant
+    vCutlists = GetCutlistFeatures(False, swCutListType_e.swWeldmentCutlist)
 
     Call CheckForUpdateInMaxMinDimensions(swView)
-    Set GetBodiesList = New IArrListObject
-    
-    If Not Part Is Nothing Then
-    
-        Dim vBodies As Variant
-        vBodies = Part.GetBodies2(swBodyType_e.swSolidBody, False)
-            
-        If Not IsEmpty(vBodies) Then
-            
-            Dim i As Integer
-            For i = LBound(vBodies) To UBound(vBodies)
-                
-                Dim swBody As SldWorks.Body2
-                Set swBody = vBodies(0)
-                    
-                Dim oBody As IWeldBody
-                Set oBody = New IWeldBody
-                
-                oBody.Initialize cComp, swBody, swView
-                GetBodiesList.AddtoList oBody
-                    
-            Next i
 
-        End If
+    If Not IsEmpty(vCutlists) Then
             
+        Dim i As Integer
+        For i = LBound(vCutlists) To UBound(vCutlists)
+
+            Dim oCutlist As ICutlist
+            Set oCutlist = vCutlists(i)
+            
+            'Debug.Print i
+            'Debug.Print oCutlist.GetCutlistFeature.Name
+            
+            If Not oCutlist Is Nothing Then
+            
+                Dim vBodies As Variant
+                vBodies = oCutlist.GetBodies
+                
+                If Not IsEmpty(vBodies) Then
+                
+                    Dim j As Integer
+                    For j = LBound(vBodies) To UBound(vBodies)
+                
+                        Dim swBody As SldWorks.Body2
+                        Set swBody = vBodies(j)
+
+                        Dim oBody As IWeldBody
+                        Set oBody = New IWeldBody
+                                
+                        oBody.Initialize cComp, swBody, oCutlist, swView
+                                
+                        If oBody.IsVertical Then
+                                    
+                            cVerticalBodiesList.AddtoList oBody
+                                    
+                        Else
+                                
+                            cHorizontalBodiesList.AddtoList oBody
+                                    
+                        End If
+
+                    Next j
+                
+                End If
+                        
+            End If
+                    
+        Next i
+
     End If
-    
 
-End Function
+End Sub
 
-Function GetCustomProperty(PropName As String) As String
-
-    Dim swCompModel As SldWorks.ModelDoc2
-    Set swCompModel = cComp.GetModelDoc2
- 
-    Dim swCompProp As SldWorks.CustomPropertyManager
-    Set swCompProp = swCompModel.Extension.CustomPropertyManager("")
-            
-    Dim PropVal As String
-    Dim ValOut As String
-    Dim wasResolved As Boolean
-    swCompProp.Get5 PropName, False, ValOut, PropVal, wasResolved
-    
-    GetCustomProperty = PropVal
-    
-End Function
 
 
 Private Sub GetMaxMinPoint(LowerBoundPoint As Variant, HigherBoundPoint As Variant, _
@@ -231,51 +254,90 @@ Private Function IsViewChanged(swView As SldWorks.View) As Boolean
     
 End Function
 
-'Public Function GetCutlistFeatures(AllorNotExcludedCutlist As Boolean, Optional CutlistType As Integer = -1) As ICutlist()
-'
-'    Dim swFeat As IFeature
-'    Set swFeat = Part.FirstFeature
-'
-'    swFeat.Select2 False, -1
-'
-'    Dim IsInit As Boolean
-'    IsInit = True
-'
-'    Dim vFeats() As ICutlist
-'
-'
-'    Do While Not swFeat Is Nothing
-'
-'        If swFeat.GetTypeName2 = "CutListFolder" Then
-'
-'            IsExcluded = swFeat.ExcludeFromCutList
-'
-'            If AllorNotExcludedCutlist Or IsExcluded = AllorNotExcludedCutlist Then
-'
-'                Dim CutlistFolder As SldWorks.BodyFolder
-'                Set CutlistFolder = swFeat.GetSpecificFeature2
-'
-'                If CutlistType = CutlistFolder.GetCutListType Then
-'
-'                    Call AddFeatstoArray(IsInit, vFeats, swFeat)
-'
-'                ElseIf CutlistType = -1 Then
-'
-'                     Call AddFeatstoArray(IsInit, vFeats, swFeat)
-'
-'                End If
-'
-'            End If
-'
-'        End If
-'
-'        Set swFeat = swFeat.GetNextFeature
-'
-'    Loop
-'
-'    GetCutlistFeatures = vFeats
-'
-'End Function
+Public Function GetCutlistFeatures(AllorNotExcludedCutlist As Boolean, Optional CutlistType As Integer = -1) As ICutlist()
+
+    Dim swFeat As IFeature
+    Set swFeat = Part.FirstFeature
+
+    swFeat.Select2 False, -1
+
+    Dim IsInit As Boolean
+    IsInit = True
+
+    Dim vFeats() As ICutlist
+
+    Do While Not swFeat Is Nothing
+
+        If swFeat.GetTypeName2 = "CutListFolder" Then
+
+            IsExcluded = swFeat.ExcludeFromCutList
+
+            If AllorNotExcludedCutlist Or IsExcluded = AllorNotExcludedCutlist Then
+
+                Dim CutlistFolder As SldWorks.BodyFolder
+                Set CutlistFolder = swFeat.GetSpecificFeature2
+
+                If CutlistType = CutlistFolder.GetCutListType Then
+
+                    Call AddFeatstoArray(IsInit, vFeats, swFeat)
+
+                ElseIf CutlistType = -1 Then
+
+                     Call AddFeatstoArray(IsInit, vFeats, swFeat)
+
+                End If
+
+            End If
+
+        End If
+
+        Set swFeat = swFeat.GetNextFeature
+
+    Loop
+
+    GetCutlistFeatures = vFeats
+
+End Function
+
+Private Sub AddFeatstoArray(ByRef IsInit, ByRef vFeats() As ICutlist, swSubFeat As SldWorks.Feature)
+
+    Dim oCutlist As ICutlist
+    Set oCutlist = New ICutlist
+    oCutlist.Init swSubFeat, Part
+
+    If IsInit Then
+
+        IsInit = False
+        ReDim vFeats(0)
+        Set vFeats(UBound(vFeats)) = oCutlist
+
+    Else
+
+        ReDim Preserve vFeats(UBound(vFeats) + 1)
+        Set vFeats(UBound(vFeats)) = oCutlist
+
+    End If
+
+End Sub
+
+Private Function GetCutlistForThisBody(swBody As SldWorks.Body2, vCutlists As Variant) As ICutlist
+
+    Dim i As Integer
+    For i = LBound(vCutlists) To UBound(vCutlists)
+    
+        Dim oCutlist As ICutlist
+        Set oCutlist = vCutlists(i)
+        
+        If oCutlist.IsContainThisBody(swBody) Then
+            
+            Set GetCutlistForThisBody = oCutlist
+            Exit For
+            
+        End If
+        
+    Next i
+    
+End Function
 '
 'Private Function GetBodyFolder() As SldWorks.BodyFolder
 '
@@ -297,25 +359,7 @@ End Function
 '
 'End Function
 '
-'Private Sub AddFeatstoArray(ByRef IsInit, ByRef vFeats() As ICutlist, swSubFeat As SldWorks.Feature)
-'
-'    Dim oCutlist As ICutlist
-'    Set oCutlist = NewCutlistObject(swSubFeat)
-'
-'    If IsInit Then
-'
-'        IsInit = False
-'        ReDim vFeats(0)
-'        Set vFeats(UBound(vFeats)) = oCutlist
-'
-'    Else
-'
-'        ReDim Preserve vFeats(UBound(vFeats) + 1)
-'        Set vFeats(UBound(vFeats)) = oCutlist
-'
-'    End If
-'
-'End Sub
+
 '
 'Function GetBOMPartNumber(ConfigName As String) As String
 '
