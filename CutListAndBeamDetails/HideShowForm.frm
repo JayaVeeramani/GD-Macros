@@ -14,20 +14,11 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
-
-
-
-
-
-
-
-
-
-
 Option Explicit
 
 Dim swSketchMgr As SldWorks.SketchManager
-
+Const BalloonWidth As Double = 0.0065
+    
 Private Sub CloseButton_Click()
     
     Unload Me
@@ -135,9 +126,15 @@ Private Sub CreateButton_Click()
     Call FindAndAddBeforeSubWeldments(yMinDict, yMinIndexDict, visibleVerticalMinList.Clone, "yMin")
     Call FindAndAddAfterSubWeldments(yMaxDict, yMaxIndexDict, visibleVerticalMinList.Clone, "yMax")
     
-    Call AddCallouts(visibleVerticalMinList, xMinIndexDict, xMaxIndexDict, swDrawing, swTopView)
+    Dim ConsolidatedBodyDict As Scripting.Dictionary
+    Set ConsolidatedBodyDict = New Scripting.Dictionary
+    Call AddBodiesToDict(ConsolidatedBodyDict, visibleVerticalMinList)
+    Call AddBodiesToDict(ConsolidatedBodyDict, visibleHorizontalMinList)
+    
+    Call AddCallouts(visibleVerticalMinList, xMinIndexDict, xMinDict, xMaxIndexDict, xMaxDict, swDrawing, swTopView)
     
     
+
 '    Dim ConsolidatedVerticalBeamList As Scripting.Dictionary
 '    Set ConsolidatedVerticalBeamList = GetConsolidatedBeamListOnly(VerticalWeldBodyList, "xMin", "xMax")
 '
@@ -276,7 +273,32 @@ Private Sub CreateButton_Click()
 
 End Sub
 
-Function GetEdgeInViewForBody(swComp As SldWorks.Component2, oBody As ISolidBody, swView As SldWorks.View, _
+Private Sub AddBodiesToDict(ByRef Dict As Scripting.Dictionary, Arrlist As IArrListObject)
+
+    Dim vItems As Variant
+    vItems = Arrlist.Items
+    
+    Dim i As Integer
+    For i = LBound(vItems) To UBound(vItems)
+        
+        Dim oWeldBody As IWeldBody
+        Set oWeldBody = vItems(i)
+        
+        Dim keyVal As String
+        keyVal = oWeldBody.GetBody.Name
+        
+        If Not Dict.Exists(keyVal) Then
+        
+            Dict.Add keyVal, oWeldBody
+        
+        End If
+
+    Next i
+
+End Sub
+
+
+Function GetEdgeInViewForBody(swComp As SldWorks.Component2, oBody As IWeldBody, swView As SldWorks.View, _
     IsHorizontal As Boolean, IsMax As Boolean, Optional CheckAllVisibleEdgesOnly As Boolean = True) As SldWorks.Edge
     
     
@@ -352,34 +374,41 @@ Function GetEdgeInViewForBody(swComp As SldWorks.Component2, oBody As ISolidBody
         
             Dim swEdge As SldWorks.Edge
             Set swEdge = vEnts(i)
+            
+            Dim swEdgeBody As SldWorks.Body2
+            Set swEdgeBody = swEdge.GetBody
+                
+            If swEdgeBody.Name = oBody.GetBody.Name Then
 
-            Dim swCurve As SldWorks.Curve
-            Set swCurve = swEdge.GetCurve
-            
-            If swCurve.IsLine Then
-            
-                Dim vStartPoint As Variant
-                vStartPoint = swEdge.GetStartVertex.GetPoint
-                vStartPoint = GetComponentPointInSheetSpace(swComp, vStartPoint, swView)
+                Dim swCurve As SldWorks.Curve
+                Set swCurve = swEdge.GetCurve
                 
-                Dim vEndPoint As Variant
-                vEndPoint = swEdge.GetEndVertex.GetPoint
-                vEndPoint = GetComponentPointInSheetSpace(swComp, vEndPoint, swView)
+                If swCurve.IsLine Then
                 
-                If Abs(vStartPoint(idx) - vEndPoint(idx)) <= 0.00001 And Abs(vStartPoint(idx) - ValToMatch) <= 0.00001 Then
+                    Dim vStartPoint As Variant
+                    vStartPoint = swEdge.GetStartVertex.GetPoint
+                    vStartPoint = GetComponentPointInSheetSpace(swComp, vStartPoint, swView)
                     
-                    Dim vCurveParam As Variant
-                    vCurveParam = swEdge.GetCurveParams2
+                    Dim vEndPoint As Variant
+                    vEndPoint = swEdge.GetEndVertex.GetPoint
+                    vEndPoint = GetComponentPointInSheetSpace(swComp, vEndPoint, swView)
 
-                    If swCurve.GetLength2(vCurveParam(6), vCurveParam(7)) > TempLength Then
+                    If Abs(vStartPoint(idx) - vEndPoint(idx)) <= 0.00001 And Abs(vStartPoint(idx) - ValToMatch) <= 0.00001 Then
                         
-                        TempLength = swCurve.GetLength2(vCurveParam(6), vCurveParam(7))
-                        Set GetEdgeInViewForBody = swEdge
+                        Dim vCurveParam As Variant
+                        vCurveParam = swEdge.GetCurveParams2
+    
+                        If swCurve.GetLength2(vCurveParam(6), vCurveParam(7)) > TempLength Then
+                            
+                            TempLength = swCurve.GetLength2(vCurveParam(6), vCurveParam(7))
+                            Set GetEdgeInViewForBody = swEdge
+                            
+                        End If
                         
                     End If
-                    
+                
                 End If
-            
+                
             End If
             
         Next i
@@ -388,314 +417,419 @@ Function GetEdgeInViewForBody(swComp As SldWorks.Component2, oBody As ISolidBody
 
 End Function
 
-Private Sub GetNextAndPrevPoints()
-
-
-
-End Sub
-
-
-Private Sub AddCallouts(ArrList As IArrListObject, MinDict As Scripting.Dictionary, _
-            MaxDict As Scripting.Dictionary, swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View, _
-            MinParam As String, MaxParam As String, IsVertical As Boolean)
-
+Private Function GetIndexInArrayList(oWeldBodyToCheck As IWeldBody, vItems As Variant) As Integer
     
     Dim i As Integer
+    For i = LBound(vItems) To UBound(vItems)
+    
+        Dim oWeldBody As IWeldBody
+        Set oWeldBody = vItems(i)
+        
+        If oWeldBody.GetBody.Name = oWeldBodyToCheck.GetBody.Name Then
+            
+            GetIndexInArrayList = i
+            Exit For
+            
+        End If
+
+    Next i
+    
+End Function
+
+Private Function IsAllofWeldListHaveSubweldment(Arrlist As IArrListObject) As Boolean
+    
+    IsAllofWeldListHaveSubweldment = True
     
     Dim vItems As Variant
-    vItems = ArrList.Items
+    vItems = Arrlist.Items
+     
+    Dim i As Integer
+    For i = LBound(vItems) To UBound(vItems)
+    
+        Dim oWeldBody As IWeldBody
+        Set oWeldBody = vItems(i)
+        
+        If Not (oWeldBody.IsAfterSubweldment Or oWeldBody.IsBeforeSubweldment) Then
+
+             IsAllofWeldListHaveSubweldment = False
+             Exit For
+
+        End If
+        
+    Next i
+    
+End Function
+
+Private Sub AddCallouts(Arrlist As IArrListObject, MinIndexDict As Scripting.Dictionary, MinDict As Scripting.Dictionary, _
+            MaxIndexDict As Scripting.Dictionary, MaxDict As Scripting.Dictionary, _
+            swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View)
+
+    Dim i As Integer
+
+    Dim vItems As Variant
+    vItems = Arrlist.Items
     
     For i = LBound(vItems) To UBound(vItems)
     
         Dim oWeldBody As IWeldBody
         Set oWeldBody = vItems(i)
         
-        Dim MinIdx As Integer
-        MinIdx = GetIndex(MinDict, oWeldBody, MinParam)
+        Dim swBodyEdge As SldWorks.Edge
         
-        Dim MaxIdx As Integer
-        MaxIdx = GetIndex(MaxDict, oWeldBody, MaxParam)
-
-        Dim AfterArrList As IArrListObject
-        Set AfterArrList = oWeldBody.AfterSubWeldments
-        
-        Dim BeforeArrList As IArrListObject
-        Set BeforeArrList = oWeldBody.BeforeSubWeldments
-        
-        If oWeldBody.IsAfterSubweldment And oWeldBody.IsBeforeSubweldment Then
-        
-            If AfterArrList.Count > BeforeArrList.Count Then
-            
-                
-            
-            Else
-            
-            
-            End If
-        
-        ElseIf oWeldBody.IsAfterSubweldment Then
-        
-        
-        ElseIf oWeldBody.IsBeforeSubweldment Then
-        
-           
-        
-        
-        Else
-            
-
-        
-            
-        
-        
-        End If
-        
-        
-    
-    
-    Next i
-    
-    
-    
-    Const Increment As Double = 0.005
-    Const MaxBalloonWidth As Double = 0.015875
-
-  
-    
-
-
-    
-    BalloonCount = maxNoOfBalloons
-
-    If InStr(vConsolidatedList(0).Comp.GetCustomProperty("Profile"), "CORNER") > 0 Then
-
-        AddorSub = 1
-        BalloonCount = 1
-
-    End If
-
-    Dim AnnXPos As Double
-    Dim AnnYPos As Double
-    Dim PrevXPos As Double
-    Dim ChangeForNoOFTime As Boolean
-    ChangeForNoOFTime = False
-
-    Dim NoOfTimes As Integer
-    NoOfTimes = 0
-
-    Dim i As Integer
-    For i = LBound(vConsolidatedList) To UBound(vConsolidatedList)
-
-        Dim oList As IConsolidatedList
-        Set oList = vConsolidatedList(i)
-
-        Dim oComp As IComp
-        Set oComp = oList.Comp
-
-        swDrawing.ClearSelection2 True
-
         Dim xPos As Double
-        Dim YPos As Double
+        Dim yPos As Double
 
+        Dim AnnXPos As Double
+        Dim AnnYPos As Double
 
-        xPos = oComp.xMin + 4 * 0.0254 * swView.ScaleDecimal  '(oComp.xMin + oComp.xMax) / 2 - Abs((oComp.xMin - oComp.xMax) / 2) + 3.5 * 0.0254 * swView.ScaleDecimal
-        YPos = 0.075 * oComp.yMin + 0.925 * oComp.yMax
-
-        If oComp.IsTop Then
-
-            If Not (i = LBound(vConsolidatedList)) Then
-
-                Dim prevComp As IComp
-                Set prevComp = vConsolidatedList(i - 1).Comp
-
-                If AddorSub = -1 Then
-
-                    If Abs(PrevXPos - oComp.xMin) > 2 * MaxBalloonWidth Or _
-                        Abs(PrevXPos - oComp.xMin) > MaxBalloonWidth And BalloonCount > 2 Then
-
-                        AddorSub = 1
-                        BalloonCount = 1
-
-                    ElseIf Abs(PrevXPos - oComp.xMax) > MaxBalloonWidth And BalloonCount >= 1 Then
-
-                        AddorSub = 1
-                        NoOfTimes = BalloonCount
-                        BalloonCount = 1
-                        ChangeForNoOFTime = True
-                        xPos = oComp.xMax - 4 * 0.0254 * swView.ScaleDecimal
-
-                    End If
-
-                Else
-
-                    If Abs(PrevXPos - oComp.xMin) > MaxBalloonWidth Then
-
-                        AddorSub = 1
-                        BalloonCount = 1
-
-                    ElseIf Abs(PrevXPos - oComp.xMax) > MaxBalloonWidth And BalloonCount > 1 Then
-
-                        BalloonCount = 1
-                        xPos = oComp.xMax - 4 * 0.0254 * swView.ScaleDecimal
-
-                    End If
-
-                End If
-
-                If subAssyCompDict.Exists(prevComp.GetComponent.Name2) Then
-
-                    AddorSub = -1
-                    xPos = oComp.xMin + 0.375 * Abs(oComp.xMin - oComp.xMax)
-
-                    If Not (i = UBound(vConsolidatedList)) Then
-
-                        Dim NextComp As IComp
-                        Set NextComp = vConsolidatedList(i + 1).Comp
-
-                        If (Abs(NextComp.xMin - oComp.xMin) > MaxBalloonWidth) Then
-
-                           BalloonCount = 1
-
-                        End If
-
-                    End If
-
-                End If
-
-            End If
-
-            If ChangeForNoOFTime Then
-
-                NoOfTimes = NoOfTimes - 1
-
-                If NoOfTimes < 0 Then
-
-                    ChangeForNoOFTime = False
-                    BalloonCount = maxNoOfBalloons
-                    AddorSub = -1
-
-                End If
-
-            End If
-
-            AnnXPos = xPos
-
-            If AddorSub = 1 Then
-
-                If BalloonCount > maxNoOfBalloons Then
-
-                    AddorSub = -1
-                    BalloonCount = BalloonCount + AddorSub
-
-
-
-                End If
+        If oWeldBody.IsPerimeter Then
+        
+            If i = LBound(vItems) Then
+            
+                Call GetCalloutBeforeThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
+                Call GetCalloutUporDown(oWeldBody, oWeldBody.AfterSubWeldments, yPos, AnnYPos, False)
 
             Else
-
-                If BalloonCount < 1 Then
-
-                    xPos = oComp.xMax - 4 * 0.0254 * swView.ScaleDecimal '(oComp.xMin + oComp.xMax) / 2 + Abs((oComp.xMin - oComp.xMax) / 2) - 3.5 * 0.0254 * swView.ScaleDecimal
-                    AnnXPos = xPos
-
-                    If oList.Qty > 2 Then
-
-                        BalloonCount = 1
-                        AnnXPos = xPos + 0.5 * (oComp.xMax - oComp.xMin)
-
-                    Else
-
-                        BalloonCount = maxNoOfBalloons
-
-                    End If
-
-                End If
-
+                
+                Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
+                Call GetCalloutUporDown(oWeldBody, oWeldBody.BeforeSubWeldments, yPos, AnnYPos, True)
+                
             End If
-
-            AnnYPos = MaxCompHeight + BalloonCount * Increment
-            BalloonCount = BalloonCount + AddorSub
-            PrevXPos = xPos
-
-
-
-        ElseIf oComp.IsBottom Then
-
-            xPos = (oComp.xMin + oComp.xMax) / 2
-            YPos = 0.7 * oComp.yMin + 0.3 * oComp.yMax
-            AnnXPos = xPos
-            AnnYPos = oComp.yMin - Increment
-
+            
         Else
 
-            xPos = (oComp.xMin + oComp.xMax) / 2
-            YPos = 0.3 * oComp.yMin + 0.7 * oComp.yMax
-            AnnXPos = oComp.xMin - 3 * Increment
-            AnnYPos = YPos - 2 * Increment
+            If oWeldBody.IsAfterSubweldment And oWeldBody.IsBeforeSubweldment Then
+            
+                If oWeldBody.AfterSubWeldments.Count <= oWeldBody.BeforeSubWeldments.Count Then
+                
+                    Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
+                    Call GetCalloutUporDown(oWeldBody, oWeldBody.AfterSubWeldments, yPos, AnnYPos, True)
+                    
+                Else
+                
+                    Call GetCalloutBeforeThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
+                    Call GetCalloutUporDown(oWeldBody, oWeldBody.BeforeSubWeldments, yPos, AnnYPos, False)
+                
+                End If
 
+            ElseIf oWeldBody.IsAfterSubweldment Then
+                
+                Call GetCalloutBeforeThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
+                Call GetCalloutUporDown(oWeldBody, oWeldBody.BeforeSubWeldments, yPos, AnnYPos, False)
+                    
+            ElseIf oWeldBody.IsBeforeSubweldment Then
+                
+                Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
+                Call GetCalloutUporDown(oWeldBody, oWeldBody.AfterSubWeldments, yPos, AnnYPos, True)
+                
+            Else
+            
+                Dim NextGap As Double
+                NextGap = GetNextGap(oWeldBody, MinDict, MinIndexDict)
+    
+                If NextGap > BalloonWidth Then
+        
+                    Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
+                    Call GetCalloutUporDown(oWeldBody, oWeldBody.AfterSubWeldments, yPos, AnnYPos, True)
+                    
+                Else
+                    
+                    Call GetCalloutBeforeThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
+                    Call GetCalloutUporDown(oWeldBody, oWeldBody.BeforeSubWeldments, yPos, AnnYPos, False)
+                    
+                End If
+                    
+            End If
+
+        
         End If
-
-
+        
         Dim IsSelected As Boolean
-        IsSelected = False
-        Call SelectComponent(swDrawing, oComp, xPos, YPos, 1, IsSelected, swView)
+        IsSelected = SelectEdgeWithSelectData(swBodyEdge, swView, swDrawing, xPos, yPos)
 
         If IsSelected Then
-
-            Dim swComp As SldWorks.Component2
-            Set swComp = oComp.GetComponent
-            'Debug.Print Right(swComp.Name2, Len(swComp.Name2) - InStrRev(swComp.Name2, "/"))
-
-            Dim swAnn As SldWorks.Annotation
-            Set swAnn = InsertBalloonAndGetAnnotations(swDrawing, oList.Qty, AnnXPos, AnnYPos)
-
-            If Not swAnn Is Nothing Then
-
-                Dim swNote As SldWorks.Note
-                Set swNote = swAnn.GetSpecificAnnotation
-
-                Dim HeadStyle As Integer
-
-                swAnn.SetLeader3 swLeaderStyle_e.swAlwaysAttachToBalloon + swLeaderStyle_e.swSTRAIGHT, swLeaderSide_e.swLS_SMART, False, False, True, False
-                HeadStyle = swAnn.SetArrowHeadStyleAtIndex(0, swArrowStyle_e.swCLOSED_ARROWHEAD)
-
-                'Debug.Print HeadStyle
-
-                If oComp.IsTop Then
-
-                    If AddorSub = 1 Then
-
-                        Dim vNoteExtents As Variant
-                        vNoteExtents = swNote.GetExtent
-
-                        If oList.Qty > 1 Then
-
-                             AnnXPos = xPos - ((vNoteExtents(3) - vNoteExtents(0))) + 0.0064
-
-                        Else
-                            AnnXPos = xPos - ((vNoteExtents(3) - vNoteExtents(0))) + 0.0027
-
-                        End If
-
-                        swAnn.SetPosition2 AnnXPos, AnnYPos, 0
-
-                    End If
-
-                End If
-
-            End If
-
+            
+            Call InsertBalloonAndGetAnnotations(swDrawing, AnnXPos, AnnYPos)
+                
         End If
 
-        Call AddHatchForMakeUpPanel(oComp, swDrawing, IsMakeUpExists, swView)
-
     Next i
-
-    Call UpdateHatchProperties(swView)
-
+    
 End Sub
 
-Function GetIndex(Dict As Scripting.Dictionary, oWeldBody As IWeldBody, Param As String)
+Function GetAnnYPos(yPos As Double, IsUp As Boolean, Clearance As Double)
+    
+    If IsUp Then
+
+        GetAnnYPos = yPos + Clearance
+        
+    Else
+    
+        GetAnnYPos = yPos - Clearance
+    
+    End If
+    
+End Function
+
+Function GetYPos(MinVal As Double, Gap As Double, IsRight As Boolean, Optional IsRightPercent As Double = 0.95, Optional IsLeftPercent As Double = 0.6)
+    
+    If IsRight Then
+    
+        GetYPos = MinVal + Gap * IsRightPercent
+        
+    Else
+    
+        GetYPos = MinVal + Gap * IsLeftPercent
+        
+    End If
+    
+End Function
+
+
+
+Sub GetCalloutUporDown(oWeldBody As IWeldBody, WeldList As IArrListObject, ByRef yPos As Double, ByRef AnnYPos As Double, _
+             IsRight As Boolean, Optional Clearance As Double = 0.01)
+    
+    Dim yMin As Double
+    Dim yMax As Double
+    
+    Const MinDistForTwoBalloons As Double = 0.018
+    
+    Call FindMinAndMaxInGap(WeldList, oWeldBody, "yMin", "yMax", yMin, yMax)
+    
+    Dim Gap As Double
+    Gap = yMax - yMin
+    
+    If oWeldBody.IsPerimeter Then
+        
+        yPos = GetYPos(yMin, Gap, IsRight, 0.5, 0.5)
+        AnnYPos = GetAnnYPos(yPos, True, 0.01)
+    
+    Else
+    
+        If oWeldBody.AfterBody.IsPerimeter And oWeldBody.BeforeBody.IsPerimeter Then
+            
+            yPos = GetYPos(yMin, Gap, IsRight)
+            AnnYPos = GetAnnYPos(yPos, False, 0.005)
+        
+        ElseIf oWeldBody.AfterBody.IsPerimeter Then
+                
+            If Gap > MinDistForTwoBalloons Then
+                
+                yPos = GetYPos(yMin, Gap, IsRight)
+                AnnYPos = GetAnnYPos(yPos, False, 0.005)
+                
+            Else
+                
+                yPos = GetYPos(yMin, Gap, IsRight)
+                AnnYPos = oWeldBody.AfterBody.yMax + 0.01
+                    
+            End If
+            
+        ElseIf oWeldBody.BeforeBody.IsPerimeter Then
+                
+            yPos = GetYPos(yMin, Gap, IsRight, 0.05, 0.4)
+            AnnYPos = GetAnnYPos(yPos, True, 0.01)
+                
+    
+        Else
+            
+            If Gap > MinDistForTwoBalloons Then
+                
+                yPos = GetYPos(yMin, Gap, IsRight)
+                AnnYPos = GetAnnYPos(yPos, False, 0.005)
+                
+            Else
+                    
+                yPos = GetYPos(yMin, Gap, IsRight)
+                AnnYPos = oWeldBody.AfterBody.yMax + 0.01
+                
+            End If
+                
+        End If
+        
+    End If
+    
+End Sub
+ 
+Sub GetCalloutBeforeThisBody(oWeldBody As IWeldBody, swView As SldWorks.View, ByRef swBodyEdge As SldWorks.Edge, _
+            ByRef xPos As Double, ByRef AnnXPos As Double, Optional Clearance As Double = 0.005125)
+ 
+    Set swBodyEdge = GetEdgeInViewForBody(oWeldBody.GetComponent, oWeldBody, swView, False, False)
+    xPos = oWeldBody.xMin
+    AnnXPos = xPos - Clearance
+ 
+End Sub
+
+Sub GetCalloutAfterThisBody(oWeldBody As IWeldBody, swView As SldWorks.View, ByRef swBodyEdge As SldWorks.Edge, _
+    ByRef xPos As Double, ByRef AnnXPos As Double, Optional Clearance As Double = 0.00275)
+                     
+    Set swBodyEdge = GetEdgeInViewForBody(oWeldBody.GetComponent, oWeldBody, swView, False, True)
+    xPos = oWeldBody.xMax
+    AnnXPos = xPos + Clearance
+
+End Sub
+ 
+Function GetNextGap(oWeldBody As IWeldBody, MinDict As Scripting.Dictionary, MinIndexDict As Scripting.Dictionary)
+
+    Dim idx As Integer
+    idx = GetIndex(MinIndexDict, oWeldBody, "xMin")
+    
+    Dim IsFound As Boolean
+    IsFound = False
+    
+    While Not IsFound
+    
+        idx = idx + 1
+        Dim NextArrList As IArrListObject
+        Set NextArrList = MinDict.Item(MinDict.Keys(idx))
+        
+        Dim vItems As Variant
+        vItems = NextArrList.Items
+        
+        Dim i As Integer
+        For i = LBound(vItems) To UBound(vItems)
+        
+            Dim NextWeldBody As IWeldBody
+            Set NextWeldBody = vItems(i)
+            
+            If ((NextWeldBody.yMin < oWeldBody.yMin Or Abs(NextWeldBody.yMin - oWeldBody.yMin) <= 0.0001) And oWeldBody.yMin < NextWeldBody.yMax) Or _
+                ((NextWeldBody.yMin > oWeldBody.yMin Or Abs(NextWeldBody.yMin - oWeldBody.yMin) <= 0.0001) And (NextWeldBody.yMin < oWeldBody.yMax)) Then
+                
+                IsFound = True
+                GetNextGap = NextWeldBody.xMin - oWeldBody.xMax
+                Exit For
+                
+            End If
+        
+        
+        Next i
+        
+    Wend
+
+End Function
+
+ 
+ Sub FindMinAndMaxInGap(Arrlist As IArrListObject, oWeldBody As IWeldBody, MinParam As String, MaxParam As String, _
+    ByRef MinVal As Double, ByRef MaxVal As Double)
+    
+    
+    If Arrlist.Count = 0 Then
+    
+        MinVal = CallByName(oWeldBody, MinParam, VbGet)
+        MaxVal = CallByName(oWeldBody, MaxParam, VbGet)
+
+    Else
+
+        Dim vItems As Variant
+        vItems = Arrlist.Items
+        
+        Dim i As Integer
+        
+        Dim Gap As Double
+        Gap = Abs(CallByName(vItems(0), MinParam, VbGet) - CallByName(oWeldBody, MinParam, VbGet))
+        
+        MinVal = CallByName(oWeldBody, MinParam, VbGet)
+        MaxVal = CallByName(vItems(0), MinParam, VbGet)
+       
+        Dim TempGap As Double
+        Dim TempMinVal As Double
+        Dim TempMaxVal As Double
+
+        For i = LBound(vItems) To UBound(vItems)
+        
+            Dim oSubWeldBody As IWeldBody
+            Set oSubWeldBody = vItems(i)
+
+            If i = UBound(vItems) Then
+                
+                TempGap = Abs(CallByName(oSubWeldBody, MaxParam, VbGet) - CallByName(oWeldBody, MaxParam, VbGet))
+                TempMinVal = CallByName(oSubWeldBody, MaxParam, VbGet)
+                TempMaxVal = CallByName(oWeldBody, MaxParam, VbGet)
+                
+            Else
+            
+                Dim NextWeldBody As IWeldBody
+                Set NextWeldBody = vItems(i + 1)
+            
+                TempGap = Abs(CallByName(oSubWeldBody, MaxParam, VbGet) - CallByName(NextWeldBody, MinParam, VbGet))
+                TempMinVal = CallByName(oSubWeldBody, MaxParam, VbGet)
+                TempMaxVal = CallByName(NextWeldBody, MinParam, VbGet)
+                
+            End If
+
+            If TempGap > Gap Then
+                
+                Gap = TempGap
+                MinVal = TempMinVal
+                MaxVal = TempMaxVal
+                
+            End If
+            
+        Next i
+        
+    End If
+ 
+ End Sub
+ 
+ Function SelectEdgeWithSelectData(swEdge As SldWorks.Edge, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc, _
+                SelXPos As Double, SelYPos As Double) As Boolean
+
+    Dim swSelectMgr As SldWorks.SelectionMgr
+    Set swSelectMgr = swDrawing.SelectionManager
+    
+    Dim swSelectData As SldWorks.SelectData
+    Set swSelectData = swSelectMgr.CreateSelectData
+
+
+    swSelectData.View = swView
+    swSelectData.X = SelXPos '(vStartPoint(0) + vEndPoint(0)) / 2
+    swSelectData.Y = SelYPos 'vStartPoint(1)
+    
+    Dim swEntity As SldWorks.Entity
+    Set swEntity = swEdge
+
+    SelectEdgeWithSelectData = swEntity.Select4(False, swSelectData)
+    
+End Function
+ 
+ Function InsertBalloonAndGetAnnotations(swDrawing As SldWorks.DrawingDoc, AnnXPos As Double, _
+        AnnYPos As Double, Optional Qty As Integer = 1) As SldWorks.Annotation
+    
+    Dim swBalloonParams As SldWorks.BalloonOptions
+    Set swBalloonParams = swDrawing.Extension.CreateBalloonOptions()
+    swBalloonParams.Size = swBalloonFit_e.swBF_Tightest
+    swBalloonParams.Style = swBalloonStyle_e.swBS_SplitCirc
+
+    
+    If Qty > 1 Then
+    
+        swBalloonParams.ShowQuantity = True
+        swBalloonParams.QuantityOverride = True
+        swBalloonParams.QuantityOverrideValue = CStr(Qty)
+                
+    End If
+    
+    Dim swNote As SldWorks.Note
+    Set swNote = swDrawing.Extension.InsertBOMBalloon2(swBalloonParams)
+     
+    If Not swNote Is Nothing Then
+    
+        'swNote.PropertyLinkedText = "$PRPWLD:" & Chr(34) & "LEGEND" & Chr(34)
+        
+        Dim Bool As Boolean
+        Bool = swNote.SetBomBalloonText(swDetailingNoteTextContent_e.swDetailingNoteTextCustom, "$PRPWLD:" & Chr(34) & "LEGEND" & Chr(34), _
+                    swDetailingNoteTextContent_e.swDetailingNoteTextCustom, "$PRPWLD:" & Chr(34) & "ITEM NO" & Chr(34))
+
+        Set InsertBalloonAndGetAnnotations = swNote.GetAnnotation
+        InsertBalloonAndGetAnnotations.SetPosition2 AnnXPos, AnnYPos, 0
+        
+    End If
+    
+End Function
+
+
+Function GetIndex(Dict As Scripting.Dictionary, oWeldBody As IWeldBody, Param As String) As Integer
     
     Dim keyVal As Double
     keyVal = CallByName(oWeldBody, Param, VbGet)
@@ -709,6 +843,8 @@ Function GetIndex(Dict As Scripting.Dictionary, oWeldBody As IWeldBody, Param As
         Dim vKeys As Variant
         vKeys = Dict.Keys
         
+        Dim i As Integer
+        
         For i = LBound(vKeys) To UBound(vKeys)
 
             If Abs(vKeys(i) - keyVal) <= 0.0001 Then
@@ -719,17 +855,19 @@ Function GetIndex(Dict As Scripting.Dictionary, oWeldBody As IWeldBody, Param As
             End If
             
         Next i
+        
+    End If
 
 End Function
 
-Function GetPointDataWithIndex(ArrList As IArrListObject, Parameter As String, ByRef IndexDict As Scripting.Dictionary) As Scripting.Dictionary
+Function GetPointDataWithIndex(Arrlist As IArrListObject, Parameter As String, ByRef IndexDict As Scripting.Dictionary) As Scripting.Dictionary
 
     Set GetPointDataWithIndex = New Scripting.Dictionary
     Set IndexDict = New Scripting.Dictionary
     
     Dim i As Integer
     Dim vItems As Variant
-    vItems = ArrList.Items
+    vItems = Arrlist.Items
     
     For i = LBound(vItems) To UBound(vItems)
     
@@ -846,18 +984,18 @@ Private Function CheckWhetherTheBodyisWithInAnotherBody(WeldBodyToCheck As IWeld
 
 End Function
 
-Sub AddPerimeterBeamProperty(ArrList As IArrListObject, SortParamMin As String, SortParamMax As String) 'Sort with Min Parameter
+Sub AddPerimeterBeamProperty(Arrlist As IArrListObject, SortParamMin As String, SortParamMax As String) 'Sort with Min Parameter
 
-    ArrList.SortItems SortParamMax, True
-    ArrList.Items(0).IsPerimeter = True
+    Arrlist.SortItems SortParamMax, True
+    Arrlist.Items(0).IsPerimeter = True
     
 
-    ArrList.SortItems SortParamMin, False
-    ArrList.Items(0).IsPerimeter = True
+    Arrlist.SortItems SortParamMin, False
+    Arrlist.Items(0).IsPerimeter = True
 
 End Sub
 
-Sub FindAndAddBeforeSubWeldments(Dict As Scripting.Dictionary, DictIndex As Scripting.Dictionary, ArrList As IArrListObject, Parameter As String)
+Sub FindAndAddBeforeSubWeldments(Dict As Scripting.Dictionary, DictIndex As Scripting.Dictionary, Arrlist As IArrListObject, Parameter As String)
     
     Dim CheckParameterMin As String
     Dim CheckParameterMax As String
@@ -874,13 +1012,13 @@ Sub FindAndAddBeforeSubWeldments(Dict As Scripting.Dictionary, DictIndex As Scri
         
     End If
         
-    If ArrList.Count > 0 Then
+    If Arrlist.Count > 0 Then
     
-        ArrList.SortItems Parameter, False
+        Arrlist.SortItems Parameter, False
         
         Dim i As Integer
         Dim vItems As Variant
-        vItems = ArrList.Items
+        vItems = Arrlist.Items
 
         For i = LBound(vItems) To UBound(vItems)
             
@@ -899,6 +1037,7 @@ Sub FindAndAddBeforeSubWeldments(Dict As Scripting.Dictionary, DictIndex As Scri
             If Not FirstWeldBody Is Nothing Then
             
                 Call FirstWeldBody.AddToSubWeldmentList(True, oWeldBody)
+                Set oWeldBody.BeforeBody = FirstWeldBody
                 
             End If
             
@@ -908,7 +1047,7 @@ Sub FindAndAddBeforeSubWeldments(Dict As Scripting.Dictionary, DictIndex As Scri
 
 End Sub
 
-Sub FindAndAddAfterSubWeldments(Dict As Scripting.Dictionary, DictIndex As Scripting.Dictionary, ArrList As IArrListObject, Parameter As String)
+Sub FindAndAddAfterSubWeldments(Dict As Scripting.Dictionary, DictIndex As Scripting.Dictionary, Arrlist As IArrListObject, Parameter As String)
     
     Dim CheckParameterMin As String
     Dim CheckParameterMax As String
@@ -925,13 +1064,13 @@ Sub FindAndAddAfterSubWeldments(Dict As Scripting.Dictionary, DictIndex As Scrip
         
     End If
     
-    If ArrList.Count > 0 Then
+    If Arrlist.Count > 0 Then
     
-        ArrList.SortItems Parameter, False
+        Arrlist.SortItems Parameter, False
         
         Dim i As Integer
         Dim vItems As Variant
-        vItems = ArrList.Items
+        vItems = Arrlist.Items
 
         For i = LBound(vItems) To UBound(vItems)
             
@@ -947,6 +1086,7 @@ Sub FindAndAddAfterSubWeldments(Dict As Scripting.Dictionary, DictIndex As Scrip
             If Not SecondWeldBody Is Nothing Then
             
                 Call SecondWeldBody.AddToSubWeldmentList(False, oWeldBody)
+                Set oWeldBody.AfterBody = SecondWeldBody
                 
             End If
             'Debug.Print oWeldBody.GetBody.Name
@@ -990,11 +1130,11 @@ Function GetWeldBodyAttachedBeforeThisBody(WeldBodyToCheck As IWeldBody, Dict As
     
     For j = idx To LBound(vKeys) Step -1
     
-        Dim ArrList As IArrListObject
-        Set ArrList = Dict.Item(vKeys(j))
+        Dim Arrlist As IArrListObject
+        Set Arrlist = Dict.Item(vKeys(j))
     
         Dim vItems As Variant
-        vItems = ArrList.Items
+        vItems = Arrlist.Items
     
         For i = LBound(vItems) To UBound(vItems)
     
@@ -1033,11 +1173,11 @@ Function GetWeldBodyAttachedAfterThisBody(WeldBodyToCheck As IWeldBody, Dict As 
     
     For j = idx To UBound(vKeys)
     
-        Dim ArrList As IArrListObject
-        Set ArrList = Dict.Item(vKeys(j))
+        Dim Arrlist As IArrListObject
+        Set Arrlist = Dict.Item(vKeys(j))
     
         Dim vItems As Variant
-        vItems = ArrList.Items
+        vItems = Arrlist.Items
     
         For i = LBound(vItems) To UBound(vItems)
     

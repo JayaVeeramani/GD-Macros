@@ -24,21 +24,89 @@ Private cIsVertical As Boolean
 Private cCutlist As ICutlist
 
 Private cBeforeSubWeldment As IArrListObject
+Private IsBeforeWeldmentSorted As Boolean
+
 Private cAfterSubWeldment As IArrListObject
+Private IsAfterWeldmentSorted As Boolean
 
 Public IsPerimeter As Boolean
+Public BeforeBody As IWeldBody
+Public AfterBody As IWeldBody
 
-Property Get IsSubWeldment() As Boolean
-    
-    IsSubWeldment = False
-    
-    If cAfterSubWeldment.Count > 0 Or cBeforeSubWeldment.Count > 0 Then
+Property Get Length() As Double
 
-        IsSubWeldment = True
+    Length = cCutlist.Length
+    
+End Property
+
+Property Get AfterSubWeldments() As IArrListObject
+
+    If False = IsAfterWeldmentSorted Then
+    
+        If cIsVertical Then
+        
+            cAfterSubWeldment.SortItems "yMin", False
+            
+        Else
+        
+            cAfterSubWeldment.SortItems "xMin", False
+            
+        End If
+        IsAfterWeldmentSorted = True
         
     End If
-
+    
+     Set AfterSubWeldments = cAfterSubWeldment
+    
 End Property
+
+Property Get BeforeSubWeldments() As IArrListObject
+
+    If False = IsBeforeWeldmentSorted Then
+
+        If cIsVertical Then
+        
+            cAfterSubWeldment.SortItems "yMin", False
+            
+        Else
+        
+            cAfterSubWeldment.SortItems "xMin", False
+            
+        End If
+        
+        IsBeforeWeldmentSorted = True
+        
+    End If
+    
+    Set BeforeSubWeldments = cBeforeSubWeldment
+    
+    
+End Property
+
+Property Get IsAfterSubweldment() As Boolean
+    
+    IsAfterSubweldment = False
+    
+    If cAfterSubWeldment.Count > 0 Then
+    
+        IsAfterSubweldment = True
+        
+    End If
+    
+End Property
+
+Property Get IsBeforeSubweldment() As Boolean
+
+    IsBeforeSubweldment = False
+    
+    If cBeforeSubWeldment.Count > 0 Then
+    
+        IsBeforeSubweldment = True
+        
+    End If
+    
+End Property
+
 Property Get GetComponent() As SldWorks.Component2
 
     Set GetComponent = cComp
@@ -132,6 +200,9 @@ Sub Initialize(swComp As SldWorks.Component2, swBody As SldWorks.Body2, oCutlist
         cIsVertical = True
         
     End If
+    
+    IsAfterWeldmentSorted = False
+    IsBeforeWeldmentSorted = False
 
 End Sub
 

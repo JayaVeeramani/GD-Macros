@@ -7,24 +7,24 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
-Private vitems As Variant
+Private vItems As Variant
 Private IsInit As Boolean
 
 Property Get Items() As Variant
     
-    Items = vitems
+    Items = vItems
 
 End Property
 
 Property Get Count() As Long
     
-    If IsEmpty(vitems) Then
+    If IsEmpty(vItems) Then
         
         Count = 0
         
     Else
     
-        Count = UBound(vitems) + 1
+        Count = UBound(vItems) + 1
         
     End If
 
@@ -35,9 +35,9 @@ End Property
 
     If Not IsEmpty(InputItems) Then
     
-        If IsEmpty(vitems) Then
+        If IsEmpty(vItems) Then
     
-            vitems = InputItems
+            vItems = InputItems
             
         Else
         
@@ -70,13 +70,13 @@ Function AddtoList(Val As Object)
     If IsInit Then
         
         IsInit = False
-        ReDim vitems(0)
-        Set vitems(0) = Val
+        ReDim vItems(0)
+        Set vItems(0) = Val
     
     Else
     
-        ReDim Preserve vitems(UBound(vitems) + 1)
-        Set vitems(UBound(vitems)) = Val
+        ReDim Preserve vItems(UBound(vItems) + 1)
+        Set vItems(UBound(vItems)) = Val
     
     End If
     
@@ -84,9 +84,9 @@ End Function
 
 Public Sub SortItems(SortParam As String, Optional SortDescending As Boolean = True)
     
-    If Not IsEmpty(vitems) Then
+    If Not IsEmpty(vItems) Then
     
-        vitems = MergeSort(vitems, SortParam, SortDescending)
+        vItems = MergeSort(vItems, SortParam, SortDescending)
         
     End If
 
@@ -202,17 +202,47 @@ Function Clone() As IArrListObject
     Dim CloneList As IArrListObject
     Set CloneList = New IArrListObject
     
-    For i = LBound(vitems) To UBound(vitems)
-        
-        Dim Obj As Object
-        Set Obj = vitems(i)
-        
-        CloneList.AddtoList Obj
-
-    Next i
+    If Not IsEmpty(vItems) Then
     
+        For i = LBound(vItems) To UBound(vItems)
+            
+            Dim Obj As Object
+            Set Obj = vItems(i)
+            
+            CloneList.AddtoList Obj
+    
+        Next i
+        
+    End If
+        
     Set Clone = CloneList
 
 End Function
+
+Sub Reverse()
+    
+    If Not IsEmpty(vItems) Then
+    
+        Dim ReverseItems As Variant
+        ReDim ReverseItems(UBound(vItems))
+        
+        Dim iter As Integer
+        iter = LBound(vItems)
+        
+        Dim i As Integer
+        
+        For i = UBound(vItems) To LBound(vItems) Step -1
+            
+            ReverseItems(iter) = vItems(i)
+            iter = iter + 1
+            
+        Next i
+        
+        vItems = ReverseItems
+        
+    End If
+    
+End Sub
+
 
 
