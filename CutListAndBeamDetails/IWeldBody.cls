@@ -66,11 +66,11 @@ Property Get BeforeSubWeldments() As IArrListObject
 
         If cIsVertical Then
         
-            cAfterSubWeldment.SortItems "yMin", False
+            cBeforeSubWeldment.SortItems "yMin", False
             
         Else
         
-            cAfterSubWeldment.SortItems "xMin", False
+            cBeforeSubWeldment.SortItems "xMin", False
             
         End If
         

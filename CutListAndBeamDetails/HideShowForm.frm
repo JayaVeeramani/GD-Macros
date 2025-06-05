@@ -497,51 +497,57 @@ Private Sub AddCallouts(Arrlist As IArrListObject, MinIndexDict As Scripting.Dic
             End If
             
         Else
-
-            If oWeldBody.IsAfterSubweldment And oWeldBody.IsBeforeSubweldment Then
-            
-                If oWeldBody.AfterSubWeldments.Count <= oWeldBody.BeforeSubWeldments.Count Then
-                
-                    Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
-                    Call GetCalloutUporDown(oWeldBody, oWeldBody.AfterSubWeldments, yPos, AnnYPos, True)
-                    
-                Else
-                
-                    Call GetCalloutBeforeThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
-                    Call GetCalloutUporDown(oWeldBody, oWeldBody.BeforeSubWeldments, yPos, AnnYPos, False)
-                
-                End If
-
-            ElseIf oWeldBody.IsAfterSubweldment Then
-                
-                Call GetCalloutBeforeThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
-                Call GetCalloutUporDown(oWeldBody, oWeldBody.BeforeSubWeldments, yPos, AnnYPos, False)
-                    
-            ElseIf oWeldBody.IsBeforeSubweldment Then
+        
+            If oWeldBody.AfterBody.IsPerimeter Then
                 
                 Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
-                Call GetCalloutUporDown(oWeldBody, oWeldBody.AfterSubWeldments, yPos, AnnYPos, True)
-                
-            Else
+                yPos = oWeldBody.yMin + 0.95 * (oWeldBody.yMax - oWeldBody.yMin)
+                AnnYPos = oWeldBody.AfterBody.yMax + 0.0075
             
+            ElseIf oWeldBody.BeforeBody.IsPerimeter Then
+            
+                Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
+                yPos = oWeldBody.yMin + 0.05 * (oWeldBody.yMax - oWeldBody.yMin)
+                AnnYPos = oWeldBody.BeforeBody.yMin - 0.0025
+
+    '            If oWeldBody.IsAfterSubweldment And oWeldBody.IsBeforeSubweldment Then
+    '
+    '                If oWeldBody.AfterSubWeldments.Count <= oWeldBody.BeforeSubWeldments.Count Then
+    '
+    '                    Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
+    '                    Call GetCalloutUporDown(oWeldBody, oWeldBody.AfterSubWeldments, yPos, AnnYPos, True)
+    '
+    '                Else
+    '
+    '                    Call GetCalloutBeforeThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
+    '                    Call GetCalloutUporDown(oWeldBody, oWeldBody.BeforeSubWeldments, yPos, AnnYPos, False)
+    '
+    '                End If
+    '
+    '            ElseIf oWeldBody.IsAfterSubweldment Then
+    '
+    '                Call GetCalloutBeforeThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
+    '                Call GetCalloutUporDown(oWeldBody, oWeldBody.BeforeSubWeldments, yPos, AnnYPos, False)
+    
+            Else
+
                 Dim NextGap As Double
                 NextGap = GetNextGap(oWeldBody, MinDict, MinIndexDict)
-    
-                If NextGap > BalloonWidth Then
         
+                If NextGap > BalloonWidth Then
+            
                     Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
                     Call GetCalloutUporDown(oWeldBody, oWeldBody.AfterSubWeldments, yPos, AnnYPos, True)
-                    
+                        
                 Else
-                    
+                        
                     Call GetCalloutBeforeThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
                     Call GetCalloutUporDown(oWeldBody, oWeldBody.BeforeSubWeldments, yPos, AnnYPos, False)
-                    
+                        
                 End If
-                    
+                
             End If
 
-        
         End If
         
         Dim IsSelected As Boolean
@@ -606,50 +612,22 @@ Sub GetCalloutUporDown(oWeldBody As IWeldBody, WeldList As IArrListObject, ByRef
         AnnYPos = GetAnnYPos(yPos, True, 0.01)
     
     Else
-    
-        If oWeldBody.AfterBody.IsPerimeter And oWeldBody.BeforeBody.IsPerimeter Then
-            
+
+        If Gap > MinDistForTwoBalloons Then
+
             yPos = GetYPos(yMin, Gap, IsRight)
             AnnYPos = GetAnnYPos(yPos, False, 0.005)
-        
-        ElseIf oWeldBody.AfterBody.IsPerimeter Then
-                
-            If Gap > MinDistForTwoBalloons Then
-                
-                yPos = GetYPos(yMin, Gap, IsRight)
-                AnnYPos = GetAnnYPos(yPos, False, 0.005)
-                
-            Else
-                
-                yPos = GetYPos(yMin, Gap, IsRight)
-                AnnYPos = oWeldBody.AfterBody.yMax + 0.01
-                    
-            End If
-            
-        ElseIf oWeldBody.BeforeBody.IsPerimeter Then
-                
-            yPos = GetYPos(yMin, Gap, IsRight, 0.05, 0.4)
-            AnnYPos = GetAnnYPos(yPos, True, 0.01)
-                
-    
+
         Else
-            
-            If Gap > MinDistForTwoBalloons Then
-                
-                yPos = GetYPos(yMin, Gap, IsRight)
-                AnnYPos = GetAnnYPos(yPos, False, 0.005)
-                
-            Else
-                    
-                yPos = GetYPos(yMin, Gap, IsRight)
-                AnnYPos = oWeldBody.AfterBody.yMax + 0.01
-                
-            End If
-                
+
+            yPos = GetYPos(yMin, Gap, IsRight)
+            AnnYPos = oWeldBody.AfterBody.yMax + 0.01
+
         End If
-        
+
     End If
-    
+
+
 End Sub
  
 Sub GetCalloutBeforeThisBody(oWeldBody As IWeldBody, swView As SldWorks.View, ByRef swBodyEdge As SldWorks.Edge, _
@@ -662,7 +640,7 @@ Sub GetCalloutBeforeThisBody(oWeldBody As IWeldBody, swView As SldWorks.View, By
 End Sub
 
 Sub GetCalloutAfterThisBody(oWeldBody As IWeldBody, swView As SldWorks.View, ByRef swBodyEdge As SldWorks.Edge, _
-    ByRef xPos As Double, ByRef AnnXPos As Double, Optional Clearance As Double = 0.00275)
+    ByRef xPos As Double, ByRef AnnXPos As Double, Optional Clearance As Double = 0.00375)
                      
     Set swBodyEdge = GetEdgeInViewForBody(oWeldBody.GetComponent, oWeldBody, swView, False, True)
     xPos = oWeldBody.xMax
@@ -693,8 +671,10 @@ Function GetNextGap(oWeldBody As IWeldBody, MinDict As Scripting.Dictionary, Min
             Dim NextWeldBody As IWeldBody
             Set NextWeldBody = vItems(i)
             
-            If ((NextWeldBody.yMin < oWeldBody.yMin Or Abs(NextWeldBody.yMin - oWeldBody.yMin) <= 0.0001) And oWeldBody.yMin < NextWeldBody.yMax) Or _
-                ((NextWeldBody.yMin > oWeldBody.yMin Or Abs(NextWeldBody.yMin - oWeldBody.yMin) <= 0.0001) And (NextWeldBody.yMin < oWeldBody.yMax)) Then
+            If (((NextWeldBody.yMin < oWeldBody.yMin Or Abs(NextWeldBody.yMin - oWeldBody.yMin) <= 0.0001) And oWeldBody.yMin < NextWeldBody.yMax) Or _
+                ((NextWeldBody.yMin > oWeldBody.yMin Or Abs(NextWeldBody.yMin - oWeldBody.yMin) <= 0.0001) And (NextWeldBody.yMin < oWeldBody.yMax))) And _
+                 (((NextWeldBody.zMin < oWeldBody.zMin Or Abs(NextWeldBody.zMin - oWeldBody.zMin) <= 0.0001) And NextWeldBody.zMax > oWeldBody.zMin) Or _
+                 ((NextWeldBody.zMin > oWeldBody.zMin Or Abs(NextWeldBody.zMin - oWeldBody.zMin) <= 0.0001) And (NextWeldBody.zMin < oWeldBody.zMax))) Then
                 
                 IsFound = True
                 GetNextGap = NextWeldBody.xMin - oWeldBody.xMax
@@ -743,7 +723,6 @@ End Function
 
             If i = UBound(vItems) Then
                 
-                TempGap = Abs(CallByName(oSubWeldBody, MaxParam, VbGet) - CallByName(oWeldBody, MaxParam, VbGet))
                 TempMinVal = CallByName(oSubWeldBody, MaxParam, VbGet)
                 TempMaxVal = CallByName(oWeldBody, MaxParam, VbGet)
                 
@@ -752,11 +731,13 @@ End Function
                 Dim NextWeldBody As IWeldBody
                 Set NextWeldBody = vItems(i + 1)
             
-                TempGap = Abs(CallByName(oSubWeldBody, MaxParam, VbGet) - CallByName(NextWeldBody, MinParam, VbGet))
+                
                 TempMinVal = CallByName(oSubWeldBody, MaxParam, VbGet)
                 TempMaxVal = CallByName(NextWeldBody, MinParam, VbGet)
                 
             End If
+            
+            TempGap = TempMaxVal - TempMinVal
 
             If TempGap > Gap Then
                 
