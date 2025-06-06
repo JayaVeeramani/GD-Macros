@@ -473,6 +473,11 @@ End Sub
 Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
     IsHorizontal As Boolean, IsMax As Boolean, Optional CheckAllVisibleEdgesOnly As Boolean = True) As SldWorks.Edge
     
+    If InStr(oComp.Name, 1080023) > 0 Then
+    
+        Debug.Print oComp.Name
+    
+    End If
     
     Dim xMin As Double
     Dim yMin As Double
@@ -567,7 +572,8 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
                 vEndPoint = GetComponentPointInSheetSpace(swComp, vEndPoint, swView)
   
                 
-                If Abs(vStartPoint(Idx) - vEndPoint(Idx)) <= 0.00001 And Abs(vStartPoint(Idx) - ValToMatch) <= 0.00001 Then
+                If Abs(vStartPoint(Idx) - vEndPoint(Idx)) <= 0.0001 And Abs(vStartPoint(Idx) - ValToMatch) <= 0.0001 And _
+                        Abs(vStartPoint(2) - vEndPoint(2)) <= 0.0001 Then
                     
                     Dim vCurveParam As Variant
                     vCurveParam = swEdge.GetCurveParams2
@@ -637,7 +643,10 @@ Function CombineArr(ByVal MainArr As Variant, ArrToAdd As Variant)
 End Function
 
 Private Sub AddVerticalBeamOrdinateDimensions(oBeam As IWeldBody, IsBottom As Boolean, swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View)
-
+    
+    swDrawing.ClearSelection2 True
+    swDrawing.SetPickMode
+    
     Dim BeamLeftEdge As SldWorks.Edge
     Set BeamLeftEdge = GetEdgeInViewForBody(oBeam.GetComponent, oBeam, swView, False, False)
     
@@ -647,17 +656,17 @@ Private Sub AddVerticalBeamOrdinateDimensions(oBeam As IWeldBody, IsBottom As Bo
     swView.SelectEntity BeamLeftEdge, False
     swView.SelectEntity BeamRightEdge, True
     
-    Dim Clearance As Double
+    Dim YPos As Double
     Dim vComps As Variant
     
     If IsBottom Then
         
         vComps = oBeam.AfterConnectingPlates
-        Clearance = -0.01
+        YPos = oBeam.yMin - 0.01
         
     Else
         vComps = oBeam.BeforeConnectingPlates
-        Clearance = 0.01
+        YPos = oBeam.yMax + 0.01
         
     End If
     
@@ -675,7 +684,8 @@ Private Sub AddVerticalBeamOrdinateDimensions(oBeam As IWeldBody, IsBottom As Bo
         
     Next i
     
-    swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swOrdinate, oBeam.xMin, oBeam.yMin + Clearance, 0
+    swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swHorizontalOrdinate, oBeam.xMax, YPos, 0
+    
 End Sub
 
 Private Sub GetHorizontalAndVerticalConnectingPlateList(ByRef HorizontalList As IArrListObject, ByRef VerticalList As IArrListObject, swView As SldWorks.View)
@@ -706,9 +716,11 @@ Private Sub GetHorizontalAndVerticalConnectingPlateList(ByRef HorizontalList As 
             
                 HorizontalList.AddtoList oComp
                 
+                
             Else
             
                 VerticalList.AddtoList oComp
+                Debug.Print oComp.Name
                 
             End If
 
@@ -745,6 +757,8 @@ End Sub
 Private Sub CheckAndAddConnectingPlate(oWeldBody As IWeldBody, vPlates As Variant)
 
     Dim i As Integer
+    Debug.Print oWeldBody.GetBody.Name
+    
     For i = LBound(vPlates) To UBound(vPlates)
     
         Dim oComp As IComp
@@ -757,10 +771,13 @@ Private Sub CheckAndAddConnectingPlate(oWeldBody As IWeldBody, vPlates As Varian
                 If (oComp.xMin > oWeldBody.xMin And oComp.xMin < oWeldBody.xMax) Then
                 
                     oWeldBody.AddToConnectingPlateList True, oComp
+                    Debug.Print oComp.Name
                 
                 ElseIf (oComp.xMax > oWeldBody.xMin And oComp.xMax < oWeldBody.xMax) Then
                 
                     oWeldBody.AddToConnectingPlateList False, oComp
+                    Debug.Print oComp.Name
+
                     
                 End If
                 
@@ -773,10 +790,13 @@ Private Sub CheckAndAddConnectingPlate(oWeldBody As IWeldBody, vPlates As Varian
                 If (oComp.yMin > oWeldBody.yMin And oComp.yMin < oWeldBody.yMax) Then
                     
                     oWeldBody.AddToConnectingPlateList True, oComp
+                    Debug.Print oComp.Name
 
                 ElseIf (oComp.yMax > oWeldBody.yMin And oComp.yMax < oWeldBody.yMax) Then
         
                     oWeldBody.AddToConnectingPlateList False, oComp
+                    Debug.Print oComp.Name
+                    
                     
                 End If
                 
@@ -2638,6 +2658,7 @@ Function GetScaleValue(scaleVal As Double) As Integer
     Next i
 
 End Function
+
 
 
 Private Sub UserForm_Initialize()

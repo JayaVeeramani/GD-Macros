@@ -33,6 +33,8 @@ Private cIsSubWeldment As Boolean
 
 Private cAfterCPlateList As IArrListObject
 Private cBeforeCPlateList As IArrListObject
+Dim IsAfterCPlatesSorted As Boolean
+Dim IsBeforeCPlatesSorted As Boolean
 
 Public IsPerimeter As Boolean
 Public BeforeBody As IWeldBody
@@ -119,6 +121,22 @@ Private Function CheckWhetherIsSubweldment(ArrList As IArrListObject) As Boolean
 End Function
 
 Property Get AfterConnectingPlates() As Variant
+    
+    If False = IsAfterCPlatesSorted Then
+    
+        If cIsVertical Then
+        
+            cAfterCPlateList.SortItems "yMin", False
+            
+        Else
+        
+            cAfterCPlateList.SortItems "xMin", False
+            
+        End If
+        
+        IsAfterCPlatesSorted = True
+        
+    End If
 
 
     AfterConnectingPlates = cAfterCPlateList.Items
@@ -127,6 +145,22 @@ Property Get AfterConnectingPlates() As Variant
 End Property
 
 Property Get BeforeConnectingPlates() As Variant
+
+    If False = IsBeforeCPlatesSorted Then
+    
+        If cIsVertical Then
+        
+            cBeforeCPlateList.SortItems "yMin", False
+            
+        Else
+        
+            cBeforeCPlateList.SortItems "xMin", False
+            
+        End If
+        
+        IsBeforeCPlatesSorted = True
+        
+    End If
 
 
     BeforeConnectingPlates = cBeforeCPlateList.Items
@@ -283,6 +317,9 @@ Sub Initialize(swComp As SldWorks.Component2, swBody As SldWorks.Body2, oCutlist
     IsBeforeWeldmentSorted = False
     IsSubWeldmentChecked = False
     cIsSubWeldment = False
+    
+    IsAfterCPlatesSorted = False
+    IsBeforeCPlatesSorted = False
 
 End Sub
 

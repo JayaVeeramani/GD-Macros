@@ -31,6 +31,12 @@ Property Get GetMaxPointInModel() As Variant
     GetMaxPointInModel = cModelMaxPoint
 End Property
 
+Property Get Name() As String
+
+    Name = cComp.Name2
+    
+End Property
+
 Property Get HorizontalBodyList() As IArrListObject
 
     Set HorizontalBodyList = cHorizontalBodiesList
