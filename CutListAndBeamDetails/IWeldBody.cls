@@ -28,10 +28,16 @@ Private IsBeforeWeldmentSorted As Boolean
 
 Private cAfterSubWeldment As IArrListObject
 Private IsAfterWeldmentSorted As Boolean
+Private IsSubWeldmentChecked As Boolean
+Private cIsSubWeldment As Boolean
+
+Private cAfterCPlateList As IArrListObject
+Private cBeforeCPlateList As IArrListObject
 
 Public IsPerimeter As Boolean
 Public BeforeBody As IWeldBody
 Public AfterBody As IWeldBody
+
 
 Property Get Length() As Double
 
@@ -59,6 +65,75 @@ Property Get AfterSubWeldments() As IArrListObject
      Set AfterSubWeldments = cAfterSubWeldment
     
 End Property
+
+Property Get IsSubWeldment() As Boolean
+    
+    If False = IsSubWeldmentChecked Then
+
+        If CheckWhetherIsSubweldment(cAfterSubWeldment) Then
+            
+            cIsSubWeldment = True
+        
+        ElseIf CheckWhetherIsSubweldment(cBeforeSubWeldment) Then
+        
+            cIsSubWeldment = True
+            
+        End If
+        
+        IsSubWeldmentChecked = True
+        
+    End If
+    
+    IsSubWeldment = cIsSubWeldment
+End Property
+
+Private Function CheckWhetherIsSubweldment(ArrList As IArrListObject) As Boolean
+
+    CheckWhetherIsSubweldment = False
+    
+    If ArrList.Count > 0 Then
+    
+        Dim vItems As Variant
+        vItems = ArrList.Items
+        
+        Dim i As Integer
+        For i = LBound(vItems) To UBound(vItems)
+        
+            Dim oWeldBody As IWeldBody
+            Set oWeldBody = vItems(i)
+            
+            Dim Desc As String
+            Desc = oWeldBody.Cutlist.Description
+            
+            If Left(Desc, 1) = "W" Or Left(Desc, 1) = "C" Or Left(Desc, 2) = "MC" Then
+            
+                CheckWhetherIsSubweldment = True
+                Exit For
+            
+            End If
+        
+        Next i
+        
+    End If
+
+End Function
+
+Property Get AfterConnectingPlates() As Variant
+
+
+    AfterConnectingPlates = cAfterCPlateList.Items
+    
+    
+End Property
+
+Property Get BeforeConnectingPlates() As Variant
+
+
+    BeforeConnectingPlates = cBeforeCPlateList.Items
+    
+    
+End Property
+
 
 Property Get BeforeSubWeldments() As IArrListObject
 
@@ -191,6 +266,9 @@ Sub Initialize(swComp As SldWorks.Component2, swBody As SldWorks.Body2, oCutlist
     Set cBeforeSubWeldment = New IArrListObject
     Set cAfterSubWeldment = New IArrListObject
     
+    Set cAfterCPlateList = New IArrListObject
+    Set cBeforeCPlateList = New IArrListObject
+    
     If Abs(cxMin - cxMax) > Abs(cyMin - cyMax) Then
         
         cIsVertical = False
@@ -203,6 +281,8 @@ Sub Initialize(swComp As SldWorks.Component2, swBody As SldWorks.Body2, oCutlist
     
     IsAfterWeldmentSorted = False
     IsBeforeWeldmentSorted = False
+    IsSubWeldmentChecked = False
+    cIsSubWeldment = False
 
 End Sub
 
@@ -267,6 +347,20 @@ Sub AddToSubWeldmentList(IsAfter As Boolean, oWeldBody As IWeldBody)
     Else
     
         cBeforeSubWeldment.AddtoList oWeldBody
+        
+    End If
+
+End Sub
+
+Sub AddToConnectingPlateList(IsAfter As Boolean, oComp As IComp)
+
+    If IsAfter Then
+    
+        cAfterCPlateList.AddtoList oComp
+        
+    Else
+    
+        cBeforeCPlateList.AddtoList oComp
         
     End If
 
