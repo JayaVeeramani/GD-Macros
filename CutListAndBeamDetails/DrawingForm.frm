@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} DrawingForm 
    Caption         =   "Insert Drawing View"
-   ClientHeight    =   4164
+   ClientHeight    =   4140
    ClientLeft      =   108
    ClientTop       =   456
-   ClientWidth     =   6600
+   ClientWidth     =   6732
    OleObjectBlob   =   "DrawingForm.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -43,6 +43,7 @@ Private Sub ActivateDSButton_Click()
         
             swConfig.ApplyDisplayState DisplayStateName
             
+            HideShowForm.WeldNoBox.Value = Mid(swFloorWeldment.GetPathName, InStrRev(swFloorWeldment.GetPathName, "\") + 1, 7)
             HideShowForm.Show vbModeless
             
         End If
@@ -50,13 +51,6 @@ Private Sub ActivateDSButton_Click()
     End If
 
 End Sub
-
-
-Private Sub UserForm_Click()
-
-End Sub
-
-
 
 Private Sub weldmentSelectionButton_Click()
 

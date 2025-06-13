@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} HideShowForm 
    Caption         =   "Hide/ Show Components"
-   ClientHeight    =   3972
+   ClientHeight    =   4572
    ClientLeft      =   108
    ClientTop       =   456
    ClientWidth     =   6636
@@ -19,6 +19,7 @@ Option Explicit
 
 Dim swSketchMgr As SldWorks.SketchManager
 Const BalloonWidth As Double = 0.0065
+Const SheetBorderTop As Double = 0.27030866
 Dim compDict As Scripting.Dictionary
 
 Private Sub AddCompButton_Click()
@@ -180,6 +181,9 @@ Private Sub CreateButton_Click()
     Dim ProjectNo As String
     ProjectNo = DrawingForm.ProjectNoBox.Value
     
+    Dim WeldmentNo As String
+    WeldmentNo = Me.WeldNoBox.Value
+    
     Unload DrawingForm
 
     Set swMathUtility = swApp.GetMathUtility
@@ -195,7 +199,7 @@ Private Sub CreateButton_Click()
     Call InsertSketchBlock(swDrawing, swSheet, ProjectNo)
 
     Dim swTopView As SldWorks.View
-    Set swTopView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), "*Top", 0.21593179, 0.19172741, 0)
+    Set swTopView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), "*Top", 0.21593179, 0.15578398, 0)
 
     Dim oFloorComp As IComp
     Set oFloorComp = New IComp
@@ -268,9 +272,7 @@ Private Sub CreateButton_Click()
 
     Call AddVerticalCallouts(visibleVerticalMinList, xMinIndexDict, xMinDict, xMaxIndexDict, xMaxDict, swDrawing, swTopView)
     Call AddHorizontalCallouts(visibleHorizontalMinList, yMinIndexDict, yMinDict, yMaxIndexDict, yMaxDict, swDrawing, swTopView)
-    
 
-    
     Dim LegendAscii As Long
     LegendAscii = 65
     
@@ -301,15 +303,29 @@ Private Sub CreateButton_Click()
     Call AddConnectingPlatesToSubWeldment(HorizontalSubWeldmentList, VerticalCPlateList)
     
     Call AddVerticalBeamOrdinateDimensions(swBottomBeam, False, swBottomBeam.AfterConnectingPlates, swDrawing, swTopView)
-    Call AddVerticalBeamOrdinateDimensions(swTopBeam, True, swTopBeam.BeforeConnectingPlates, swDrawing, swTopView)
+    Call AddBracketsAndSuffixToSelectedDimension(swDrawing, "SEE NOTE 3")
     
-    Call AddHorizontalAssyOrdinate(swBottomBeam, swTopBeam)
-
+    Call AddVerticalBeamOrdinateDimensions(swTopBeam, True, swTopBeam.BeforeConnectingPlates, swDrawing, swTopView)
+    Call AddBracketsAndSuffixToSelectedDimension(swDrawing, "SEE NOTE 3")
+    
+    Call AddHorizontalAssyOrdinate(swBottomBeam, swTopBeam, swDrawing, swTopView)
+    
+    Call AddSeeNote2Circle(swDrawing, swTopView, swTopBeam, swRightBeam)
+    Call AddSeeNote2Circle(swDrawing, swTopView, swBottomBeam, swRightBeam, False)
+    
+    swDrawing.ClearSelection2 True
+    Call AddNoteToView(swDrawing, "<FONT size=10PTS style=B>TOP VIEW", _
+        (swBottomBeam.xMax + swBottomBeam.xMin) / 2, swBottomBeam.yMin - 0.025)
+    
+    Call AddViewAndWeldTable(swFloorWeldment, swDrawing, swTopBeam.yMax + 0.02)
+    
     Dim SubWeldmentViewDict As Scripting.Dictionary
     Set SubWeldmentViewDict = New Scripting.Dictionary
     
-    Call AddEllipseAndCreateDetailView(swDrawing, swTopView, VerticalSubWeldmentList, LegendAscii, IsAsciiMaxReached, SubWeldmentViewDict)
-    Call AddEllipseAndCreateDetailView(swDrawing, swTopView, HorizontalSubWeldmentList, LegendAscii, IsAsciiMaxReached, SubWeldmentViewDict)
+    'Call AddEllipseAndCreateDetailView(swDrawing, swTopView, VerticalSubWeldmentList, LegendAscii, IsAsciiMaxReached, SubWeldmentViewDict)
+    'Call AddEllipseAndCreateDetailView(swDrawing, swTopView, HorizontalSubWeldmentList, LegendAscii, IsAsciiMaxReached, SubWeldmentViewDict)
+    
+    Call EditTemplate(swDrawing, swDrawing.GetCurrentSheet, WeldmentNo)
     
     Dim IsSubWeldmentExists As Boolean
     IsSubWeldmentExists = False
@@ -323,16 +339,15 @@ Private Sub CreateButton_Click()
         vScaleRatio = swTopView.scaleRatio
         
         IsSubWeldmentExists = True
-
-        Bool = swDrawing.NewSheet3("Sheet2", 12, 12, vScaleRatio(0), vScaleRatio(1), False, "METAL FAB DRAWING.slddrt", 0.4318, 0.2794, "Default")
-        Set swWeldmentSheet = swDrawing.Sheet("Sheet2")
+        Bool = swDrawing.NewSheet3("Sheet2", 12, 12, vScaleRatio(0), vScaleRatio(1), False, "C:\FBD\COMMON\FBD Templates\METAL FAB DRAWING.slddrt", 0.4318, 0.2794, "Default")
         
+        swDrawing.ActivateSheet "Sheet2"
+        Set swWeldmentSheet = swDrawing.Sheet("Sheet2")
+
     End If
-    
-    
-    
+
     Call AddStructuralNotes(swDrawing, IsSubWeldmentExists)
-    Call SelectAndMoveDrawingViews(swDrawing, SubWeldmentViewDict, swWeldmentSheet)
+    'Call SelectAndMoveDrawingViews(swDrawing, SubWeldmentViewDict, swWeldmentSheet)
     
     Call SetHiddenEdgesVisibleAndRemoveTangentEdges(swTopView, swDrawing)
     
@@ -474,17 +489,264 @@ Private Sub CreateButton_Click()
     Unload Me
 
 End Sub
-Private Sub AddHorizontalAssyOrdinate(BottomBeam As IWeldBody, TopBeam As IWeldBody)
+
+
+Private Sub AddViewAndWeldTable(swComp As SldWorks.Component2, swDrawing As SldWorks.DrawingDoc, ViewMaxLoc As Double)
+
+    Dim swDummyInsView As SldWorks.View
+    Set swDummyInsView = swDrawing.CreateDrawViewFromModelView3(swComp.GetModelDoc2().GetPathName(), "*Front", 0.206, 0.296, 0)
+        
+    If Not swDummyInsView Is Nothing Then
+        
+        Dim swWeldTableAnn As SldWorks.WeldmentCutListAnnotation
+        Set swWeldTableAnn = swDummyInsView.InsertWeldmentTable(False, 0.01590679, SheetBorderTop, _
+                    swBOMConfigurationAnchorType_e.swBOMConfigurationAnchor_TopLeft, "", "C:\FBD\COMMON\FBD Templates\CUTLIST TABLE.sldwldtbt")
+                    
+        If Not swWeldTableAnn Is Nothing Then
+            
+            Dim swTableAnn As SldWorks.TableAnnotation
+            Set swTableAnn = swWeldTableAnn
+                
+            Dim swAnn As SldWorks.Annotation
+            Set swAnn = swTableAnn.GetAnnotation
+                
+            swAnn.Select3 False, Nothing
+            
+            'swTableAnn.MoveColumn 0, swTableItemInsertPosition_e.swTableItemInsertPosition_After, 1
+                
+            swWeldTableAnn.Sort 1, True
+            'swTableAnn.MoveColumn 1, swTableItemInsertPosition_e.swTableItemInsertPosition_Before, 0
+
+            Call SplitTableIfNeeded(swTableAnn, ViewMaxLoc)
+
+        End If
+        
+    End If
+
+End Sub
+Private Sub SplitTableIfNeeded(swTableAnn As SldWorks.TableAnnotation, ViewMaxLoc As Double)
+    
+'    Const SingleTextWidth = 0.002
+'
+'    Dim DescColWidth As Double
+'    DescColWidth = swTableAnn.GetColumnWidth(2)
+    
+'    If DescColWidth < SingleTextWidth * Len(swTableAnn.Text(1, 2)) Then
+'
+'        swTableAnn.SetColumnWidth 2, SingleTextWidth * Len(swTableAnn.Text(1, 2)), swTableRowColSizeChangeBehavior_e.swTableRowColChange_TableSizeCanChange
+        swTableAnn.SetRowHeight swTableCellRangeIdentifier_e.swTableCellRange_All, 0.004, swTableRowColSizeChangeBehavior_e.swTableRowColChange_TableSizeCanChange
+'
+'    End If
+    
+    Dim rowHeight As Double
+    rowHeight = swTableAnn.GetRowHeight(0)
+    Debug.Print swTableAnn.Text(1, 2)
+    
+    Dim ViewTopGap As Double
+    ViewTopGap = SheetBorderTop - ViewMaxLoc - 0.01
+    
+    Dim TableWidth As Double
+    TableWidth = GetTableWidth(swTableAnn)
+    
+    If (TableWidth + 0.06) > 0.40005 Then
+        
+        Dim i As Integer
+        Dim NoOfRows As Integer
+        NoOfRows = Int(ViewTopGap / rowHeight)
+        
+        Dim MaxNoOfSplits As Integer
+        MaxNoOfSplits = Int((0.41595679 - 0.01590679) / TableWidth)
+        
+        If Int(swTableAnn.RowCount / NoOfRows) < MaxNoOfSplits Then
+            
+            MaxNoOfSplits = Int(swTableAnn.RowCount / NoOfRows)
+            
+        Else
+            
+            NoOfRows = Int(swTableAnn.RowCount / (MaxNoOfSplits + 1)) + 1
+            
+        End If
+        
+        If Abs(swTableAnn.RowCount - NoOfRows) > 2 Then
+        
+            For i = 1 To MaxNoOfSplits
+    
+                Set swTableAnn = swTableAnn.Split(swTableSplitLocations_e.swTableSplit_AfterRow, i * (NoOfRows - 1))
+                
+                If Not swTableAnn Is Nothing Then
+                
+                    Dim swAnn As SldWorks.Annotation
+                    Set swAnn = swTableAnn.GetAnnotation()
+                    
+                    swAnn.SetPosition2 0.01590679 + i * (TableWidth + 0.005), SheetBorderTop, 0
+                    
+                End If
+            
+            
+            Next i
+            
+        End If
+    
+    
+    End If
+    
+
+End Sub
+Private Function GetColIdx(ColName As String, swTable As SldWorks.TableAnnotation)
+
+    Dim i As Integer
+    For i = 0 To swTable.ColumnCount - 1
+        
+        If swTable.Text(0, i) = ColName Then
+        
+            GetColIdx = i
+            Exit For
+            
+        End If
+    
+    Next i
+    
+End Function
+Private Function GetTableWidth(swTable As SldWorks.TableAnnotation) As Double
+
+    GetTableWidth = 0
+    
+    Dim i As Integer
+    For i = 0 To swTable.ColumnCount - 1
+        
+        GetTableWidth = GetTableWidth + swTable.GetColumnWidth(i)
+            
+    Next i
+    
+End Function
+Function EditTemplate(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Sheet, WeldmentNo As String)
+    
+    Dim swSelect As SldWorks.SelectionMgr
+    Set swSelect = swDrawing.SelectionManager()
+    
+    swDrawing.EditTemplate
+
+    Dim SheetFormatName As String
+    SheetFormatName = swSheet.GetSheetFormatName
+    Dim Boolstatus As Boolean
+    
+    Dim swNote As INote
+    Boolstatus = swDrawing.Extension.SelectByID2("DetailItem1227@" & SheetFormatName, "NOTE", 0.355252206998469, 3.32049059009041E-02, 0, False, 0, Nothing, 0)
+    Set swNote = swSelect.GetSelectedObject6(1, -1)
+    swNote.SetText ("CUTLIST AND BEAM DETAILS")
+        
+    Boolstatus = swDrawing.Extension.SelectByID2("DetailItem1229@" & SheetFormatName, "NOTE", 0.355252206998469, 3.32049059009041E-02, 0, False, 0, Nothing, 0)
+    Set swNote = swSelect.GetSelectedObject6(1, -1)
+    swNote.SetText (WeldmentNo)
+        
+    swDrawing.EditSheet
+    
+End Function
+
+Function AddNoteToView(swDrawing As SldWorks.DrawingDoc, NoteText As String, xPos As Double, YPos As Double) As SldWorks.Note
+            
+    Set AddNoteToView = swDrawing.InsertNote(NoteText)
+            
+    If Not AddNoteToView Is Nothing Then
+
+        Dim swAnnotation As SldWorks.Annotation
+        Set swAnnotation = AddNoteToView.GetAnnotation()
+
+        If Not swAnnotation Is Nothing Then
+
+            swAnnotation.SetPosition xPos, YPos, 0
+
+        End If
+
+    End If
+    
+End Function
+ 
+Private Sub AddSeeNote2Circle(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
+        oBeam As IWeldBody, RightBeam As IWeldBody, Optional IsTop As Boolean = True)
+        
+    Dim vShCenterPt(2) As Double
+    vShCenterPt(0) = (RightBeam.xMin + RightBeam.xMax) / 2
+    vShCenterPt(1) = (oBeam.yMin + oBeam.yMax) / 2
+    vShCenterPt(2) = 0
+
+    Dim vShEndPt(2) As Double
+    vShEndPt(0) = oBeam.xMax
+    vShEndPt(2) = oBeam.zMin
+    
+    Dim YClearnace As Double
+    
+    If IsTop Then
+        
+        vShEndPt(1) = oBeam.yMax
+        vShCenterPt(1) = vShCenterPt(1) - 1.75 * 0.0254 * swView.ScaleDecimal
+        YClearnace = -0.005
+        
+    Else
+    
+        vShEndPt(1) = oBeam.yMin
+        vShCenterPt(1) = vShCenterPt(1) + 1.75 * 0.0254 * swView.ScaleDecimal
+         YClearnace = 0.0075
+    
+    End If
+    
+    Dim vViewCenterPt As Variant
+    vViewCenterPt = GetSheetPointInViewSpace(swView, vShCenterPt)
+            
+    Dim vViewEndPt As Variant
+    vViewEndPt = GetSheetPointInViewSpace(swView, vShEndPt)
+
+    Dim radius As Double
+    radius = Sqr((vViewCenterPt(0) - vViewEndPt(0)) ^ 2 + (vViewCenterPt(1) - vViewEndPt(1)) ^ 2) + 2 * 0.0254
+            
+    Dim swSketchSegment As SldWorks.SketchSegment
+    Set swSketchSegment = swSketchMgr.CreateCircleByRadius(vViewCenterPt(0), vViewCenterPt(1), vViewCenterPt(2), radius)
+    swSketchSegment.ConstructionGeometry = True
+    
+    Dim Bool As Boolean
+    Bool = swDrawing.Extension.SelectByID2("Arc" & swSketchSegment.GetID(1), "SKETCHSEGMENT", vShCenterPt(0) + radius * swView.ScaleDecimal, _
+            vShCenterPt(1), 0, False, 0, Nothing, 0)
+            
+    If Bool Then
+    
+        Call AddNoteToView(swDrawing, "SEE NOTE 2", vShCenterPt(0) + radius * swView.ScaleDecimal + 0.00625, vShCenterPt(1) + YClearnace)
+    
+    End If
+    
+End Sub
+Private Sub AddBracketsAndSuffixToSelectedDimension(swDrawing As SldWorks.DrawingDoc, Optional suffixNote As String = "")
+
+    Dim swSelectionMgr As SldWorks.SelectionMgr
+    Set swSelectionMgr = swDrawing.SelectionManager
+    
+    If swSelectionMgr.GetSelectedObjectType3(1, -1) = swSelectType_e.swSelDIMENSIONS Then
+    
+        Dim swDisplayDim As SldWorks.DisplayDimension
+        Set swDisplayDim = swSelectionMgr.GetSelectedObject6(1, -1)
+        
+        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextPrefix, "("
+        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextSuffix, ")" & vbCrLf & suffixNote
+    
+    End If
+
+End Sub
+Private Sub AddHorizontalAssyOrdinate(BottomBeam As IWeldBody, TopBeam As IWeldBody, _
+    swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
 
     swDrawing.ClearSelection2 True
     swDrawing.SetPickMode
         
     Dim BeamBottomEdge As SldWorks.Edge
-    Set BeamBottomEdge = GetEdgeInViewForBody(BottomBeam.GetComponent, oBeam, swView, True, False)
+    Set BeamBottomEdge = GetEdgeInViewForBody(BottomBeam.GetComponent, BottomBeam, swView, True, False)
         
     Dim BeamTopEdge As SldWorks.Edge
-    Set BeamTopEdge = GetEdgeInViewForBody(TopBeam.GetComponent, oBeam, swView, True, True)
+    Set BeamTopEdge = GetEdgeInViewForBody(TopBeam.GetComponent, TopBeam, swView, True, True)
     
+    swView.SelectEntity BeamBottomEdge, False
+    swView.SelectEntity BeamTopEdge, True
+
+    swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swVerticalOrdinate, BottomBeam.xMin - 0.01, BottomBeam.yMin, 0
+    Call AddBracketsAndSuffixToSelectedDimension(swDrawing, "SEE NOTE 3")
     
 End Sub
 
@@ -676,7 +938,7 @@ Function CombineArr(ByVal MainArr As Variant, ArrToAdd As Variant)
 End Function
 
 Private Sub AddVerticalBeamOrdinateDimensions(oBeam As IWeldBody, IsAfter As Boolean, vComps As Variant, _
-                swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View)
+                swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View, Optional IsSelectEnd As Boolean = True)
 
     If Not IsEmpty(vComps) Then
     
@@ -685,13 +947,9 @@ Private Sub AddVerticalBeamOrdinateDimensions(oBeam As IWeldBody, IsAfter As Boo
         
         Dim BeamLeftEdge As SldWorks.Edge
         Set BeamLeftEdge = GetEdgeInViewForBody(oBeam.GetComponent, oBeam, swView, False, False)
-        
-        Dim BeamRightEdge As SldWorks.Edge
-        Set BeamRightEdge = GetEdgeInViewForBody(oBeam.GetComponent, oBeam, swView, False, True)
-        
+
         swView.SelectEntity BeamLeftEdge, False
-        swView.SelectEntity BeamRightEdge, True
-        
+
         Dim YPos As Double
         
         If IsAfter Then
@@ -716,8 +974,16 @@ Private Sub AddVerticalBeamOrdinateDimensions(oBeam As IWeldBody, IsAfter As Boo
             
             swView.SelectEntity swEdge, True
             
-            
         Next i
+        
+        If IsSelectEnd Then
+        
+            Dim BeamRightEdge As SldWorks.Edge
+            Set BeamRightEdge = GetEdgeInViewForBody(oBeam.GetComponent, oBeam, swView, False, True)
+            
+            swView.SelectEntity BeamRightEdge, True
+            
+        End If
         
         swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swHorizontalOrdinate, oBeam.xMax, YPos, 0
         
@@ -740,16 +1006,16 @@ Private Sub AddHorizontalBeamOrdinateDimensions(oBeam As IWeldBody, IsAfter As B
         Set BeamTopEdge = GetEdgeInViewForBody(oBeam.GetComponent, oBeam, swView, True, True)
         
         swView.SelectEntity BeamBottomEdge, False
-        swView.SelectEntity BeamTopEdge, True
+  
         
-        Dim XPos As Double
+        Dim xPos As Double
         
         If IsAfter Then
             
-            XPos = oBeam.xMin - 0.01
+            xPos = oBeam.xMin - 0.01
             
         Else
-            XPos = oBeam.xMax + 0.01
+            xPos = oBeam.xMax + 0.01
             
         End If
 
@@ -767,7 +1033,8 @@ Private Sub AddHorizontalBeamOrdinateDimensions(oBeam As IWeldBody, IsAfter As B
             
         Next i
         
-        swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swVerticalOrdinate, XPos, oBeam.yMin, 0
+        swView.SelectEntity BeamTopEdge, True
+        swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swVerticalOrdinate, xPos, oBeam.yMin, 0
     
     End If
 
@@ -1270,7 +1537,7 @@ Private Sub AddVerticalCallouts(ArrList As IArrListObject, MinIndexDict As Scrip
         
         Dim swBodyEdge As SldWorks.Edge
         
-        Dim XPos As Double
+        Dim xPos As Double
         Dim YPos As Double
 
         Dim AnnXPos As Double
@@ -1280,12 +1547,12 @@ Private Sub AddVerticalCallouts(ArrList As IArrListObject, MinIndexDict As Scrip
         
             If i = LBound(vItems) Then
             
-                Call GetCalloutBeforeThisBody(oWeldBody, swView, swBodyEdge, XPos, AnnXPos)
+                Call GetCalloutBeforeThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
                 Call GetCalloutUporDown(oWeldBody, oWeldBody.AfterSubWeldments, YPos, AnnYPos, False)
 
             Else
                 
-                Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, XPos, AnnXPos)
+                Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
                 Call GetCalloutUporDown(oWeldBody, oWeldBody.BeforeSubWeldments, YPos, AnnYPos, True)
                 
             End If
@@ -1297,13 +1564,13 @@ Private Sub AddVerticalCallouts(ArrList As IArrListObject, MinIndexDict As Scrip
         
             If oWeldBody.AfterBody.IsPerimeter Then
                 
-                Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, XPos, AnnXPos)
+                Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
                 YPos = oWeldBody.yMin + 0.95 * (oWeldBody.yMax - oWeldBody.yMin)
                 AnnYPos = oWeldBody.AfterBody.yMax + 0.0075
             
             ElseIf oWeldBody.BeforeBody.IsPerimeter Then
             
-                Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, XPos, AnnXPos)
+                Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
                 YPos = oWeldBody.yMin + 0.05 * (oWeldBody.yMax - oWeldBody.yMin)
                 AnnYPos = oWeldBody.BeforeBody.yMin - 0.0025
     
@@ -1312,12 +1579,12 @@ Private Sub AddVerticalCallouts(ArrList As IArrListObject, MinIndexDict As Scrip
         
                 If NextGap > BalloonWidth Then
             
-                    Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, XPos, AnnXPos)
+                    Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
                     Call GetCalloutUporDown(oWeldBody, oWeldBody.AfterSubWeldments, YPos, AnnYPos, True)
                         
                 Else
                         
-                    Call GetCalloutBeforeThisBody(oWeldBody, swView, swBodyEdge, XPos, AnnXPos)
+                    Call GetCalloutBeforeThisBody(oWeldBody, swView, swBodyEdge, xPos, AnnXPos)
                     Call GetCalloutUporDown(oWeldBody, oWeldBody.BeforeSubWeldments, YPos, AnnYPos, False)
                         
                 End If
@@ -1327,7 +1594,7 @@ Private Sub AddVerticalCallouts(ArrList As IArrListObject, MinIndexDict As Scrip
         End If
         
         Dim IsSelected As Boolean
-        IsSelected = SelectEdgeWithSelectData(swBodyEdge, swView, swDrawing, XPos, YPos)
+        IsSelected = SelectEdgeWithSelectData(swBodyEdge, swView, swDrawing, xPos, YPos)
 
         If IsSelected Then
             
@@ -1355,7 +1622,7 @@ Private Sub AddHorizontalCallouts(ArrList As IArrListObject, MinIndexDict As Scr
         
         Dim swBodyEdge As SldWorks.Edge
         
-        Dim XPos As Double
+        Dim xPos As Double
         Dim YPos As Double
 
         Dim AnnXPos As Double
@@ -1366,12 +1633,12 @@ Private Sub AddHorizontalCallouts(ArrList As IArrListObject, MinIndexDict As Scr
             If i = LBound(vItems) Then
             
                 Call GetCalloutBeforeThisBody(oWeldBody, swView, swBodyEdge, YPos, AnnYPos, 0.005, True)
-                Call GetCalloutLeftOrRight(oWeldBody, oWeldBody.AfterSubWeldments, XPos, AnnXPos, False)
+                Call GetCalloutLeftOrRight(oWeldBody, oWeldBody.AfterSubWeldments, xPos, AnnXPos, False)
 
             Else
                 
                 Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, YPos, AnnYPos, 0.01, True)
-                Call GetCalloutLeftOrRight(oWeldBody, oWeldBody.BeforeSubWeldments, XPos, AnnXPos, True)
+                Call GetCalloutLeftOrRight(oWeldBody, oWeldBody.BeforeSubWeldments, xPos, AnnXPos, True)
                 
             End If
             
@@ -1385,19 +1652,19 @@ Private Sub AddHorizontalCallouts(ArrList As IArrListObject, MinIndexDict As Scr
                 If oWeldBody.AfterBody.IsPerimeter Then
 
                     Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, YPos, AnnYPos, 0.01, True, NextGap)
-                    XPos = oWeldBody.xMax - 0.00375
-                    AnnXPos = XPos - 0.00125
+                    xPos = oWeldBody.xMax - 0.00375
+                    AnnXPos = xPos - 0.00125
             
                 ElseIf oWeldBody.BeforeBody.IsPerimeter Then
                 
                     Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, YPos, AnnYPos, 0.01, True, NextGap)
-                    XPos = oWeldBody.xMin + 0.00375
-                    AnnXPos = XPos
+                    xPos = oWeldBody.xMin + 0.00375
+                    AnnXPos = xPos
     
                 Else
             
                     Call GetCalloutAfterThisBody(oWeldBody, swView, swBodyEdge, YPos, AnnYPos, 0.01, True, NextGap)
-                    Call GetCalloutLeftOrRight(oWeldBody, oWeldBody.AfterSubWeldments, XPos, AnnXPos, True, NextGap)
+                    Call GetCalloutLeftOrRight(oWeldBody, oWeldBody.AfterSubWeldments, xPos, AnnXPos, True, NextGap)
                         
                 End If
 
@@ -1405,7 +1672,7 @@ Private Sub AddHorizontalCallouts(ArrList As IArrListObject, MinIndexDict As Scr
             Else
                         
                 Call GetCalloutBeforeThisBody(oWeldBody, swView, swBodyEdge, YPos, AnnYPos, 0.005, True)
-                Call GetCalloutLeftOrRight(oWeldBody, oWeldBody.BeforeSubWeldments, XPos, AnnXPos, False)
+                Call GetCalloutLeftOrRight(oWeldBody, oWeldBody.BeforeSubWeldments, xPos, AnnXPos, False)
                         
             End If
             
@@ -1413,7 +1680,7 @@ Private Sub AddHorizontalCallouts(ArrList As IArrListObject, MinIndexDict As Scr
         End If
         
         Dim IsSelected As Boolean
-        IsSelected = SelectEdgeWithSelectData(swBodyEdge, swView, swDrawing, XPos, YPos)
+        IsSelected = SelectEdgeWithSelectData(swBodyEdge, swView, swDrawing, xPos, YPos)
 
         If IsSelected Then
             
@@ -2507,7 +2774,7 @@ End Function
 
 
 Private Function SelectAndAddDimension(swEnt1 As SldWorks.Entity, swEnt2 As SldWorks.Entity, swDrawing As SldWorks.ModelDoc2, _
-            XPos As Double, YPos As Double, swView As SldWorks.View, Optional IsDual As Boolean = True) As SldWorks.DisplayDimension
+            xPos As Double, YPos As Double, swView As SldWorks.View, Optional IsDual As Boolean = True) As SldWorks.DisplayDimension
 
     If Not (swEnt1 Is Nothing) And Not (swEnt2 Is Nothing) Then
 
@@ -2516,7 +2783,7 @@ Private Function SelectAndAddDimension(swEnt1 As SldWorks.Entity, swEnt2 As SldW
         swView.SelectEntity swEnt1, False
         swView.SelectEntity swEnt2, True
 
-        Set SelectAndAddDimension = swDrawing.AddDimension2(XPos, YPos, 0)
+        Set SelectAndAddDimension = swDrawing.AddDimension2(xPos, YPos, 0)
 
         If Not SelectAndAddDimension Is Nothing Then
 
