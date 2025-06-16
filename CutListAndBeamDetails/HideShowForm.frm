@@ -20,7 +20,11 @@ Option Explicit
 Dim swSketchMgr As SldWorks.SketchManager
 Const BalloonWidth As Double = 0.0065
 Const SheetBorderTop As Double = 0.27030866
+Const SheetBorderLeft As Double = 0.01590679
+Const SheetBorderRight As Double = 0.41595679
 Dim compDict As Scripting.Dictionary
+Const HorizontalMaxDim As Double = 0.371
+Const VerticalMaxDim As Double = 0.1295
 
 Private Sub AddCompButton_Click()
 
@@ -174,6 +178,13 @@ Private Function GetOppositeVector(Dir As Variant) As Double()
     
 End Function
 
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+
+    Unload DrawingForm
+
+End Sub
+
+
 Private Sub CreateButton_Click()
  
     Me.Hide
@@ -283,7 +294,7 @@ Private Sub CreateButton_Click()
     
     Dim swTopEdge As SldWorks.Edge
     Dim swBottomEdge As SldWorks.Edge
-    Call AddDiagonalDimensionAndNote(swDrawing, swTopView, swBottomBeam, swBottomEdge, swTopBeam, swTopEdge)
+    
     
     Dim VerticalSubWeldmentList As IArrListObject
     Set VerticalSubWeldmentList = GetSubWeldmentList(visibleVerticalMinList)
@@ -317,39 +328,36 @@ Private Sub CreateButton_Click()
     Call AddNoteToView(swDrawing, "<FONT size=10PTS style=B>TOP VIEW", _
         (swBottomBeam.xMax + swBottomBeam.xMin) / 2, swBottomBeam.yMin - 0.025)
     
-    Call AddViewAndWeldTable(swFloorWeldment, swDrawing, swTopBeam.yMax + 0.02)
+    Dim FloorWeldComp As SldWorks.Component2
+    Set FloorWeldComp = swFloorWeldment
+    
+    Call AddViewAndWeldTable(FloorWeldComp, swDrawing, swTopBeam.yMax + 0.015)
     
     Dim SubWeldmentViewDict As Scripting.Dictionary
     Set SubWeldmentViewDict = New Scripting.Dictionary
     
-    'Call AddEllipseAndCreateDetailView(swDrawing, swTopView, VerticalSubWeldmentList, LegendAscii, IsAsciiMaxReached, SubWeldmentViewDict)
-    'Call AddEllipseAndCreateDetailView(swDrawing, swTopView, HorizontalSubWeldmentList, LegendAscii, IsAsciiMaxReached, SubWeldmentViewDict)
-    
-    Call EditTemplate(swDrawing, swDrawing.GetCurrentSheet, WeldmentNo)
+    Dim SubWeldBodyDict As Scripting.Dictionary
+    Set SubWeldBodyDict = New Scripting.Dictionary
     
     Dim IsSubWeldmentExists As Boolean
     IsSubWeldmentExists = False
     
-    Dim Bool As Boolean
+    Call AddEllipseAndCreateDetailView(swDrawing, swTopView, VerticalSubWeldmentList, LegendAscii, IsAsciiMaxReached, SubWeldmentViewDict, SubWeldBodyDict, IsSubWeldmentExists)
+    Call AddEllipseAndCreateDetailView(swDrawing, swTopView, HorizontalSubWeldmentList, LegendAscii, IsAsciiMaxReached, SubWeldmentViewDict, SubWeldBodyDict, IsSubWeldmentExists)
     
-    Dim swWeldmentSheet As SldWorks.Sheet
-    If VerticalSubWeldmentList.Count > 0 Or HorizontalSubWeldmentList.Count > 0 Then
+    Call EditTemplate(swDrawing, swDrawing.GetCurrentSheet, WeldmentNo)
     
-        Dim vScaleRatio As Variant
-        vScaleRatio = swTopView.scaleRatio
-        
-        IsSubWeldmentExists = True
-        Bool = swDrawing.NewSheet3("Sheet2", 12, 12, vScaleRatio(0), vScaleRatio(1), False, "C:\FBD\COMMON\FBD Templates\METAL FAB DRAWING.slddrt", 0.4318, 0.2794, "Default")
-        
-        swDrawing.ActivateSheet "Sheet2"
-        Set swWeldmentSheet = swDrawing.Sheet("Sheet2")
-
-    End If
-
+    Call AddDiagonalDimensionAndNote(swDrawing, swTopView, swBottomBeam, swBottomEdge, swTopBeam, swTopEdge)
     Call AddStructuralNotes(swDrawing, IsSubWeldmentExists)
-    'Call SelectAndMoveDrawingViews(swDrawing, SubWeldmentViewDict, swWeldmentSheet)
     
     Call SetHiddenEdgesVisibleAndRemoveTangentEdges(swTopView, swDrawing)
+
+    Dim swWeldmentSheet As SldWorks.Sheet
+    Set swWeldmentSheet = CreateSheetAndMoveDrawingViews(swDrawing, SubWeldmentViewDict, SubWeldBodyDict)
+    
+    
+    
+
     
 
 '    Dim ConsolidatedVerticalBeamList As Scripting.Dictionary
@@ -362,127 +370,9 @@ Private Sub CreateButton_Click()
 '
 '    Call FindAndAddSubWeldments(ConsolidatedHorizontalBeamList, VerticalWeldBodyList.Clone, "yMin")
     
-    
-    Debug.Print ""
-'
 
-'
-'    Dim VerticalSubWeldmentDict As Scripting.Dictionary
-'    Set VerticalSubWeldmentDict = GetSubWeldmentDict(VerticalBeamList, HorizontalWeldBodyList)
-
-    'Debug.Print WeldBodyList.Count
-
-'    Dim FlatCompList As Variant
-'    Dim DetailedCompList As Variant
-'    Dim MaxCompHeight As Double
-'    DetailedCompList = GetComponentsSortedWithXPosition(CompList.Items, FlatCompList, swFrontView, MaxCompHeight)
-'
-'    Dim vConsolidatedList As Variant
-'
-'    Dim DoorOrHVACList As IArrListObject
-'    Set DoorOrHVACList = New IArrListObject
-'
-'    vConsolidatedList = GetConsolidatedList(DetailedCompList, DoorOrHVACList)
-'
-'    Set zChannelList = GetChannelCompsWithPos(zChannelList, swFrontView)
-'    Set cChannelList = GetChannelCompsWithPos(cChannelList, swFrontView)
-'    Set lAngleList = GetChannelCompsWithPos(lAngleList, swFrontView)
-'
-'    Call CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList, zChannelList, True)
-'    Call CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList, cChannelList)
-'    Call CheckAndAddChannelsToDoorOrHVACList(DoorOrHVACList, lAngleList, IsLAngle:=True)
-'
-'    swDrawing.ActivateView swFrontView.Name
-'
-'    Dim IsMakeUpExists As Boolean
-'    Dim subAssyCompDict As Scripting.Dictionary
-'    Set subAssyCompDict = AddSubAssyComponentsToDictionary(subAssyEndComponents)
-'
-
-'
-'    Call AddCallouts(vConsolidatedList, swDrawing, swFrontView, MaxCompHeight, IsMakeUpExists, subAssyCompDict)
-'
-'    Dim Is12GAPanelExists As Boolean
-'    Dim IsAllPanels12GA As Boolean
-'    Is12GAPanelExists = Add12GACircles(FlatCompList, swDrawing, swBottomView, wallName, IsAllPanels12GA)
-'
-'    Call UpdateBottomViewPosition(FlatCompList, swDrawing, swBottomView)
-'
-'    Dim swLeftEdge As SldWorks.Edge
-'    Dim swRightEdge As SldWorks.Edge
-'
-'    Dim swBottomEdge As SldWorks.Edge
-'    Set swBottomEdge = AddDimensionInFrontView(swFrontView, FlatCompList, DetailedCompList, MaxHeightComp, swDrawing, swLeftEdge, swRightEdge)
-'
-'    Dim FlatCompDict As Scripting.Dictionary
-'    Dim CompNoDict As New Scripting.Dictionary
-'    Set FlatCompDict = GetCompDictionary(FlatCompList, CompNoDict)
-'
-'    Dim subAssylist As IArrListObject
-'    Set subAssylist = New IArrListObject
-'
-'    If Not IsEmpty(subAssyEndComponents) Then
-'
-'        Dim vSubAssyComponentsIdx As Variant
-'        vSubAssyComponentsIdx = GetSubAssyComponentsIndexSorted(subAssyEndComponents, CompNoDict)
-'
-'        Set subAssylist = AddSplitLines(vSubAssyComponentsIdx, swDrawing, swFrontView, FlatCompDict, CompNoDict, True, swLeftEdge, swRightEdge, False)
-'        Call AddSplitLines(vSubAssyComponentsIdx, swDrawing, swBottomView, FlatCompDict, CompNoDict, False, swLeftEdge, swRightEdge)
-'
-'        Call CheckAndAddDoorOrHVACAssy(subAssylist, DoorOrHVACList, CompNoDict)
-'
-'
-'    End If
-'
-'    Dim oSubAssy As ISubAssy
-'    Set oSubAssy = New ISubAssy
-'
-'    Set oSubAssy.StartComp = FlatCompDict.Items(0)
-'    Set oSubAssy.EndComp = FlatCompDict.Items(UBound(FlatCompDict.Items))
-'    Set oSubAssy.StartEdge = swLeftEdge
-'    Set oSubAssy.EndEdge = swRightEdge
-'    Set oSubAssy.BottomEdge = swBottomEdge
-'
-'    oSubAssy.StartIdx = 0
-'    oSubAssy.EndIdx = UBound(FlatCompDict.Items)
-'    Call oSubAssy.AddDoororHVACList(DoorOrHVACList)
-'
-'    subAssylist.AddtoList oSubAssy
-'
-'    Dim Countourlist As IArrListObject
-'    Set Countourlist = AddCrossMarkForAssyCuts(FlatCompDict.Items, swFrontView, swDrawing, oSubAssy)
-'
-'    Call AddCrossMarkForDoor(oSubAssy, swFrontView, swDrawing)
-'
-'    Dim UniqueHVACDict As Scripting.Dictionary
-'    Set UniqueHVACDict = AddCrossMarkForHVAC(oSubAssy, swFrontView, swDrawing)
-'
-'    Dim NoteCount As Integer
-'    Dim AssyNoteNo As Integer
-
-'
-'    Dim IsSectionViewNeeded As Boolean
-'    IsSectionViewNeeded = False
-'    Dim GapForSection As Double
-'
-'    If oSubAssy.GetWidth <= (15.75 - 2.5 * (UBound(UniqueHVACDict.Items) + 1)) * 0.0254 Then
-'
-'        IsSectionViewNeeded = True
-'        GapForSection = (15.75 * 0.0254 - oSubAssy.GetWidth) / 2
-'
-'    End If
-'
-'    Dim MaxClearance As Double
-'    Call AddDimensionsForDoororHVACInEachSubAssy(subAssylist, swDrawing, swFrontView, MaxClearance, IsSectionViewNeeded)
-'    Call AddDimensionNames(subAssylist, wallName, swFrontView)
-'    Call AddVerticalDimensionsForDoor(oSubAssy.GetDoorAssemblies, swFrontView, swDrawing, NoteCount)
-'
-'    Call AddVerticalDimensionsForHVAC(UniqueHVACDict.Items, swFrontView, swDrawing, oSubAssy, IsSectionViewNeeded, GapForSection)
-'
-'    Call SketchLineForNonCornerPanels(swFrontView, wallName, swDrawing, oSubAssy, NoteCount, swBottomEdge, MaxClearance)
-'    Call CleanUpActivateAndAddViewLabel(swDrawing, swFrontView, wallName, oSubAssy.StartComp.yMin - MaxClearance - 0.0075, (oSubAssy.StartComp.xMin + oSubAssy.EndComp.xMax) / 2)
-'
-'    Call UpdateFrontViewPosition(FlatCompDict.Items, swDrawing, swFrontView)
+    Set oFloorComp = Nothing
+    Set swFloorWeldment = Nothing
 
     swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, True
     
@@ -526,23 +416,10 @@ Private Sub AddViewAndWeldTable(swComp As SldWorks.Component2, swDrawing As SldW
 End Sub
 Private Sub SplitTableIfNeeded(swTableAnn As SldWorks.TableAnnotation, ViewMaxLoc As Double)
     
-    
-    
-'    Const SingleTextWidth = 0.002
-'
-'    Dim DescColWidth As Double
-'    DescColWidth = swTableAnn.GetColumnWidth(2)
-    
-'    If DescColWidth < SingleTextWidth * Len(swTableAnn.Text(1, 2)) Then
-'
-'        swTableAnn.SetColumnWidth 2, SingleTextWidth * Len(swTableAnn.Text(1, 2)), swTableRowColSizeChangeBehavior_e.swTableRowColChange_TableSizeCanChange
-        
-        Dim TableWidth As Double
-        TableWidth = setandGetColumnWidth(swTableAnn)
-        
-'
-'    End If
-    
+
+    Dim TableWidth As Double
+    TableWidth = setandGetColumnWidth(swTableAnn)
+
     Dim rowHeight As Double
     rowHeight = swTableAnn.GetRowHeight(0)
     Debug.Print swTableAnn.Text(1, 2)
@@ -698,13 +575,13 @@ Private Sub AddSeeNote2Circle(swDrawing As SldWorks.DrawingDoc, swView As SldWor
     If IsTop Then
         
         vShEndPt(1) = oBeam.yMax
-        vShCenterPt(1) = vShCenterPt(1) - 1.75 * 0.0254 * swView.ScaleDecimal
+        vShCenterPt(1) = vShCenterPt(1) - 1.75 * 0.0254 * swView.scaleDecimal
         YClearnace = -0.005
         
     Else
     
         vShEndPt(1) = oBeam.yMin
-        vShCenterPt(1) = vShCenterPt(1) + 1.75 * 0.0254 * swView.ScaleDecimal
+        vShCenterPt(1) = vShCenterPt(1) + 1.75 * 0.0254 * swView.scaleDecimal
          YClearnace = 0.0075
     
     End If
@@ -723,12 +600,12 @@ Private Sub AddSeeNote2Circle(swDrawing As SldWorks.DrawingDoc, swView As SldWor
     swSketchSegment.ConstructionGeometry = True
     
     Dim Bool As Boolean
-    Bool = swDrawing.Extension.SelectByID2("Arc" & swSketchSegment.GetID(1), "SKETCHSEGMENT", vShCenterPt(0) + radius * swView.ScaleDecimal, _
+    Bool = swDrawing.Extension.SelectByID2("Arc" & swSketchSegment.GetID(1), "SKETCHSEGMENT", vShCenterPt(0) + radius * swView.scaleDecimal, _
             vShCenterPt(1), 0, False, 0, Nothing, 0)
             
     If Bool Then
     
-        Call AddNoteToView(swDrawing, "SEE NOTE 2", vShCenterPt(0) + radius * swView.ScaleDecimal + 0.00625, vShCenterPt(1) + YClearnace)
+        Call AddNoteToView(swDrawing, "SEE NOTE 2", vShCenterPt(0) + radius * swView.scaleDecimal + 0.00625, vShCenterPt(1) + YClearnace)
     
     End If
     
@@ -1180,34 +1057,178 @@ Private Sub CheckAndAddConnectingPlate(oWeldBody As IWeldBody, vPlates As Varian
 
 End Sub
 
-Private Sub SelectAndMoveDrawingViews(swDrawing As SldWorks.DrawingDoc, Dict As Scripting.Dictionary, swSheet As SldWorks.Sheet)
+Private Function CreateSheetAndMoveDrawingViews(swDrawing As SldWorks.DrawingDoc, ViewDict As Scripting.Dictionary, BodyDict As Scripting.Dictionary) As SldWorks.Sheet
     
     swDrawing.ClearSelection2 True
-    If Dict.Count > 0 Then
+    If ViewDict.Count > 0 Then
     
-        Dim vItems As Variant
-        vItems = Dict.Items
+        Dim VerticalHeight As Double
+        VerticalHeight = 0.2
         
+        Dim vKeys As Variant
+        vKeys = ViewDict.Keys
+        
+        Dim SheetScaleVal As Double
+        SheetScaleVal = 1
+
         Dim i As Integer
-        For i = LBound(vItems) To UBound(vItems)
+        For i = LBound(vKeys) To UBound(vKeys)
         
             Dim swView As SldWorks.View
-            Set swView = vItems(i)
+            Set swView = ViewDict.Item(vKeys(i))
+                
+            Dim oBody As IWeldBody
+            Set oBody = BodyDict.Item(vKeys(i))
+                
+            Dim TempScale As Integer
+            If oBody.IsVertical Then
+                
+                TempScale = GetScaleValue((oBody.yMax - oBody.yMin) / (swView.scaleDecimal * VerticalHeight))
+                    
+            Else
+                
+                TempScale = GetScaleValue((oBody.xMax - oBody.xMin) / (swView.scaleDecimal * HorizontalMaxDim))
+                    
+            End If
+    
+                
+            If TempScale > SheetScaleVal Then
+                
+                SheetScaleVal = TempScale
+                    
+            End If
             
             swDrawing.Extension.SelectByID2 swView.Name, "DRAWINGVIEW", 0, 0, 0, True, -1, Nothing, 0
         
         Next i
-        
+
         swDrawing.EditCut
+        
+        Dim Bool As Boolean
+        Bool = swDrawing.NewSheet3("Sheet2", 12, 12, 1, SheetScaleVal, False, "C:\FBD\COMMON\FBD Templates\METAL FAB DRAWING.slddrt", 0.4318, 0.2794, "Default")
+        
+        Dim swSheet As SldWorks.Sheet
+        Set swSheet = swDrawing.Sheet("Sheet2")
+        
         swDrawing.ActivateSheet swSheet.GetName
         swDrawing.Extension.SelectByID2 swSheet.GetName, "SHEET", 0, 0, 0, False, 0, Nothing, 0
         
         swApp.RunCommand swCommands_e.swCommands_Paste, "Paste Views"
         
+        Call UpdateSubWeldmentViewScale(swDrawing, ViewDict, BodyDict, swSheet)
+        Call UpdateSubWeldmentVerticalViewPosition(swDrawing, ViewDict, BodyDict, swSheet)
         
+        Set CreateSheetAndMoveDrawingViews = swSheet
+
     End If
     
+End Function
+
+Sub UpdateSubWeldmentVerticalViewPosition(swDrawing As SldWorks.DrawingDoc, ViewDict As Scripting.Dictionary, _
+            BodyDict As Scripting.Dictionary, swSheet As SldWorks.Sheet)
+    
+    Dim vKeys As Variant
+    vKeys = ViewDict.Keys
+    
+    Dim LeftPos As Double
+    LeftPos = SheetBorderLeft + 0.01
+    
+    Dim RightPos As Double
+    
+    Dim viewXPos As Double
+
+    Dim i As Integer
+    For i = LBound(vKeys) To UBound(vKeys)
+
+        Dim swView As SldWorks.View
+        Set swView = ViewDict.Item(vKeys(i))
+        
+        Dim vOutline As Variant
+        vOutline = swView.GetOutline
+        
+        Dim oBody As IWeldBody
+        Set oBody = BodyDict.Item(vKeys(i))
+        
+        If oBody.IsVertical Then
+            
+           If oBody.AfterSubWeldments.Count > 0 And oBody.BeforeSubWeldments.Count > 0 Then
+            
+                RightPos = LeftPos + (vOutline(2) - vOutline(0)) + 0.02
+                
+            Else
+            
+                RightPos = LeftPos + (vOutline(2) - vOutline(0)) + 0.01
+                
+            End If
+            
+            Dim vPosition  As Variant
+            vPosition = swView.Position
+            
+            vPosition(0) = vPosition(0) + (LeftPos - vOutline(0))
+            vPosition(1) = 0.15847919
+                
+            LeftPos = RightPos + 0.01
+            
+            swView.Position = vPosition
+
+        End If
+        
+        
+
+    Next i
+    
+    Dim Bool As Boolean
+    Bool = swDrawing.Extension.Rebuild(swRebuildOptions_e.swCurrentSheetDisp)
+
 End Sub
+
+
+Sub UpdateSubWeldmentViewScale(swDrawing As SldWorks.DrawingDoc, ViewDict As Scripting.Dictionary, _
+            BodyDict As Scripting.Dictionary, swSheet As SldWorks.Sheet)
+    
+    Dim vKeys As Variant
+    vKeys = ViewDict.Keys
+
+    Dim i As Integer
+    For i = LBound(vKeys) To UBound(vKeys)
+    
+        Dim swView As SldWorks.View
+        Set swView = GetViewInASheetByName(swSheet, CStr(vKeys(i)))
+
+        swView.UseSheetScale = 1
+        
+        Set ViewDict.Item(vKeys(i)) = swView
+
+    Next i
+    
+    Dim Bool As Boolean
+    Bool = swDrawing.Extension.Rebuild(swRebuildOptions_e.swCurrentSheetDisp)
+
+End Sub
+
+Function GetViewInASheetByName(swSheet As SldWorks.Sheet, ViewName As String) As SldWorks.View
+
+    Dim vViews As Variant
+    vViews = swSheet.GetViews
+    
+    Dim i As Integer
+    For i = LBound(vViews) To UBound(vViews)
+    
+        Dim swView As SldWorks.View
+        Set swView = vViews(i)
+        
+        If swView.Name = ViewName Then
+            
+            Set GetViewInASheetByName = swView
+            Exit For
+            
+        End If
+    
+    Next i
+
+End Function
+
+
 
 Function GetSubWeldmentList(ArrList As IArrListObject) As IArrListObject
 
@@ -1237,7 +1258,8 @@ Function GetSubWeldmentList(ArrList As IArrListObject) As IArrListObject
 End Function
 
 Sub AddEllipseAndCreateDetailView(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, ArrList As IArrListObject, _
-    ByRef LegendAscii As Long, ByRef IsAsciiMaxReached As Boolean, ByRef Dict As Scripting.Dictionary)
+    ByRef LegendAscii As Long, ByRef IsAsciiMaxReached As Boolean, ByRef ViewDict As Scripting.Dictionary, _
+    ByRef BodyDict As Scripting.Dictionary, ByRef IsSubWeldmentExists As Boolean)
     
     Dim scaleRatio As Variant
     scaleRatio = swView.scaleRatio
@@ -1303,8 +1325,22 @@ Sub AddEllipseAndCreateDetailView(swDrawing As SldWorks.DrawingDoc, swView As Sl
                 Set swDetailView = swDrawing.CreateDetailViewAt3((oWeldBody.xMin + oWeldBody.xMax) / 2, ((oWeldBody.yMin + oWeldBody.yMax) / 2) - 11 * 0.0254, 0, 2, scaleRatio(0), scaleRatio(1), UCase(Chr(LegendAscii)), 0, False)
                 
                 If Not swDetailView Is Nothing Then
+                    
+                    swDetailView.UseSheetScale = 1
                 
-                    Dict.Add oWeldBody.GetBody.Name, swDetailView
+                    Dim swDetailCircle As SldWorks.DetailCircle
+                    Set swDetailCircle = swDetailView.GetDetail
+                    
+                    swDetailCircle.Layer = "FORMAT"
+                    
+                    If False = IsSubWeldmentExists Then
+                        
+                        IsSubWeldmentExists = True
+                    
+                    End If
+                    
+                    ViewDict.Add swDetailView.Name, swDetailView 'oWeldBody.GetBody.Name
+                    BodyDict.Add swDetailView.Name, oWeldBody
                     
                 End If
                 
@@ -1353,10 +1389,12 @@ Sub AddDiagonalDimensionAndNote(swDrawing As SldWorks.DrawingDoc, swView As SldW
     If Not swDisplayDim Is Nothing Then
         
         Dim Note As String
-        Note = "DIAGONAL DIMENSION:" & Chr(34) & swDisplayDim.GetDimension2(0).Name & "@" & swView.Name & Chr(34)
+        Note = "<FONT size=8PTS style=R>DIAGONAL DIMENSION:" & Chr(34) & swDisplayDim.GetDimension2(0).Name & "@" & swView.Name & Chr(34)
         
         Dim swNote As SldWorks.Note
-        Set swNote = swDrawing.CreateText2(Note, 1.99241243641486E-02, 6.52464210842187E-02, 0, 0, 0)
+        Set swNote = swDrawing.CreateText2(Note, 1.99241243641486E-02, 7.52464210842187E-02, 0, 0, 0)
+        
+    
         
     End If
     
@@ -2420,186 +2458,6 @@ Function GetWeldBodyAttachedAfterThisBody(WeldBodyToCheck As IWeldBody, Dict As 
 End Function
 
 
-'Function SelectEdgeWithSelectData(swEdge As SldWorks.Edge, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc, _
-'                swComp As SldWorks.Component2, ByRef SelXPos As Double, ByRef SelYPos As Double, Optional PercentageFromStart As Double = 0.5) As Boolean
-'
-'    Dim swSelectMgr As SldWorks.SelectionMgr
-'    Set swSelectMgr = swDrawing.SelectionManager
-'
-'    Dim swSelectData As SldWorks.SelectData
-'    Set swSelectData = swSelectMgr.CreateSelectData
-'
-'    Dim vStartPoint As Variant
-'    vStartPoint = swEdge.GetStartVertex.GetPoint
-'    vStartPoint = GetComponentPointInSheetSpace(swComp, vStartPoint, swView)
-'
-'    Dim vEndPoint As Variant
-'    vEndPoint = swEdge.GetEndVertex.GetPoint
-'    vEndPoint = GetComponentPointInSheetSpace(swComp, vEndPoint, swView)
-'
-'    Dim swMathStartPoint As SldWorks.MathPoint
-'    Set swMathStartPoint = swMathUtility.CreatePoint(vStartPoint)
-'
-'    Dim swMathEndPoint As SldWorks.MathPoint
-'    Set swMathEndPoint = swMathUtility.CreatePoint(vEndPoint)
-'
-'    Dim swPosVector As SldWorks.MathVector
-'    Set swPosVector = swMathEndPoint.Subtract(swMathStartPoint)
-'
-'    Set swMathStartPoint = swMathStartPoint.AddVector(swPosVector.Scale(PercentageFromStart))
-'
-'    SelXPos = swMathStartPoint.ArrayData(0)
-'    SelYPos = swMathStartPoint.ArrayData(1)
-'
-'    swSelectData.View = swView
-'    swSelectData.X = SelXPos '(vStartPoint(0) + vEndPoint(0)) / 2
-'    swSelectData.Y = SelYPos 'vStartPoint(1)
-'
-'    Dim swEntity As SldWorks.Entity
-'    Set swEntity = swEdge
-'
-'    SelectEdgeWithSelectData = swEntity.Select4(False, swSelectData)
-'
-'End Function
-'
-'Sub AddQtyToDimension(swDisplayDim As SldWorks.DisplayDimension, Qty As Integer)
-'
-'    If Qty > 1 Then
-'
-'        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextPrefix, Qty & "X "
-'
-'    End If
-'
-'End Sub
-'
-'Sub AddCrossMarkForDoor(oSubAssy As ISubAssy, swView As SldWorks.View, _
-'                swDrawing As SldWorks.DrawingDoc)
-'
-'    Dim vDoorAssy As Variant
-'    vDoorAssy = oSubAssy.GetDoorAssemblies
-'
-'    If Not IsEmpty(vDoorAssy) Then
-'
-'        swDrawing.ActivateSheet swDrawing.GetCurrentSheet.GetName
-'        swDrawing.ActivateView swView.Name
-'
-'        swView.FocusLocked = True
-'
-'        Dim i As Integer
-'        For i = LBound(vDoorAssy) To UBound(vDoorAssy)
-'
-'            Dim oDoorAssy As IDoorOrHVACAssy
-'            Set oDoorAssy = vDoorAssy(i)
-'
-'            If oDoorAssy.cChannelCompList.Count = 1 Then
-'
-'                Dim DoorLeftEdge As SldWorks.Edge
-'                Set DoorLeftEdge = GetEdgeInView(oDoorAssy.StartComp, swView, False, True)
-'
-'                Dim DoorRightEdge As SldWorks.Edge
-'                Set DoorRightEdge = GetEdgeInView(oDoorAssy.EndComp, swView, False, False)
-'
-'                Dim DoorBottomEdge As SldWorks.Edge
-'                Set DoorBottomEdge = GetEdgeInView(oDoorAssy.StartComp, swView, True, False)
-'
-'                Dim cChannelComp As IComp
-'                Set cChannelComp = oDoorAssy.cChannelCompList.Items(0)
-'
-'                Dim DoorTopEdge As SldWorks.Edge
-'                Set DoorTopEdge = GetEdgeInView(cChannelComp, swView, True, False)
-'
-'                Dim LowerLeftPoint(2) As Double
-'                LowerLeftPoint(0) = oDoorAssy.StartComp.xMax
-'                LowerLeftPoint(1) = oDoorAssy.StartComp.yMin
-'                LowerLeftPoint(2) = 0
-'
-'                Dim vLowerLeftPoint As Variant
-'                vLowerLeftPoint = GetSheetPointInViewSpace(swView, LowerLeftPoint)
-'
-'                Dim LowerRightPoint(2) As Double
-'                LowerRightPoint(0) = oDoorAssy.EndComp.xMin
-'                LowerRightPoint(1) = oDoorAssy.StartComp.yMin
-'                LowerRightPoint(2) = 0
-'
-'                Dim vLowerRightPoint As Variant
-'                vLowerRightPoint = GetSheetPointInViewSpace(swView, LowerRightPoint)
-'
-'                Dim UpperLeftPoint(2) As Double
-'                UpperLeftPoint(0) = oDoorAssy.StartComp.xMax
-'                UpperLeftPoint(1) = cChannelComp.yMin
-'                UpperLeftPoint(2) = 0
-'
-'                Dim vUpperLeftPoint As Variant
-'                vUpperLeftPoint = GetSheetPointInViewSpace(swView, UpperLeftPoint)
-'
-'                Dim UpperRightPoint(2) As Double
-'                UpperRightPoint(0) = oDoorAssy.EndComp.xMin
-'                UpperRightPoint(1) = cChannelComp.yMin
-'                UpperRightPoint(2) = 0
-'
-'                Dim vUpperRightPoint As Variant
-'                vUpperRightPoint = GetSheetPointInViewSpace(swView, UpperRightPoint)
-'
-'                Dim swSketchManager As SldWorks.SketchManager
-'                Set swSketchManager = swDrawing.SketchManager
-'
-'                Call CreateSketchSegmentAndAddRelation(swSketchManager, swDrawing, swView, vLowerLeftPoint, vUpperRightPoint, DoorLeftEdge, DoorRightEdge, DoorBottomEdge, DoorTopEdge)
-'                Call CreateSketchSegmentAndAddRelation(swSketchManager, swDrawing, swView, vLowerRightPoint, vUpperLeftPoint, DoorRightEdge, DoorLeftEdge, DoorBottomEdge, DoorTopEdge)
-'
-'            End If
-'
-'        Next i
-'
-'    End If
-'
-'End Sub
-'
-
-'
-'Sub CreateSketchSegmentAndAddRelation(swSketchManager, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, FirstPoint As Variant, SecondPoint As Variant, FirstPtVerticalEdge As SldWorks.Edge, _
-'                SecondPtVerticalEdge As SldWorks.Edge, FirstPtHorEdge As SldWorks.Edge, SecondPtHorEdge As SldWorks.Edge)
-'
-'
-'
-'    Dim swSketchSegment As SketchSegment
-'    Set swSketchSegment = swSketchManager.CreateLine(FirstPoint(0), FirstPoint(1), FirstPoint(2), _
-'                        SecondPoint(0), SecondPoint(1), SecondPoint(2))
-'    swSketchSegment.ConstructionGeometry = True
-'
-'    If Not swSketchSegment Is Nothing Then
-'
-'        Dim swSketchLine As SldWorks.sketchLine
-'        Set swSketchLine = swSketchSegment
-'
-'        Dim swFirstPoint As SldWorks.sketchPoint
-'        Set swFirstPoint = swSketchLine.GetStartPoint2
-'
-'        Call AddCoincidentRelationbwPointAndEdge(FirstPtVerticalEdge, swFirstPoint, swDrawing, swView)
-'        Call AddCoincidentRelationbwPointAndEdge(FirstPtHorEdge, swFirstPoint, swDrawing, swView)
-'
-'
-'        Dim swSecondPoint As SldWorks.sketchPoint
-'        Set swSecondPoint = swSketchLine.GetEndPoint2
-'
-'        Call AddCoincidentRelationbwPointAndEdge(SecondPtVerticalEdge, swSecondPoint, swDrawing, swView)
-'        Call AddCoincidentRelationbwPointAndEdge(SecondPtHorEdge, swSecondPoint, swDrawing, swView)
-'
-'    End If
-'
-'End Sub
-'
-'Sub AddCoincidentRelationbwPointAndEdge(swEdge As SldWorks.Edge, swSketchPoint As SldWorks.sketchPoint, _
-'        swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
-'
-'    swView.SelectEntity swEdge, False
-'    swSketchPoint.Select4 True, Nothing
-'
-'    swDrawing.SketchAddConstraints "sgCOINCIDENT"
-'
-'
-'End Sub
-
-'
 
 '
 'Private Sub UpdateFrontViewPosition(vComps As Variant, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
@@ -2658,139 +2516,6 @@ End Function
 'End Sub
 '
 
-'Private Sub AddOverallDimension(oSubAssy As ISubAssy, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, Clearance As Double)
-'
-'    Dim swDisplayDim As SldWorks.DisplayDimension
-'    Set swDisplayDim = SelectAndAddDimension(oSubAssy.StartEdge, oSubAssy.EndEdge, swDrawing, _
-'                oSubAssy.EndComp.xMin - 0.01, oSubAssy.EndComp.yMin - Clearance, swView)
-'    Set oSubAssy.Dimension = swDisplayDim
-'
-'End Sub
-'
-
-'
-'Private Function GetControlSketch() As SldWorks.Component2
-'
-'    Dim swTopLevelAssy As SldWorks.AssemblyDoc
-'    Set swTopLevelAssy = swTopLevelModel
-'
-'    Dim vComps As Variant
-'    vComps = swTopLevelAssy.GetComponents(True)
-'
-'    Dim i As Integer
-'    For i = LBound(vComps) To UBound(vComps)
-'
-'        Dim swComp As SldWorks.Component2
-'        Set swComp = vComps(i)
-'
-'        If InStr(swComp.Name2, "CONTROL") > 0 And InStr(swComp.Name2, "SKETCH") > 0 Then
-'
-'            Dim vBodies As Variant
-'            Dim vBodiesInfo As Variant
-'            vBodies = swComp.GetBodies3(swBodyType_e.swSolidBody, vBodiesInfo)
-'
-'            If IsEmpty(vBodies) Then
-'
-'                Set GetControlSketch = swComp
-'                Exit Function
-'
-'            End If
-'
-'
-'        End If
-'
-'    Next i
-'
-'End Function
-'
-'Private Sub AddSplitLineNote(swSketchSegment As SldWorks.sketchLine, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
-'            NoteText As String, Optional IsRight As Boolean = True, Optional ClearanceVal As Double = 0.005)
-'
-'
-'    Dim vPointInSheet As Variant
-'
-''    If InStr(NoteText, "SPLIT") > 0 Then
-'
-''        vPointInSheet = SelectSketchSegment(swSketchSegment, swDrawing, swView, False, False, 0)
-''
-''    Else
-''
-'        vPointInSheet = SelectSketchSegment(swSketchSegment, swDrawing, swView, False, False)
-'
-''    End If
-'
-'    If IsRight Then
-'
-'        Call AddNoteToView(swDrawing, NoteText, vPointInSheet(0) + ClearanceVal, vPointInSheet(1) + 0.00625)
-'
-'    Else
-'
-'        Call AddNoteToView(swDrawing, NoteText, vPointInSheet(0) - ClearanceVal, vPointInSheet(1) + 0.00625)
-'
-'    End If
-'
-'End Sub
-'
-
-'
-'Function GetSelectedComponents() As Variant
-'
-'    Dim swSelectionMgr As SldWorks.SelectionMgr
-'    Set swSelectionMgr = swTopLevelModel.SelectionManager
-'
-'    Dim compDict As Scripting.Dictionary
-'    Set compDict = New Scripting.Dictionary
-'
-'    If swSelectionMgr.GetSelectedObjectCount2(-1) > 0 Then
-'
-'        Dim i As Integer
-'        For i = 0 To swSelectionMgr.GetSelectedObjectCount2(-1) - 1
-'
-'            Dim swComp As SldWorks.Component2
-'            Set swComp = swSelectionMgr.GetSelectedObjectsComponent4(i + 1, -1)
-'
-'            If False = compDict.Exists(swComp.Name2) Then
-'
-'                compDict.Add swComp.Name2, swComp
-'
-'            End If
-'
-'        Next i
-'
-'    End If
-'
-'    If Not (compDict.Count = 0) Then
-'
-'        GetSelectedComponents = compDict.Items
-'
-'    End If
-'
-'End Function
-
-'Private Sub ActivateDrawingDocument(swModel As SldWorks.ModelDoc2)
-'
-'    Dim swFrame As SldWorks.Frame
-'    Set swFrame = swApp.Frame
-'
-'    Dim vModelWindows As Variant
-'    vModelWindows = swFrame.ModelWindows
-'
-'    Dim i As Integer
-'    For i = LBound(vModelWindows) To UBound(vModelWindows)
-'
-'        Dim swModelWindow As SldWorks.ModelWindow
-'        Set swModelWindow = vModelWindows(i)
-'
-'        If swModelWindow.Title = swModel.GetTitle Then
-'
-'            swModelWindow.Activate
-'            Exit Sub
-'
-'        End If
-'
-'    Next i
-'End Sub
-
 
 Private Function SelectAndAddDimension(swEnt1 As SldWorks.Entity, swEnt2 As SldWorks.Entity, swDrawing As SldWorks.ModelDoc2, _
             xPos As Double, YPos As Double, swView As SldWorks.View, Optional IsDual As Boolean = True) As SldWorks.DisplayDimension
@@ -2820,7 +2545,6 @@ Private Function SelectAndAddDimension(swEnt1 As SldWorks.Entity, swEnt2 As SldW
 
 End Function
 
-
 Private Function AddStructuralNotes(swDrawing As SldWorks.DrawingDoc, IsSubWeldmentExists As Boolean) As SldWorks.Note
     
     Dim swSheet As SldWorks.Sheet
@@ -2836,7 +2560,7 @@ Private Function AddStructuralNotes(swDrawing As SldWorks.DrawingDoc, IsSubWeldm
             "ALL BEAMS TO BE BOLTED TO THE FIRST FACE OF THE CONNECTING PLATES." & vbCrLf & _
             "2. CONNECTING PLATES AT " & Chr(34) & "D" & Chr(34) & " WALL ARE DIMENSIONED TO THE FIRST FACE OF CONNECTING PLATE." & vbCrLf & _
               Chr(34) & "D" & Chr(34) & " WALL PERIMETER BEAM TO BE BOLTED TO THE FAR FACE OF THE CONNECTING PLATES." & vbCrLf & _
-              "3. BEAM END TO END"
+              "3. BEAM END TO END."
 
     If IsSubWeldmentExists Then
     
@@ -2989,8 +2713,8 @@ Function RotateAndScaleView(swDrawing As SldWorks.DrawingDoc, swView As SldWorks
 
     Dim xScale As Integer
     Dim yScale As Integer
-    xScale = GetScaleValue(ViewWidth / (swView.ScaleDecimal * 0.371))
-    yScale = GetScaleValue(ViewHeight / (swView.ScaleDecimal * 0.1295)) '0.20995
+    xScale = GetScaleValue(ViewWidth / (swView.scaleDecimal * HorizontalMaxDim))
+    yScale = GetScaleValue(ViewHeight / (swView.scaleDecimal * VerticalMaxDim)) '0.20995
     
     Dim IsScaleSet As Boolean
     IsScaleSet = False
