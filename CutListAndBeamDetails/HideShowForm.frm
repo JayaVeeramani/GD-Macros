@@ -526,6 +526,8 @@ Private Sub AddViewAndWeldTable(swComp As SldWorks.Component2, swDrawing As SldW
 End Sub
 Private Sub SplitTableIfNeeded(swTableAnn As SldWorks.TableAnnotation, ViewMaxLoc As Double)
     
+    
+    
 '    Const SingleTextWidth = 0.002
 '
 '    Dim DescColWidth As Double
@@ -534,7 +536,10 @@ Private Sub SplitTableIfNeeded(swTableAnn As SldWorks.TableAnnotation, ViewMaxLo
 '    If DescColWidth < SingleTextWidth * Len(swTableAnn.Text(1, 2)) Then
 '
 '        swTableAnn.SetColumnWidth 2, SingleTextWidth * Len(swTableAnn.Text(1, 2)), swTableRowColSizeChangeBehavior_e.swTableRowColChange_TableSizeCanChange
-        swTableAnn.SetRowHeight swTableCellRangeIdentifier_e.swTableCellRange_All, 0.004, swTableRowColSizeChangeBehavior_e.swTableRowColChange_TableSizeCanChange
+        
+        Dim TableWidth As Double
+        TableWidth = setandGetColumnWidth(swTableAnn)
+        
 '
 '    End If
     
@@ -545,53 +550,63 @@ Private Sub SplitTableIfNeeded(swTableAnn As SldWorks.TableAnnotation, ViewMaxLo
     Dim ViewTopGap As Double
     ViewTopGap = SheetBorderTop - ViewMaxLoc - 0.01
     
-    Dim TableWidth As Double
-    TableWidth = GetTableWidth(swTableAnn)
     
-    If (TableWidth + 0.06) > 0.40005 Then
+    Dim i As Integer
+    Dim NoOfRows As Integer
+    NoOfRows = Int(ViewTopGap / rowHeight)
         
-        Dim i As Integer
-        Dim NoOfRows As Integer
-        NoOfRows = Int(ViewTopGap / rowHeight)
+    Dim MaxNoOfSplits As Integer
+    MaxNoOfSplits = Int((0.41595679 - 0.01590679) / TableWidth)
         
-        Dim MaxNoOfSplits As Integer
-        MaxNoOfSplits = Int((0.41595679 - 0.01590679) / TableWidth)
-        
-        If Int(swTableAnn.RowCount / NoOfRows) < MaxNoOfSplits Then
+    If Int(swTableAnn.RowCount / NoOfRows) < MaxNoOfSplits Then
             
-            MaxNoOfSplits = Int(swTableAnn.RowCount / NoOfRows)
+        MaxNoOfSplits = Int(swTableAnn.RowCount / NoOfRows)
             
-        Else
+    Else
             
-            NoOfRows = Int(swTableAnn.RowCount / (MaxNoOfSplits + 1)) + 1
+        NoOfRows = Int(swTableAnn.RowCount / (MaxNoOfSplits + 1)) + 1
             
-        End If
-        
-        If Abs(swTableAnn.RowCount - NoOfRows) > 2 Then
-        
-            For i = 1 To MaxNoOfSplits
-    
-                Set swTableAnn = swTableAnn.Split(swTableSplitLocations_e.swTableSplit_AfterRow, i * (NoOfRows - 1))
-                
-                If Not swTableAnn Is Nothing Then
-                
-                    Dim swAnn As SldWorks.Annotation
-                    Set swAnn = swTableAnn.GetAnnotation()
-                    
-                    swAnn.SetPosition2 0.01590679 + i * (TableWidth + 0.005), SheetBorderTop, 0
-                    
-                End If
-            
-            
-            Next i
-            
-        End If
-    
-    
     End If
+        
+    If Abs(swTableAnn.RowCount - NoOfRows) > 2 Then
+        
+        For i = 1 To MaxNoOfSplits
     
+            Set swTableAnn = swTableAnn.Split(swTableSplitLocations_e.swTableSplit_AfterRow, i * (NoOfRows - 1))
+                    
+            If Not swTableAnn Is Nothing Then
+                    
+                Dim swAnn As SldWorks.Annotation
+                Set swAnn = swTableAnn.GetAnnotation()
+                        
+                swAnn.SetPosition2 0.01590679 + i * (TableWidth + 0.005), SheetBorderTop, 0
+                        
+            End If
+ 
+        Next i
+            
+    End If
 
 End Sub
+
+Private Function setandGetColumnWidth(swTable As SldWorks.TableAnnotation) As Double
+    
+    setandGetColumnWidth = 0
+    swTable.SetRowHeight swTableCellRangeIdentifier_e.swTableCellRange_All, 0.004, _
+        swTableRowColSizeChangeBehavior_e.swTableRowColChange_TableSizeCanChange
+    Const SingleTextWidth = 0.0028
+    
+    Dim i As Integer
+    For i = 0 To swTable.ColumnCount - 1
+        
+        swTable.setColumnWidth i, SingleTextWidth * Len(swTable.Text(0, i)), _
+                swTableRowColSizeChangeBehavior_e.swTableRowColChange_TableSizeCanChange
+                
+        setandGetColumnWidth = setandGetColumnWidth + swTable.GetColumnWidth(i)
+        
+    Next i
+
+End Function
 Private Function GetColIdx(ColName As String, swTable As SldWorks.TableAnnotation)
 
     Dim i As Integer
@@ -614,6 +629,7 @@ Private Function GetTableWidth(swTable As SldWorks.TableAnnotation) As Double
     Dim i As Integer
     For i = 0 To swTable.ColumnCount - 1
         
+        Debug.Print swTable.GetColumnWidth(i)
         GetTableWidth = GetTableWidth + swTable.GetColumnWidth(i)
             
     Next i
@@ -638,6 +654,9 @@ Function EditTemplate(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Shee
     Boolstatus = swDrawing.Extension.SelectByID2("DetailItem1229@" & SheetFormatName, "NOTE", 0.355252206998469, 3.32049059009041E-02, 0, False, 0, Nothing, 0)
     Set swNote = swSelect.GetSelectedObject6(1, -1)
     swNote.SetText (WeldmentNo)
+    
+    Boolstatus = swDrawing.Extension.SelectByID2("DetailItem1262@" & SheetFormatName, "NOTE", 4.69556851111171E-02, 3.48062939323501E-02, 0, False, 0, Nothing, 0)
+    swDrawing.EditDelete
         
     swDrawing.EditSheet
     
