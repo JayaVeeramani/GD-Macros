@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 
 
 
+
 Option Explicit
 
 Dim swSketchMgr As SldWorks.SketchManager
@@ -327,13 +328,11 @@ Private Sub CreateButton_Click()
     
     swDrawing.ClearSelection2 True
     Call AddNoteToView(swDrawing, "<FONT size=10PTS style=B>TOP VIEW", _
-        (swBottomBeam.xMax + swBottomBeam.xMin) / 2, swBottomBeam.yMin - 0.025)
+        (swRightBeam.xMax + swLeftBeam.xMin) / 2, swBottomBeam.yMin - 0.025)
     
     Dim FloorWeldComp As SldWorks.Component2
     Set FloorWeldComp = swFloorWeldment
-    
-    Call AddViewAndWeldTable(FloorWeldComp, swDrawing, swTopBeam.yMax + 0.015)
-    
+
     Dim SubWeldmentViewDict As Scripting.Dictionary
     Set SubWeldmentViewDict = New Scripting.Dictionary
     
@@ -353,13 +352,18 @@ Private Sub CreateButton_Click()
     
     Call SetHiddenEdgesVisibleAndRemoveTangentEdges(swTopView, swDrawing)
 
+    Call UpdateTopViewPosition(swBottomBeam, swTopBeam, swLeftBeam, swRightBeam, swDrawing, swTopView)
+    
+    Call swDrawing.Extension.Rebuild(swRebuildOptions_e.swCurrentSheetDisp)
+    
+    Call swTopBeam.CheckForUpdateInMaxMinDimensions(swTopView)
+    Call AddViewAndWeldTable(FloorWeldComp, swDrawing, swTopBeam.yMax + 0.015)
+    
     Dim swWeldmentSheet As SldWorks.Sheet
     Set swWeldmentSheet = CreateSheetAndMoveDrawingViews(swDrawing, SubWeldmentViewDict, SubWeldBodyDict, WeldmentNo)
     
     Call InsertSketchBlock(swDrawing, swWeldmentSheet, ProjectNo)
 
-
-    
 
 '    Dim ConsolidatedVerticalBeamList As Scripting.Dictionary
 '    Set ConsolidatedVerticalBeamList = GetConsolidatedBeamListOnly(VerticalWeldBodyList, "xMin", "xMax")
@@ -381,6 +385,19 @@ Private Sub CreateButton_Click()
 
 End Sub
 
+Private Sub GetViewMaxMinPoints(oComp As IComp, swView As SldWorks.View, ByRef xMin As Double, _
+                ByRef xMax As Double, ByRef yMin As Double, ByRef yMax As Double)
+
+    Dim vViewMaxPt As Variant
+    vViewMaxPt = GetComponentPointInViewSpace(oComp.GetComponent, oComp.GetMaxPointInModel, swView)
+            
+    Dim vViewMinPt As Variant
+    vViewMinPt = GetComponentPointInViewSpace(oComp.GetComponent, oComp.GetMinPointInModel, swView)
+    
+    Call StrucutralElevation.GetMaxMinPoint(vViewMinPt(0), vViewMaxPt(0), xMin, xMax)
+    Call StrucutralElevation.GetMaxMinPoint(vViewMinPt(1), vViewMaxPt(1), yMin, yMax)
+    
+End Sub
 
 Private Sub AddViewAndWeldTable(swComp As SldWorks.Component2, swDrawing As SldWorks.DrawingDoc, ViewMaxLoc As Double)
 
@@ -664,13 +681,7 @@ End Sub
 
 Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
     IsHorizontal As Boolean, IsMax As Boolean, Optional CheckAllVisibleEdgesOnly As Boolean = True) As SldWorks.Edge
-    
-    If InStr(oComp.Name, 1080023) > 0 Then
-    
-        Debug.Print oComp.Name
-    
-    End If
-    
+  
     Dim xMin As Double
     Dim yMin As Double
     Dim xMax As Double
@@ -688,6 +699,8 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
     
     Call GetMaxMinPoint(vPointMin(0), vPointMax(0), xMin, xMax)
     Call GetMaxMinPoint(vPointMin(1), vPointMax(1), yMin, yMax)
+    
+    'Call GetViewMaxMinPoints(oComp, swView, xMin, xMax, yMin, yMax)
     
     Dim Idx As Integer
     Dim ValToMatch As Double
@@ -748,7 +761,7 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
             Set swEdge = vEnts(i)
             
             Dim IsSelected As Boolean
-            'IsSelected = SelectEntity(swEdge, False, swView)
+            '
             
             Dim swCurve As SldWorks.Curve
             Set swCurve = swEdge.GetCurve
@@ -764,8 +777,8 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
                 vEndPoint = GetComponentPointInSheetSpace(swComp, vEndPoint, swView)
   
                 
-                If Abs(vStartPoint(Idx) - vEndPoint(Idx)) <= 0.0001 And Abs(vStartPoint(Idx) - ValToMatch) <= 0.0001 And _
-                        Abs(vStartPoint(2) - vEndPoint(2)) <= 0.0001 Then
+                If Abs(vStartPoint(Idx) - vEndPoint(Idx)) <= 0.0015875 * swView.ScaleDecimal And Abs(vStartPoint(Idx) - ValToMatch) <= 0.0015875 * swView.ScaleDecimal And _
+                        Abs(vStartPoint(2) - vEndPoint(2)) <= 0.0015875 * swView.ScaleDecimal Then
                     
                     Dim vCurveParam As Variant
                     vCurveParam = swEdge.GetCurveParams2
@@ -774,6 +787,8 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
                         
                         TempLength = swCurve.GetLength2(vCurveParam(6), vCurveParam(7))
                         Set GetEdgeInView = swEdge
+                        
+                        'IsSelected = swView.SelectEntity(swEdge, False)
                         
                     End If
                     
@@ -1240,16 +1255,16 @@ Sub AddCalloutForSubWeldmentMainBody(oWeldBody As IWeldBody, swDrawing As SldWor
     
         Set swBodyEdge = GetEdgeInViewForBody(oWeldBody.GetComponent, oWeldBody, swView, False, True)
         xPos = oWeldBody.xMax
-        yPos = oWeldBody.yMin + 0.01
+        yPos = oWeldBody.yMin + 0.00625
         AnnXPos = xPos + 0.0075
-        AnnYPos = yPos
+        AnnYPos = yPos + 0.0027
         
     Else
         
         Set swBodyEdge = GetEdgeInViewForBody(oWeldBody.GetComponent, oWeldBody, swView, True, False)
-        xPos = oWeldBody.xMin + 0.01
+        xPos = oWeldBody.xMin + 0.00625
         yPos = oWeldBody.yMin
-        AnnXPos = xPos
+        AnnXPos = xPos - 0.001
         AnnYPos = yPos - 0.0075
         
     End If
@@ -1413,7 +1428,7 @@ Sub AddCalloutsForSubWeldment(vBodies As Variant, swDrawing As SldWorks.DrawingD
                 Else
                     
                     xPos = oWeldBody.xMax - PickPos
-                    AnnXPos = xPos - 0.0075
+                    AnnXPos = xPos - 0.006
                     
                 End If
                     
@@ -1676,7 +1691,12 @@ End Function
 
 Sub AddDiagonalDimensionAndNote(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, swBottomBeam As IWeldBody, ByRef swBottomEdge As SldWorks.Edge, _
     swTopBeam As IWeldBody, ByRef swTopEdge As SldWorks.Edge)
-
+    
+    Dim swSheet As SldWorks.Sheet
+    Set swSheet = swDrawing.GetCurrentSheet
+    
+    swDrawing.ActivateSheet swSheet.GetName
+    
     Dim MinVertex As SldWorks.Vertex
     Set MinVertex = GetVertexPoint(swView, swBottomBeam, False, "xMin", swBottomEdge)
 
@@ -2527,11 +2547,41 @@ Sub AddPerimeterBeamProperty(ArrList As IArrListObject, SortParamMin As String, 
     Set LastBeam = ArrList.Items(0)
     LastBeam.IsPerimeter = True
     
+    Call CheckForOtherPerimeterBeamsIfAny(SortParamMax, LastBeam, ArrList.Items)
+    
 
     ArrList.SortItems SortParamMin, False
     Set FirstBeam = ArrList.Items(0)
     FirstBeam.IsPerimeter = True
+    
+    Call CheckForOtherPerimeterBeamsIfAny(SortParamMin, FirstBeam, ArrList.Items)
 
+End Sub
+
+Private Sub CheckForOtherPerimeterBeamsIfAny(Param As String, PerimeterBeam As IWeldBody, vBeams As Variant)
+
+    Dim i As Integer
+    For i = LBound(vBeams) To UBound(vBeams)
+    
+        If Not i = 0 Then
+            
+            Dim oBeam As IWeldBody
+            Set oBeam = vBeams(i)
+        
+            If Abs(CallByName(PerimeterBeam, Param, VbGet) - CallByName(oBeam, Param, VbGet)) <= 0.0001 Then
+            
+                oBeam.IsPerimeter = True
+                
+            Else
+            
+                Exit For
+                
+            End If
+
+        End If
+    
+    Next i
+    
 End Sub
 
 Sub FindAndAddBeforeSubWeldments(Dict As Scripting.Dictionary, DictIndex As Scripting.Dictionary, ArrList As IArrListObject, Parameter As String)
@@ -2743,28 +2793,25 @@ Function GetWeldBodyAttachedAfterThisBody(WeldBodyToCheck As IWeldBody, Dict As 
 
 End Function
 
+Private Sub UpdateTopViewPosition(oBottomBody As IWeldBody, oTopBody As IWeldBody, _
+        oLeftBody As IWeldBody, oRightBody As IWeldBody, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
 
 
-'
-'Private Sub UpdateFrontViewPosition(vComps As Variant, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
-'
-'    Dim oStartComp As IComp
-'    Set oStartComp = vComps(0)
-'
-'    Dim oEndComp As IComp
-'    Set oEndComp = vComps(UBound(vComps))
-'
-'    Dim CenterX As Double
-'    CenterX = (oStartComp.xMin + oEndComp.xMax) / 2
-'
-'    Dim viewPosition As Variant
-'    viewPosition = swView.Position
-'
-'    viewPosition(0) = viewPosition(0) + (viewPosition(0) - CenterX)
-'
-'    swView.Position = viewPosition
-'
-'End Sub
+    Dim CenterX As Double
+    CenterX = (oLeftBody.xMin + oRightBody.xMax) / 2
+    
+    Dim CenterY As Double
+    CenterY = (oBottomBody.yMin + oTopBody.xMax) / 2
+
+    Dim viewPosition As Variant
+    viewPosition = swView.Position
+
+    viewPosition(0) = viewPosition(0) + (viewPosition(0) - CenterX)
+    viewPosition(1) = viewPosition(1) + (viewPosition(1) - CenterY)
+
+    swView.Position = viewPosition
+
+End Sub
 '
 
 '

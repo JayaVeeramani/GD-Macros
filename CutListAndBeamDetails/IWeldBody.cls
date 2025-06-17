@@ -40,6 +40,9 @@ Public IsPerimeter As Boolean
 Public BeforeBody As IWeldBody
 Public AfterBody As IWeldBody
 
+Private orgViewPosition As Variant
+Private orgScaleDecimal As Double
+
 
 Property Get Length() As Double
 
@@ -283,6 +286,9 @@ Sub Initialize(swComp As SldWorks.Component2, swBody As SldWorks.Body2, oCutlist
     Set cBody = swBody
     Set cView = swView
     Set cCutlist = oCutlist
+    
+    orgViewPosition = cView.Position
+    orgScaleDecimal = cView.ScaleDecimal
 
     Dim vBodyBounds As Variant
     vBodyBounds = swBody.GetBodyBox
@@ -343,6 +349,8 @@ Sub CheckForUpdateInMaxMinDimensions(swView As SldWorks.View)
         
         Call UpdateSheetMaxMinDimensions(swView)
         Set cView = swView
+        orgScaleDecimal = swView.ScaleDecimal
+        orgViewPosition = swView.Position
             
     End If
 
@@ -353,14 +361,11 @@ Private Function IsViewChanged(swView As SldWorks.View) As Boolean
     IsViewChanged = False
 
     If (swView.Name = cView.Name) Then
-        
-        Dim orgViewPosition As Variant
-        orgViewPosition = cView.Position
-        
+
         Dim actualViewPosition As Variant
         actualViewPosition = swView.Position
     
-        If Not (swView.ScaleDecimal = cView.ScaleDecimal) Or Not (orgViewPosition(0) = actualViewPosition(0)) _
+        If Not (swView.ScaleDecimal = orgScaleDecimal) Or Not (orgViewPosition(0) = actualViewPosition(0)) _
                 Or Not (orgViewPosition(1) = actualViewPosition(1)) Or Not (swView.Angle = cView.Angle) Then
 
             IsViewChanged = True
