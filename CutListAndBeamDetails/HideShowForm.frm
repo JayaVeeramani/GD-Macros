@@ -15,6 +15,7 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
 
+
 Option Explicit
 
 Dim swSketchMgr As SldWorks.SketchManager
@@ -1116,7 +1117,10 @@ Private Function CreateSheetAndMoveDrawingViews(swDrawing As SldWorks.DrawingDoc
         swApp.RunCommand swCommands_e.swCommands_Paste, "Paste Views"
         
         Call UpdateSubWeldmentViewScale(swDrawing, ViewDict, BodyDict, swSheet)
-        Call UpdateSubWeldmentVerticalViewPosition(swDrawing, ViewDict, BodyDict, swSheet)
+        
+        Dim EndPos As Double
+        Call UpdateSubWeldmentVerticalViewPosition(swDrawing, ViewDict, BodyDict, swSheet, EndPos)
+        Call UpdateSubWeldmentHorizontalViewPosition(swDrawing, ViewDict, BodyDict, swSheet, EndPos)
         
         Set CreateSheetAndMoveDrawingViews = swSheet
 
@@ -1125,17 +1129,14 @@ Private Function CreateSheetAndMoveDrawingViews(swDrawing As SldWorks.DrawingDoc
 End Function
 
 Sub UpdateSubWeldmentVerticalViewPosition(swDrawing As SldWorks.DrawingDoc, ViewDict As Scripting.Dictionary, _
-            BodyDict As Scripting.Dictionary, swSheet As SldWorks.Sheet)
+            BodyDict As Scripting.Dictionary, swSheet As SldWorks.Sheet, ByRef LeftPos As Double)
     
     Dim vKeys As Variant
     vKeys = ViewDict.Keys
     
-    Dim LeftPos As Double
     LeftPos = SheetBorderLeft + 0.01
     
     Dim RightPos As Double
-    
-    Dim viewXPos As Double
 
     Dim i As Integer
     For i = LBound(vKeys) To UBound(vKeys)
@@ -1165,20 +1166,68 @@ Sub UpdateSubWeldmentVerticalViewPosition(swDrawing As SldWorks.DrawingDoc, View
             vPosition = swView.Position
             
             vPosition(0) = vPosition(0) + (LeftPos - vOutline(0))
-            vPosition(1) = 0.15847919
+            vPosition(1) = vPosition(1) + 0.15847919 - ((vOutline(1) + vOutline(3)) / 2)
                 
             LeftPos = RightPos + 0.01
             
             swView.Position = vPosition
 
         End If
-        
-        
 
     Next i
     
-    Dim Bool As Boolean
-    Bool = swDrawing.Extension.Rebuild(swRebuildOptions_e.swCurrentSheetDisp)
+End Sub
+
+Sub UpdateSubWeldmentHorizontalViewPosition(swDrawing As SldWorks.DrawingDoc, ViewDict As Scripting.Dictionary, _
+            BodyDict As Scripting.Dictionary, swSheet As SldWorks.Sheet, EndPos As Double)
+    
+    Dim vKeys As Variant
+    vKeys = ViewDict.Keys
+    
+    Dim TopPos As Double
+    TopPos = SheetBorderTop - 0.01
+    
+    Dim BottomPos As Double
+    
+
+    Dim i As Integer
+    For i = LBound(vKeys) To UBound(vKeys)
+
+        Dim swView As SldWorks.View
+        Set swView = ViewDict.Item(vKeys(i))
+        
+        Dim vOutline As Variant
+        vOutline = swView.GetOutline
+        
+        Dim oBody As IWeldBody
+        Set oBody = BodyDict.Item(vKeys(i))
+        
+        If False = oBody.IsVertical Then
+            
+           If oBody.AfterSubWeldments.Count > 0 And oBody.BeforeSubWeldments.Count > 0 Then
+            
+                BottomPos = TopPos - (vOutline(3) - vOutline(1)) - 0.02
+                
+            Else
+            
+                BottomPos = TopPos - (vOutline(3) - vOutline(1)) - 0.01
+                
+            End If
+            
+            Dim vPosition  As Variant
+            vPosition = swView.Position
+            
+            vPosition(1) = vPosition(1) + (TopPos - vOutline(3))
+            vPosition(0) = vPosition(0) + ((EndPos + SheetBorderRight) / 2) - ((vOutline(0) + vOutline(2)) / 2)
+                
+            TopPos = BottomPos - 0.01
+            
+            swView.Position = vPosition
+
+        End If
+
+    Next i
+
 
 End Sub
 
