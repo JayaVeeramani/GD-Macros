@@ -138,14 +138,16 @@ Private Sub UpdateGaugeButton_Click()
             Set partDict = swAssyDoc.GetUniquePartDoc
             
         End If
-
+        
+        Dim AssyPathName As String
+        AssyPathName = swModel.GetPathName
                 
         Dim CheckedOutStdPartsList As Variant
-        CheckedOutStdPartsList = CheckOutStdPart(partDict.Keys)
+        CheckedOutStdPartsList = CheckOutStdPart(partDict.Keys, AssyPathName)
     
         If Not IsEmpty(CheckedOutStdPartsList) Then
                 
-            Call UpdateGauge(CheckedOutStdPartsList, swModel.GetPathName, Gauge)
+            Call UpdateGauge(CheckedOutStdPartsList, AssyPathName, Gauge)
     
         End If
         
@@ -212,7 +214,7 @@ Private Function GetProfileToIsolateFromList() As Object
     
 End Function
 
-Function CheckOutStdPart(PathList) As Variant
+Function CheckOutStdPart(PathList, AssyPathName As String) As Variant
 
     Dim checkedOutList As New IArrList
     
@@ -226,8 +228,6 @@ On Error Resume Next
         
     If Not VaultName = "" Then
     
-        Dim AssyPathName As String
-        AssyPathName = swModel.GetPathName
         swApp.CloseDoc AssyPathName
         
         Call CloseStdPartWindows(partDict.Keys)
