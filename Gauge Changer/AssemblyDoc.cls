@@ -10,34 +10,59 @@ Attribute VB_Exposed = False
 Option Explicit
 
 Private cAssy As IAssemblyDoc
+Private cConfig As SldWorks.Configuration
 
 Property Get GetUnderlyingObject() As IPartDoc
     GetUnderlyingObject = cAssy
 End Property
 
-Sub Initialize(swModelDoc As IModelDoc2)
-    Set cAssy = swModelDoc
+Property Get Configuration() As SldWorks.Configuration
+
+    Set Configuration = cConfig
     
-    cAssy.ResolveAllLightWeightComponents (False)
+End Property
+
+Property Get GetCurrentDs() As String
+
+    GetCurrentDs = cConfig.GetDisplayStates(0)
+    
+End Property
+
+Sub Initialize(swModelDoc As IModelDoc2)
+
+    Set cAssy = swModelDoc
+    Set cConfig = swModelDoc.GetActiveConfiguration
+
+    'cAssy.ResolveAllLightWeightComponents (False)
     
 End Sub
 
 Function GetUniquePartDoc() As Object
 
     Dim vComps As Variant
-    vComps = cAssy.GetComponents(True)
+    vComps = cAssy.GetComponents(False)
     
     Set GetUniquePartDoc = CreateObject("Scripting.Dictionary")  'Path--> key,  part object -----> item
     
     Dim i As Integer
     For i = LBound(vComps) To UBound(vComps)
-    
+
         Dim swComp As IComponent2
         Set swComp = vComps(i)
-        
+
         If swComp.Visible = swComponentVisibilityState_e.swComponentVisible _
-           And swComp.IsSuppressed = False Then
-        
+           And Not (swComp.GetSuppression = swComponentSuppressionState_e.swComponentSuppressed) Then
+            'False = swComp.IsHidden(True)
+            
+            'Debug.Print swComp.Name
+            
+            If swComp.GetSuppression = swComponentSuppressionState_e.swComponentLightweight Then
+
+                Dim bRet As Integer
+                bRet = swComp.SetSuppression2(swComponentSuppressionState_e.swComponentResolved)
+
+            End If
+            
             Dim swModel As IModelDoc2
             Set swModel = swComp.GetModelDoc2
             

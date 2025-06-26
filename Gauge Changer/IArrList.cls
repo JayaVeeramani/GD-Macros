@@ -39,6 +39,25 @@ Public Sub AddtoList(Val As Variant)
     
 End Sub
 
+Public Sub AddItems(InputItems As Variant)
+    
+    If IsEmpty(vItems) Then
+    
+        vItems = InputItems
+        
+    Else
+    
+        Dim i As Integer
+        For i = LBound(InputItems) To UBound(InputItems)
+            
+            ReDim Preserve vItems(UBound(vItems) + 1)
+            vItems(UBound(vItems)) = InputItems(i)
+
+        Next i
+        
+    End If
+    
+End Sub
 Public Sub SortItems()
 
     vItems = MergeSort(vItems)

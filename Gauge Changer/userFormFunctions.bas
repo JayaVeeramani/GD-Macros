@@ -12,7 +12,7 @@ Sub PopulateProfileList(partDict As Scripting.Dictionary)
 
         If Part.IsSheetMetal() Then
             
-            If Not PartProfileDict.Exists(Part.Profile) Then
+            If Not PartProfileDict.Exists(Part.Profile) And Not Part.Profile = "" Then
                 
                 PartProfileDict.Add Part.Profile, Part
     
@@ -24,13 +24,19 @@ Sub PopulateProfileList(partDict As Scripting.Dictionary)
                 
                 
             End If
-'
-'        Else
-'
-'            PartDict.Remove key
-'
+
         End If
         
     Next
     
 End Sub
+
+Function AddtoListBox(FormListBox As msforms.ListBox, FirstCol As String, SecondCol As String, ThirdCol As String)
+
+    FormListBox.AddItem
+    FormListBox.List(FormListBox.ListCount - 1, 0) = FirstCol
+    FormListBox.List(FormListBox.ListCount - 1, 1) = SecondCol
+
+    FormListBox.List(FormListBox.ListCount - 1, 2) = ThirdCol
+    
+End Function

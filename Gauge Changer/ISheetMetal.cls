@@ -14,7 +14,7 @@ Private cGauge As String
 
 Property Get Thickness() As Double
     
-    Select Case cGauge
+    Select Case Gauge
 
         Case "12GA"
             Thickness = 0.1084
@@ -35,12 +35,6 @@ Property Get Thickness() As Double
 
 End Property
 
-Property Get Gauge() As String
-
-    Gauge = cGauge
-    
-End Property
-
 Property Get GetPartDoc() As PartDoc
 
     Set GetPartDoc = cPart
@@ -54,6 +48,12 @@ Sub Initialize(Part As PartDoc)
     cGauge = cBaseFlangeDefinition.ThicknessTableName
     
 End Sub
+
+Public Function Gauge() As String
+
+    Gauge = cBaseFlangeDefinition.ThicknessTableName
+    
+End Function
 
 Public Sub GetBaseFlangeData()
 
