@@ -268,8 +268,8 @@ Private Sub CreateButton_Click()
     Call FindAndAddBeforeBlockOuts(yMaxBlockOutDict, ClonedBlockOutList, "yMin", BlockOutSide_e.Bottom)
     Call FindAndAddAfterBlockOuts(yMinBlockOutDict, ClonedBlockOutList, "yMax", BlockOutSide_e.Top)
     
-    Call SegregateAndAddDimensionVertically(xMinBlockOutDict, xMaxPlateList, oFloorComp, swDrawing, swTopView)
-    
+    Call SegregateAndAddDimensionVertically(xMinBlockOutDict, xMaxPlateList, xMinFloorDict, oFloorComp, swDrawing, swTopView)
+    Call SegregateAndAddDimensionHorizontally(yMinBlockOutDict, yMaxPlateList, yMinFloorDict, oFloorComp, swDrawing, swTopView)
 
     
     

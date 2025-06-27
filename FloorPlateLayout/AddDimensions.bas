@@ -1,8 +1,7 @@
 Attribute VB_Name = "AddDimensions"
 
-
 Sub SegregateAndAddDimensionVertically(xMinBlockOutDict As Scripting.Dictionary, xMaxPlateList As IArrListObject, _
-            FloorPlateList As IArrListObject, oFloorComp As IComp, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+            xMinFloorDict As Scripting.Dictionary, oFloorComp As IComp, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
 
     Dim swFloorLeftEdge As SldWorks.Edge
     Set swFloorLeftEdge = GetEdgeInView(oFloorComp, swView, False, False)
@@ -23,38 +22,140 @@ Sub SegregateAndAddDimensionVertically(xMinBlockOutDict As Scripting.Dictionary,
     
     If BottomSideEdges.Count < TopSideEdges.Count Then
         
-        Call AddFloorPlateEdgesToList(FloorPlateList.Items, swView, FloorPlateRightEdge, BottomSideEdges, False)
+        Call AddFloorPlateEdgesToList(xMinFloorDict.Items, swView, FloorPlateRightEdge, BottomSideEdges, False, True)
 
     Else
     
-        Call AddFloorPlateEdgesToList(FloorPlateList.Items, swView, FloorPlateRightEdge, TopSideEdges, False)
+        Call AddFloorPlateEdgesToList(xMinFloorDict.Items, swView, FloorPlateRightEdge, TopSideEdges, False, False)
     
     End If
     
     Call ClearSelectionAndSelectEdges(swFloorLeftEdge, BottomSideEdges.Items, swDrawing, swView)
-    swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swHorizontalOrdinate, oFloorComp.xMax, DimYLoc, oFloorComp.yMax + 0.01
+    swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swHorizontalOrdinate, oFloorComp.xMax, oFloorComp.yMin - 0.01, 0
     
     Call ClearSelectionAndSelectEdges(swFloorLeftEdge, TopSideEdges.Items, swDrawing, swView)
-    swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swHorizontalOrdinate, oFloorComp.xMax, DimYLoc, oFloorComp.yMax + 0.01
+    swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swHorizontalOrdinate, oFloorComp.xMax, oFloorComp.yMax + 0.01, 0
     
 End Sub
 
 Sub SegregateAndAddDimensionHorizontally(yMinBlockOutDict As Scripting.Dictionary, yMaxPlateList As IArrListObject, _
-            oFloorComp As IComp, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+            yMinFloorDict As Scripting.Dictionary, oFloorComp As IComp, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
 
     Dim swFloorBottomEdge As SldWorks.Edge
     Set swFloorBottomEdge = GetEdgeInView(oFloorComp, swView, True, False)
-    
+
+    Dim EndFloorPlate As IComp
+    Set EndFloorPlate = yMaxPlateList.Items(0)
+
+    Dim FloorPlateTopEdge As SldWorks.Edge
+    Set FloorPlateTopEdge = GetEdgeInView(EndFloorPlate, swView, True, True)
+
     Dim LeftSideEdges As IArrListObject
     Set LeftSideEdges = New IArrListObject
-    
+
     Dim RightSideEdges As IArrListObject
     Set RightSideEdges = New IArrListObject
+
+    Call SegregateHorizontalEdges(yMinBlockOutDict, LeftSideEdges, RightSideEdges, oFloorComp)
+
+    If LeftSideEdges.Count < RightSideEdges.Count Then
+
+        Call AddFloorPlateEdgesToList(yMinFloorDict.Items, swView, FloorPlateTopEdge, LeftSideEdges, True, True)
+
+    Else
+
+        Call AddFloorPlateEdgesToList(yMinFloorDict.Items, swView, FloorPlateTopEdge, RightSideEdges, True, False)
+
+    End If
+
+    Call ClearSelectionAndSelectEdges(swFloorBottomEdge, LeftSideEdges.Items, swDrawing, swView)
+    swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swVerticalOrdinate, oFloorComp.xMin - 0.01, oFloorComp.yMin, 0
+
+    Call ClearSelectionAndSelectEdges(swFloorBottomEdge, RightSideEdges.Items, swDrawing, swView)
+    swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swVerticalOrdinate, oFloorComp.xMax + 0.01, oFloorComp.yMax, 0
+
+End Sub
+
+Sub SegregateHorizontalEdges(yMinBlockOutDict As Scripting.Dictionary, LeftSideEdges As IArrListObject, _
+         RightSideEdges As IArrListObject, oFloorComp As IComp)
     
-    Call SegregateVerticalEdges(yMinBlockOutDict, LeftSideEdges, RightSideEdges, oFloorComp)
-    
-    Call AddVerticalBeamOrdinateDimensions(swFloorLeftEdge, BottomSideEdges.Items, swDrawing, swView, oFloorComp.xMax, oFloorComp.yMin - 0.01)
-    Call AddVerticalBeamOrdinateDimensions(swFloorLeftEdge, TopSideEdges.Items, swDrawing, swView, oFloorComp.xMax, oFloorComp.yMax + 0.01)
+    If yMinBlockOutDict.Count > 0 Then
+        
+        Dim vItems As Variant
+        vItems = yMinBlockOutDict.Items
+        
+        Dim i As Integer
+        For i = LBound(vItems) To UBound(vItems)
+        
+            Dim ArrList As IArrListObject
+            Set ArrList = vItems(i)
+            
+            If ArrList.Count > 1 Then
+            
+                ArrList.SortItems "xMin", False
+                
+                Dim LowestBlockOut As IBlockOut
+                Set LowestBlockOut = ArrList.Items(0)
+                
+                Dim HighestBlockOut As IBlockOut
+                Set HighestBlockOut = ArrList.Items(UBound(ArrList.Items))
+                
+                Call SegregationBasedOnDistanceFromComponentEnd(oFloorComp, LowestBlockOut, HighestBlockOut, "xMin", "xMax", _
+                        LeftSideEdges, RightSideEdges, "GetBottomEdge")
+            
+            Else
+            
+                Dim oBlockOut As IBlockOut
+                Set oBlockOut = ArrList.Items(0)
+            
+                Dim BelowBlockOut As IBlockOut
+                Set BelowBlockOut = oBlockOut.LeftBlockOut
+                
+                Dim AboveBlockOut As IBlockOut
+                Set AboveBlockOut = oBlockOut.RightBlockOut
+                
+                If BelowBlockOut Is Nothing And AboveBlockOut Is Nothing Then
+                
+                    Call SegregationBasedOnDistanceFromComponentEnd(oFloorComp, oBlockOut, oBlockOut, "xMin", "xMax", _
+                        LeftSideEdges, RightSideEdges, "GetBottomEdge")
+                
+                ElseIf BelowBlockOut Is Nothing And Not AboveBlockOut Is Nothing Then
+                    
+                    LeftSideEdges.AddtoList oBlockOut.GetBottomEdge.GetEdge
+                    
+                ElseIf AboveBlockOut Is Nothing And Not BelowBlockOut Is Nothing Then
+                
+                    RightSideEdges.AddtoList oBlockOut.GetBottomEdge.GetEdge
+                    
+                Else
+                
+                    If oBlockOut.yMin < BelowBlockOut.yMin And oBlockOut.yMin < AboveBlockOut.yMin Then
+                        
+                        Call SegregationBasedOnDistanceFromComponentEnd(oFloorComp, oBlockOut, oBlockOut, "xMin", "xMax", _
+                            LeftSideEdges, RightSideEdges, "GetBottomEdge")
+                            
+                    ElseIf oBlockOut.yMin < BelowBlockOut.yMin Then
+                    
+                        LeftSideEdges.AddtoList oBlockOut.GetBottomEdge.GetEdge
+                        
+                    ElseIf oBlockOut.yMin < AboveBlockOut.yMin Then
+                    
+                        RightSideEdges.AddtoList oBlockOut.GetBottomEdge.GetEdge
+                        
+                    Else
+                    
+                        Call SegregationBasedOnDistanceFromComponentEnd(oFloorComp, oBlockOut, oBlockOut, "xMin", "xMax", _
+                            LeftSideEdges, RightSideEdges, "GetBottomEdge")
+
+                    End If
+
+                End If
+                
+            End If
+        
+        Next i
+
+    End If
 
 End Sub
 
@@ -186,16 +287,37 @@ Function SelectEdges(vEdges As Variant, swView As SldWorks.View)
     
 End Function
 
-Sub AddFloorPlateEdgesToList(vFloorComps As Variant, swView As SldWorks.View, swPlateEndEdge As SldWorks.Edge, _
-        ArrList As IArrListObject, IsHorizontal As Boolean)
+Sub AddFloorPlateEdgesToList(vFloorCompsList As Variant, swView As SldWorks.View, swPlateEndEdge As SldWorks.Edge, _
+        ArrList As IArrListObject, IsHorizontal As Boolean, IsBefore As Boolean)
     
     ArrList.AddtoList swPlateEndEdge
     
     Dim i As Integer
-    For i = LBound(vFloorComps) To UBound(vFloorComps)
+    For i = LBound(vFloorCompsList) To UBound(vFloorCompsList)
+        
+        Dim FloorCompList As IArrListObject
+        Set FloorCompList = vFloorCompsList(i)
+        
+        If IsHorizontal Then
+            
+            FloorCompList.SortItems "xMin", False
+        
+        Else
+        
+            FloorCompList.SortItems "yMin", False
+            
+        End If
         
         Dim oComp As IComp
-        Set oComp = vFloorComps(i)
+        
+        If IsBefore Then
+
+            Set oComp = FloorCompList.Items(0)
+        Else
+        
+            Set oComp = FloorCompList.Items(UBound(FloorCompList.Items))
+            
+        End If
         
         Dim swEdge As SldWorks.Edge
         Set swEdge = GetEdgeInView(oComp, swView, IsHorizontal, False)
