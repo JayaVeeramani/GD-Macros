@@ -506,29 +506,6 @@ Function GetMidPointDifference(oBlockOut As IBlockOut, OtherBlockOut As IBlockOu
 
 End Function
 
-Function GetKeyIndexGreaterThanThisVal(Val As Double, Dict As Scripting.Dictionary) As Integer
-    
-    If Dict.Count > 0 Then
-    
-        Dim vKeys As Variant
-        vKeys = Dict.Keys
-        
-        Dim i As Integer
-        For i = LBound(vKeys) To UBound(vKeys)
-        
-            If CDbl(vKeys(i)) > Val Then
-                
-                GetKeyIndexGreaterThanThisVal = i
-                Exit For
-            
-            End If
-        
-        Next i
-        
-    End If
-    
-End Function
-
 Sub GetConsolidatedLegendNote(ByRef ConsolidatedNote As String, oBlockOut As IBlockOut, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
 
     Dim LengthDimName As String

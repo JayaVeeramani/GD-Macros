@@ -109,8 +109,6 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
                         TempLength = swCurve.GetLength2(vCurveParam(6), vCurveParam(7))
                         Set GetEdgeInView = swEdge
                         
-                        'IsSelected = swView.SelectEntity(swEdge, False)
-                        
                     End If
                     
                 End If

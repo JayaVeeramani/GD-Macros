@@ -1,5 +1,7 @@
 Attribute VB_Name = "AddDimensions"
 
+Dim AllowableDifference As Double
+
 Sub SegregateAndAddDimensionVertically(xMinBlockOutDict As Scripting.Dictionary, xMaxPlateList As IArrListObject, _
             xMinFloorDict As Scripting.Dictionary, oFloorComp As IComp, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
 
@@ -30,13 +32,165 @@ Sub SegregateAndAddDimensionVertically(xMinBlockOutDict As Scripting.Dictionary,
     
     End If
     
+    Dim BeforeDimCount As Integer
+    BeforeDimCount = swView.GetDisplayDimensionCount
+    
     Call ClearSelectionAndSelectEdges(swFloorLeftEdge, BottomSideEdges.Items, swDrawing, swView)
     swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swHorizontalOrdinate, oFloorComp.xMax, oFloorComp.yMin - 0.01, 0
     
     Call ClearSelectionAndSelectEdges(swFloorLeftEdge, TopSideEdges.Items, swDrawing, swView)
     swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swHorizontalOrdinate, oFloorComp.xMax, oFloorComp.yMax + 0.01, 0
     
+    Call AddDimensionQtyToOrdinates(BeforeDimCount, xMinBlockOutDict, xMinFloorDict, _
+                xMaxPlateList.Count, EndFloorPlate.xMax, swView, oFloorComp)
+    
 End Sub
+
+Sub AddDimensionQtyToOrdinates(BeforeDimCount As Integer, BlockOutDict As Scripting.Dictionary, _
+                FloorDict As Scripting.Dictionary, MaxPlateCount As Integer, MaxDimVal As Double, swView As SldWorks.View, _
+                oFloorComp As IComp, Optional IsXDimension As Boolean = True)
+                
+    Dim vDisplayDims As Variant
+    vDisplayDims = swView.GetDisplayDimensions
+    
+    AllowableDifference = swView.ScaleDecimal * 0.0015875
+    
+    If Not IsEmpty(vDisplayDims) Then
+    
+        Dim i As Integer
+        For i = LBound(vDisplayDims) To UBound(vDisplayDims)
+        
+            Dim swDisplayDim As SldWorks.DisplayDimension
+            Set swDisplayDim = vDisplayDims(i)
+
+            If i > (BeforeDimCount - 1) Then
+            
+                Dim swDim As SldWorks.Dimension
+                Set swDim = swDisplayDim.GetDimension2(0)
+                
+                Dim DimVal As Double
+                DimVal = swDim.GetSystemValue2("")
+                
+                If IsXDimension Then
+                
+                    DimVal = oFloorComp.xMin + DimVal * swView.ScaleDecimal
+                    
+                Else
+                    
+                    DimVal = oFloorComp.yMin + DimVal * swView.ScaleDecimal
+                    
+                End If
+                
+                
+
+            
+                    Dim Qty As Integer
+                    Dim IsQtyFound As Boolean
+                    Qty = GetQtyForDimensions(BlockOutDict, FloorDict, DimVal, IsQtyFound)
+                    
+                    If IsQtyFound Then
+                    
+                        Call AddQtyBracketsAndSuffixToDimension(swDisplayDim, Qty, False)
+                        
+                    Else
+                    
+                        If Abs(DimVal - MaxDimVal) <= AllowableDifference Then
+                            
+                            Call AddQtyBracketsAndSuffixToDimension(swDisplayDim, MaxPlateCount, True, "FLOOR PLATE" & vbCrLf & "END")
+                        
+                        End If
+                        
+                    End If
+                
+                End If
+                
+
+
+        Next i
+    
+    End If
+
+End Sub
+
+Private Sub AddQtyBracketsAndSuffixToDimension(swDisplayDim As SldWorks.DisplayDimension, Qty As Integer, Optional IsBrackets As Boolean, Optional suffixNote As String = "")
+
+    If IsBrackets Then
+    
+         swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextPrefix, "("
+    
+        If Qty > 1 Then
+            
+            swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextPrefix, Qty & "X ("
+                
+        End If
+        
+        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextSuffix, ")" & vbCrLf & suffixNote
+        
+    Else
+        
+        If Qty > 1 Then
+            
+            swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextPrefix, Qty & "X "
+                
+        End If
+        
+        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextSuffix, vbCrLf & suffixNote
+        
+    End If
+
+
+End Sub
+
+Function GetQtyForDimensions(BlockOutDict As Scripting.Dictionary, FloorDict As Scripting.Dictionary, _
+            CurrentDimVal As Double, ByRef IsQtyFound As Boolean) As Integer
+        
+
+    Dim Index As Integer
+    Index = GetKeyIndexEqualToThisDimensionValue(BlockOutDict, CurrentDimVal, IsQtyFound)
+    
+    If IsQtyFound Then
+    
+        GetQtyForDimensions = BlockOutDict.Items(Index).Count
+        
+    Else
+        
+        Index = GetKeyIndexEqualToThisDimensionValue(FloorDict, CurrentDimVal, IsQtyFound)
+        
+        If IsQtyFound Then
+        
+            GetQtyForDimensions = FloorDict.Items(Index).Count
+        
+        End If
+        
+    End If
+
+End Function
+
+Function GetKeyIndexEqualToThisDimensionValue(Dict As Scripting.Dictionary, Val As Double, ByRef IsFound As Boolean) As Integer
+    
+    If Dict.Count > 0 Then
+    
+        Dim vKeys As Variant
+        vKeys = Dict.Keys
+
+        IsFound = False
+        
+        Dim i As Integer
+        For i = LBound(vKeys) To UBound(vKeys)
+            
+            If Abs(CDbl(vKeys(i)) - Val) <= AllowableDifference Then
+                
+                GetKeyIndexEqualToThisDimensionValue = i
+                IsFound = True
+                Exit For
+            
+            End If
+        
+        Next i
+        
+    End If
+    
+End Function
 
 Sub SegregateAndAddDimensionHorizontally(yMinBlockOutDict As Scripting.Dictionary, yMaxPlateList As IArrListObject, _
             yMinFloorDict As Scripting.Dictionary, oFloorComp As IComp, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
@@ -67,13 +221,19 @@ Sub SegregateAndAddDimensionHorizontally(yMinBlockOutDict As Scripting.Dictionar
         Call AddFloorPlateEdgesToList(yMinFloorDict.Items, swView, FloorPlateTopEdge, RightSideEdges, True, False)
 
     End If
-
+    
+    Dim BeforeDimCount As Integer
+    BeforeDimCount = swView.GetDisplayDimensionCount
+    
     Call ClearSelectionAndSelectEdges(swFloorBottomEdge, LeftSideEdges.Items, swDrawing, swView)
     swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swVerticalOrdinate, oFloorComp.xMin - 0.01, oFloorComp.yMin, 0
 
     Call ClearSelectionAndSelectEdges(swFloorBottomEdge, RightSideEdges.Items, swDrawing, swView)
     swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swVerticalOrdinate, oFloorComp.xMax + 0.01, oFloorComp.yMax, 0
-
+    
+    
+    Call AddDimensionQtyToOrdinates(BeforeDimCount, yMinBlockOutDict, yMinFloorDict, _
+                yMaxPlateList.Count, EndFloorPlate.yMax, swView, oFloorComp, False)
 End Sub
 
 Sub SegregateHorizontalEdges(yMinBlockOutDict As Scripting.Dictionary, LeftSideEdges As IArrListObject, _

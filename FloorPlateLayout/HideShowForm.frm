@@ -803,22 +803,7 @@ Private Sub AddSeeNote2Circle(swDrawing As SldWorks.DrawingDoc, swView As SldWor
     End If
     
 End Sub
-Private Sub AddBracketsAndSuffixToSelectedDimension(swDrawing As SldWorks.DrawingDoc, Optional suffixNote As String = "")
 
-    Dim swSelectionMgr As SldWorks.SelectionMgr
-    Set swSelectionMgr = swDrawing.SelectionManager
-    
-    If swSelectionMgr.GetSelectedObjectType3(1, -1) = swSelectType_e.swSelDIMENSIONS Then
-    
-        Dim swDisplayDim As SldWorks.DisplayDimension
-        Set swDisplayDim = swSelectionMgr.GetSelectedObject6(1, -1)
-        
-        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextPrefix, "("
-        swDisplayDim.SetText swDimensionTextParts_e.swDimensionTextSuffix, ")" & vbCrLf & suffixNote
-    
-    End If
-
-End Sub
 Private Sub AddHorizontalAssyOrdinate(vBottomBeams As Variant, vTopBeams As Variant, _
     swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
 

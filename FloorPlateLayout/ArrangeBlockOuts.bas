@@ -37,16 +37,21 @@ Sub FindAndAddBeforeBlockOuts(Dict As Scripting.Dictionary, ArrList As IArrListO
             Set oBlockOut = vItems(i)
             
             Dim Index As Integer
-            Index = GetKeyIndexGreaterThanThisVal(Dict, CallByName(oBlockOut, Parameter, VbGet))
+            Dim IsFound As Boolean
+            Index = GetKeyIndexGreaterThanThisVal(Dict, CallByName(oBlockOut, Parameter, VbGet), IsFound)
             
-            Dim BeforeBlockOut As IBlockOut
-            Set BeforeBlockOut = GetBlockOutBeforeThisBlockOut(oBlockOut, Dict, Index - 1, CheckParameterMin, CheckParameterMax)
-
+            If IsFound Then
             
-            If Not BeforeBlockOut Is Nothing Then
-            
-                Call AddBeforeorAfterBlockOutProperty(oBlockOut, BeforeBlockOut, BlockOutSide)
-
+                Dim BeforeBlockOut As IBlockOut
+                Set BeforeBlockOut = GetBlockOutBeforeThisBlockOut(oBlockOut, Dict, Index - 1, CheckParameterMin, CheckParameterMax)
+    
+                
+                If Not BeforeBlockOut Is Nothing Then
+                
+                    Call AddBeforeorAfterBlockOutProperty(oBlockOut, BeforeBlockOut, BlockOutSide)
+    
+                End If
+                
             End If
             
         Next i
@@ -86,15 +91,20 @@ Sub FindAndAddAfterBlockOuts(Dict As Scripting.Dictionary, ArrList As IArrListOb
             Set oBlockOut = vItems(i)
             
             Dim Index As Integer
-            Index = GetKeyIndexGreaterThanThisVal(Dict, CallByName(oBlockOut, Parameter, VbGet))
+            Dim IsFound As Boolean
+            Index = GetKeyIndexGreaterThanThisVal(Dict, CallByName(oBlockOut, Parameter, VbGet), IsFound)
             
-            Dim AfterBlockOut As IBlockOut
-            Set AfterBlockOut = GetBlockOutAfterThisBlockOut(oBlockOut, Dict, Index, CheckParameterMin, CheckParameterMax)
+            If IsFound Then
             
-            If Not AfterBlockOut Is Nothing Then
+                Dim AfterBlockOut As IBlockOut
+                Set AfterBlockOut = GetBlockOutAfterThisBlockOut(oBlockOut, Dict, Index, CheckParameterMin, CheckParameterMax)
                 
-                Call AddBeforeorAfterBlockOutProperty(oBlockOut, AfterBlockOut, BlockOutSide)
-
+                If Not AfterBlockOut Is Nothing Then
+                    
+                    Call AddBeforeorAfterBlockOutProperty(oBlockOut, AfterBlockOut, BlockOutSide)
+    
+                End If
+                
             End If
 
             
@@ -104,14 +114,13 @@ Sub FindAndAddAfterBlockOuts(Dict As Scripting.Dictionary, ArrList As IArrListOb
 
 End Sub
 
-Function GetKeyIndexGreaterThanThisVal(Dict As Scripting.Dictionary, Val As Double) As Integer
+Function GetKeyIndexGreaterThanThisVal(Dict As Scripting.Dictionary, Val As Double, ByRef IsFound As Boolean) As Integer
     
     If Dict.Count > 0 Then
     
         Dim vKeys As Variant
         vKeys = Dict.Keys
-        
-        Dim IsFound As Boolean
+
         IsFound = False
         
         Dim i As Integer
@@ -127,15 +136,11 @@ Function GetKeyIndexGreaterThanThisVal(Dict As Scripting.Dictionary, Val As Doub
         
         Next i
         
-        If False = IsFound Then
-        
-            GetKeyIndexGreaterThanThisVal = i
-            
-        End If
-        
     End If
     
 End Function
+
+
 
 
 Function GetBlockOutBeforeThisBlockOut(BlockOutToCheck As IBlockOut, Dict As Scripting.Dictionary, _

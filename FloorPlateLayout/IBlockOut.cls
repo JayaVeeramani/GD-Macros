@@ -143,7 +143,7 @@ Private Sub SegregateHorizontalAndVerticalEdges()
             
             Dim Length As Double
             Length = GetDistance(vStartVertex, vEndVertex)
-
+            
             vStartVertex = GetComponentPointInSheetSpace(cComp, vStartVertex, cView)
             vEndVertex = GetComponentPointInSheetSpace(cComp, vEndVertex, cView)
             
