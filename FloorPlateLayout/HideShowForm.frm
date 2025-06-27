@@ -261,7 +261,6 @@ Private Sub CreateButton_Click()
     Dim xMaxBlockOutDict As Scripting.Dictionary
     Set xMaxBlockOutDict = GetConsolidatedDict(ClonedBlockOutList, "xMax", swTopView)
 
-    
     Call FindAndAddBeforeBlockOuts(xMaxBlockOutDict, ClonedBlockOutList, "xMin", BlockOutSide_e.Left)
     Call FindAndAddAfterBlockOuts(xMinBlockOutDict, ClonedBlockOutList, "xMax", BlockOutSide_e.Right)
 
@@ -274,31 +273,14 @@ Private Sub CreateButton_Click()
     
     
     swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
-    Call AddCrossMarkAndBalloons(ClonedBlockOutList, swDrawing, swTopView, oFloorComp)
-    
-    Call vBlockOutList.SortItems("xMin", False)
-    
-
-    
-    
-    
-
-    
-
-    
-    
-    'Call AddOrdinateToHorizontalPerimeterBeams(BottomBeamList, swDrawing, swTopView, False)
-    'Call AddOrdinateToHorizontalPerimeterBeams(TopBeamList, swDrawing, swTopView, True)
-    
-    'Call AddHorizontalAssyOrdinate(BottomBeamList.Items, TopBeamList.Items, swDrawing, swTopView)
+    'Call AddCrossMarkAndBalloons(vBlockOutList, swDrawing, swTopView, oFloorComp)
 
     'Call AddSeeNote2Circle(swDrawing, swTopView, BottomBeamList.Items, RightBeamList.Items, False)
     
     swDrawing.ClearSelection2 True
     Call AddNoteToView(swDrawing, "<FONT size=10PTS style=B>TOP VIEW WITH FLOOR PLATES", _
         (oFloorComp.xMax + oFloorComp.xMin) / 2, oFloorComp.yMin - 0.025)
-    
-    
+     
     'Call AddEllipseAndCreateDetailView(swDrawing, swTopView, VerticalSubWeldmentList, LegendAscii, IsAsciiMaxReached, SubWeldmentViewDict, SubWeldBodyDict, IsSubWeldmentExists)
     
     
@@ -308,10 +290,7 @@ Private Sub CreateButton_Click()
 
     Call SetHiddenEdgesVisibleAndRemoveTangentEdges(swTopView, swDrawing)
 
-
-    
     Call swDrawing.Extension.Rebuild(swRebuildOptions_e.swCurrentSheetDisp)
-    
 
     Set oFloorComp = Nothing
     Set swFloorWeldment = Nothing
@@ -333,7 +312,9 @@ Sub ActivateAndRebuildComponent(swComp As Object, Optional ToClose As Boolean = 
         Call swDoc.Extension.Rebuild(swRebuildOptions_e.swForceRebuildAll)
         
         If ToClose Then
+        
             swApp.CloseDoc swDoc.GetPathName
+            
         End If
         
     End If
@@ -482,7 +463,7 @@ Function GetBlockOutList(vFloorPlates As Variant, swView As SldWorks.View) As IA
             Dim oFloorPlate As IComp
             Set oFloorPlate = vFloorPlates(i)
             
-            Debug.Print oFloorPlate.GetComponent.Name2
+            'Debug.Print oFloorPlate.GetComponent.Name2
             
             Dim vFaces As Variant
             vFaces = swView.GetVisibleEntities2(oFloorPlate.GetComponent, swViewEntityType_e.swViewEntityType_Face)
@@ -504,6 +485,8 @@ Function GetBlockOutList(vFloorPlates As Variant, swView As SldWorks.View) As IA
                 Dim vLoops As Variant
                 vLoops = swFace.GetLoops
                 
+                Set oFloorPlate.VisibleFace = swFace
+
                 Call AddRectangularBlockoutsToList(vLoops, GetBlockOutList, oFloorPlate, swView)
 
             End If
@@ -558,7 +541,8 @@ Sub AddRectangularBlockoutsToList(vLoops As Variant, ArrList As IArrListObject, 
                         Set oBlockOut = New IBlockOut
     
                         oBlockOut.Initialize swLoop, oComp.GetComponent, swView
-    
+                        
+                        oComp.AddToBlockOutList oBlockOut
                         ArrList.AddtoList oBlockOut
                     
                     End If
@@ -1148,160 +1132,6 @@ End Sub
 
 
 
-
-Function GetEdgeInViewForBody(swComp As SldWorks.Component2, oBody As IBlockOut, swView As SldWorks.View, _
-    IsHorizontal As Boolean, IsMax As Boolean, Optional CheckAllVisibleEdgesOnly As Boolean = True) As SldWorks.Edge
-    
-    
-    Dim xMin As Double
-    Dim yMin As Double
-    Dim xMax As Double
-    Dim yMax As Double
-    
-    Dim vPointMin(2) As Double
-    vPointMin(0) = oBody.xMin
-    vPointMin(1) = oBody.yMin
-    vPointMin(2) = oBody.zMin
-    
-    Dim vPointMax(2) As Double
-    vPointMax(0) = oBody.xMax
-    vPointMax(1) = oBody.yMax
-    vPointMax(2) = oBody.zMax
-    
-    Call GetMaxMinPoint(vPointMin(0), vPointMax(0), xMin, xMax)
-    Call GetMaxMinPoint(vPointMin(1), vPointMax(1), yMin, yMax)
-    
-    Dim Idx As Integer
-    Dim ValToMatch As Double
-    If IsHorizontal Then
-        
-        Idx = 1
-        If IsMax Then
-        
-            ValToMatch = yMax
-            
-        Else
-        
-             ValToMatch = yMin
-             
-        End If
-        
-    Else
-    
-        Idx = 0
-        
-        If IsMax Then
-        
-            ValToMatch = xMax
-            
-        Else
-        
-             ValToMatch = xMin
-             
-        End If
-        
-    End If
-
-     Dim TempLength As Double
-     TempLength = 0
-        
-
-    Dim vEnts As Variant
-    If CheckAllVisibleEdgesOnly Then
-    
-        vEnts = swView.GetVisibleEntities2(swComp, swViewEntityType_e.swViewEntityType_Edge)
-        
-    Else
-    
-        vEnts = oBody.GetBody.GetEdges
-        
-    End If
-
-    If Not IsEmpty(vEnts) Then
-    
-        Dim i As Integer
-        For i = LBound(vEnts) To UBound(vEnts)
-        
-            Dim swEdge As SldWorks.Edge
-            Set swEdge = vEnts(i)
-            
-            Dim swEdgeBody As SldWorks.Body2
-            Set swEdgeBody = swEdge.GetBody
-                
-            If swEdgeBody.Name = oBody.GetBody.Name Then
-
-                Dim swCurve As SldWorks.Curve
-                Set swCurve = swEdge.GetCurve
-                
-                If swCurve.IsLine Then
-                
-                    Dim vStartPoint As Variant
-                    vStartPoint = swEdge.GetStartVertex.GetPoint
-                    vStartPoint = GetComponentPointInSheetSpace(swComp, vStartPoint, swView)
-                    
-                    Dim vEndPoint As Variant
-                    vEndPoint = swEdge.GetEndVertex.GetPoint
-                    vEndPoint = GetComponentPointInSheetSpace(swComp, vEndPoint, swView)
-
-                    If Abs(vStartPoint(Idx) - vEndPoint(Idx)) <= 0.00001 And Abs(vStartPoint(Idx) - ValToMatch) <= 0.00001 Then
-                        
-                        Dim vCurveParam As Variant
-                        vCurveParam = swEdge.GetCurveParams2
-    
-                        If swCurve.GetLength2(vCurveParam(6), vCurveParam(7)) > TempLength Then
-                            
-                            TempLength = swCurve.GetLength2(vCurveParam(6), vCurveParam(7))
-                            Set GetEdgeInViewForBody = swEdge
-                            
-                        End If
-                        
-                    End If
-                
-                End If
-                
-            End If
-            
-        Next i
-
-    End If
-
-End Function
-
- 
- Function InsertBalloonAndGetAnnotations(swDrawing As SldWorks.DrawingDoc, AnnXPos As Double, _
-        AnnYPos As Double, Optional Qty As Integer = 1) As SldWorks.Annotation
-    
-    Dim swBalloonParams As SldWorks.BalloonOptions
-    Set swBalloonParams = swDrawing.Extension.CreateBalloonOptions()
-    swBalloonParams.Size = swBalloonFit_e.swBF_Tightest
-    swBalloonParams.Style = swBalloonStyle_e.swBS_SplitCirc
-
-    
-    If Qty > 1 Then
-    
-        swBalloonParams.ShowQuantity = True
-        swBalloonParams.QuantityOverride = True
-        swBalloonParams.QuantityOverrideValue = CStr(Qty)
-                
-    End If
-    
-    Dim swNote As SldWorks.Note
-    Set swNote = swDrawing.Extension.InsertBOMBalloon2(swBalloonParams)
-     
-    If Not swNote Is Nothing Then
-    
-        'swNote.PropertyLinkedText = "$PRPWLD:" & Chr(34) & "LEGEND" & Chr(34)
-        
-        Dim Bool As Boolean
-        Bool = swNote.SetBomBalloonText(swDetailingNoteTextContent_e.swDetailingNoteTextCustom, "$PRPWLD:" & Chr(34) & "LEGEND" & Chr(34), _
-                    swDetailingNoteTextContent_e.swDetailingNoteTextCustom, "$PRPWLD:" & Chr(34) & "ITEM NO" & Chr(34))
-
-        Set InsertBalloonAndGetAnnotations = swNote.GetAnnotation
-        InsertBalloonAndGetAnnotations.SetPosition2 AnnXPos, AnnYPos, 0
-        
-    End If
-    
-End Function
 
 
 Private Sub UpdateTopViewPosition(oFloorComp As IComp, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)

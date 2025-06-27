@@ -22,6 +22,8 @@ Sub SegregateAndAddDimensionVertically(xMinBlockOutDict As Scripting.Dictionary,
     
     Call SegregateVerticalEdges(xMinBlockOutDict, BottomSideEdges, TopSideEdges, oFloorComp)
     
+    Call AddFloorPlateCallouts(xMinFloorDict, swDrawing, swView, BottomSideEdges.Count < TopSideEdges.Count, oFloorComp)
+    
     If BottomSideEdges.Count < TopSideEdges.Count Then
         
         Call AddFloorPlateEdgesToList(xMinFloorDict.Items, swView, FloorPlateRightEdge, BottomSideEdges, False, True)
@@ -36,13 +38,15 @@ Sub SegregateAndAddDimensionVertically(xMinBlockOutDict As Scripting.Dictionary,
     BeforeDimCount = swView.GetDisplayDimensionCount
     
     Call ClearSelectionAndSelectEdges(swFloorLeftEdge, BottomSideEdges.Items, swDrawing, swView)
-    swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swHorizontalOrdinate, oFloorComp.xMax, oFloorComp.yMin - 0.01, 0
+    swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swHorizontalOrdinate, oFloorComp.xMax, oFloorComp.yMin - 0.0085, 0
     
     Call ClearSelectionAndSelectEdges(swFloorLeftEdge, TopSideEdges.Items, swDrawing, swView)
-    swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swHorizontalOrdinate, oFloorComp.xMax, oFloorComp.yMax + 0.01, 0
+    swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swHorizontalOrdinate, oFloorComp.xMax, oFloorComp.yMax + 0.0085, 0
     
     Call AddDimensionQtyToOrdinates(BeforeDimCount, xMinBlockOutDict, xMinFloorDict, _
                 xMaxPlateList.Count, EndFloorPlate.xMax, swView, oFloorComp)
+                
+    
     
 End Sub
 
@@ -226,10 +230,10 @@ Sub SegregateAndAddDimensionHorizontally(yMinBlockOutDict As Scripting.Dictionar
     BeforeDimCount = swView.GetDisplayDimensionCount
     
     Call ClearSelectionAndSelectEdges(swFloorBottomEdge, LeftSideEdges.Items, swDrawing, swView)
-    swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swVerticalOrdinate, oFloorComp.xMin - 0.01, oFloorComp.yMin, 0
+    swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swVerticalOrdinate, oFloorComp.xMin - 0.0085, oFloorComp.yMin, 0
 
     Call ClearSelectionAndSelectEdges(swFloorBottomEdge, RightSideEdges.Items, swDrawing, swView)
-    swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swVerticalOrdinate, oFloorComp.xMax + 0.01, oFloorComp.yMax, 0
+    swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swVerticalOrdinate, oFloorComp.xMax + 0.0085, oFloorComp.yMax, 0
     
     
     Call AddDimensionQtyToOrdinates(BeforeDimCount, yMinBlockOutDict, yMinFloorDict, _
@@ -487,3 +491,287 @@ Sub AddFloorPlateEdgesToList(vFloorCompsList As Variant, swView As SldWorks.View
     Next i
 
 End Sub
+
+Sub AddFloorPlateCallouts(xMinFloorDict As Scripting.Dictionary, swDrawing As SldWorks.DrawingDoc, _
+        swView As SldWorks.View, IsBottom As Boolean, oFloorComp As IComp)
+
+    Dim vItems As Variant
+    vItems = xMinFloorDict.Items
+    
+    Dim i As Integer
+    For i = LBound(vItems) To UBound(vItems)
+    
+        Dim PlateArrList As IArrListObject
+        Set PlateArrList = vItems(i)
+        
+        Dim oFloorPlate As IComp
+        Dim xPos As Double
+        Dim yPos As Double
+        Dim AnnXPos As Double
+        Dim AnnYPos As Double
+        
+        Dim vFloorPlates As Variant
+        vFloorPlates = PlateArrList.Items
+                        
+        Dim swAnnotation As SldWorks.Annotation
+        
+        If PlateArrList.Count = 1 Then
+            
+            Set oFloorPlate = vFloorPlates(0)
+            
+            If (oFloorPlate.yMin - oFloorComp.yMin) > 2 * 0.0254 * swView.ScaleDecimal And (oFloorComp.yMax - oFloorPlate.yMax) < 0.5 * 0.0254 * swView.ScaleDecimal Then
+            
+                IsBottom = False
+                
+            ElseIf (oFloorPlate.yMin - oFloorComp.yMin) < 0.5 * 0.0254 * swView.ScaleDecimal And (oFloorComp.yMax - oFloorPlate.yMax) > 2 * 0.0254 * swView.ScaleDecimal Then
+            
+                IsBottom = True
+                
+            End If
+            
+            Call GetFloorPlateCallOutPosition(oFloorPlate, xPos, yPos, AnnXPos, AnnYPos, IsBottom)
+            Set swAnnotation = SelectAndAddAnnotation(oFloorPlate.VisibleFace, swDrawing, swView, xPos, _
+                   yPos, AnnXPos, AnnYPos)
+        
+        Else
+
+            Dim j As Integer
+            For j = LBound(vFloorPlates) To UBound(vFloorPlates)
+
+                Set oFloorPlate = vFloorPlates(j)
+                Call GetFloorPlateCallOutPosition(oFloorPlate, xPos, yPos, AnnXPos, AnnYPos, j = 0)
+
+                Set swAnnotation = SelectAndAddAnnotation(oFloorPlate.VisibleFace, swDrawing, swView, xPos, _
+                   yPos, AnnXPos, AnnYPos)
+                   
+            Next j
+            
+        End If
+        
+    Next i
+
+End Sub
+
+Function SelectAndAddAnnotation(swEnt As Object, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, SelXPos As Double, _
+       SelYPos As Double, AnnXPos As Double, AnnYPos As Double, Optional CustomTextTop As String = "", _
+        Optional CustomTextBottom As String = "") As SldWorks.Annotation
+
+    Dim IsSelected As Boolean
+    IsSelected = SelectEntityWithSelectData(swEnt, swView, swDrawing, SelXPos, SelYPos)
+    
+    If IsSelected Then
+
+        Dim BalloonContent As swBalloonTextContent_e
+    
+        If CustomTextTop = "" And CustomTextBottom = "" Then
+            BalloonContent = swBalloonTextPartNumberBOM
+        End If
+        
+        Dim swNote As SldWorks.Note
+        Set swNote = swDrawing.InsertBOMBalloon2(swBS_Inspection, swBF_Tightest, BalloonContent, _
+                                CustomTextTop, BalloonContent, CustomTextBottom)
+            
+        If Not swNote Is Nothing Then
+        
+            Dim swAnnotation As SldWorks.Annotation
+            Set swAnnotation = swNote.GetAnnotation()
+        
+            swAnnotation.SetPosition AnnXPos, AnnYPos, 0
+    
+            Set SelectAndAddAnnotation = swAnnotation
+        
+        End If
+
+    End If
+End Function
+
+Sub GetFloorPlateCallOutPosition(oFloorPlate As IComp, ByRef xPos As Double, ByRef yPos As Double, _
+                ByRef AnnXPos As Double, ByRef AnnYPos As Double, IsBottom As Boolean)
+    
+   xPos = (oFloorPlate.xMin + oFloorPlate.xMax) / 2
+   
+    If oFloorPlate.BlockOutList.Count = 0 Then
+
+        Call GetCallOutYPos(oFloorPlate, yPos, AnnYPos, 0.005, IsBottom)
+
+    Else
+    
+        Dim vBlockOutList As IArrListObject
+        Set vBlockOutList = oFloorPlate.BlockOutList
+        
+        Dim BottomGap As Double
+        BottomGap = vBlockOutList.Items(0).yMin - oFloorPlate.yMin
+        
+        Dim TopGap As Double
+        TopGap = oFloorPlate.yMax - vBlockOutList.Items(UBound(vBlockOutList.Items)).yMax
+        
+        Dim Gap As Double
+        Gap = GetGapInfoForFloorPlateCallout(TopGap, BottomGap, IsBottom)
+        
+        Dim CallOutBlockOut As IBlockOut
+        Dim IsFound As Boolean
+        Set CallOutBlockOut = GetBlockOutGreaterThanThisValInArrList(vBlockOutList, xPos, IsFound)
+        
+        xPos = 0.75 * oFloorPlate.xMin + 0.25 * oFloorPlate.xMax
+        
+        If IsFound Then
+        
+            Call xPosInCaseOfBlockOuts(vBlockOutList, oFloorPlate, xPos)
+
+        End If
+
+        Call GetCallOutYPos(oFloorPlate, yPos, AnnYPos, Gap, IsBottom)
+
+    End If
+    AnnXPos = xPos
+    
+End Sub
+
+Function GetGapInfoForFloorPlateCallout(TopGap As Double, BottomGap As Double, IsBottom As Boolean)
+    
+        
+    Dim TempGap As Double
+    TempGap = TopGap
+    
+    If IsBottom Then
+        
+        TempGap = BottomGap
+            
+    End If
+    
+    If TempGap < 0.0075 Then
+        
+        GetGapInfoForFloorPlateCallout = TempGap / 2
+    
+    Else
+    
+        GetGapInfoForFloorPlateCallout = 0.004
+        
+    End If
+    
+End Function
+
+Function xPosInCaseOfBlockOuts(ArrList As IArrListObject, oFloorPlate As IComp, ByRef xPos As Double) As IBlockOut
+
+    If ArrList.Count > 0 Then
+    
+        Dim vItems As Variant
+        vItems = ArrList.Items
+
+        Dim Gap As Double
+        
+        Dim TempGap As Double
+        Dim TempPos As Double
+        
+        Gap = (vItems(0).xMin - oFloorPlate.xMin)
+        xPos = (vItems(0).xMin + oFloorPlate.xMin) / 2
+
+        Dim i As Integer
+        For i = LBound(vItems) To UBound(vItems)
+            
+            Dim oBlockOut As IBlockOut
+            Set oBlockOut = vItems(i)
+            
+            If i = UBound(vItems) Then
+            
+                TempGap = oFloorPlate.xMax - oBlockOut.xMax
+                TempPos = oFloorPlate.xMax - 0.4 * TempGap
+                
+            Else
+
+                Dim NextBlockOut As IBlockOut
+                Set NextBlockOut = vItems(i + 1)
+                
+                TempGap = NextBlockOut.xMin - oBlockOut.xMin
+                TempPos = NextBlockOut.xMin - 0.4 * TempGap
+
+            End If
+            
+            If TempGap > Gap Then
+                
+                Gap = TempGap
+                xPos = TempPos
+                
+            End If
+            
+        Next i
+        
+    End If
+    
+End Function
+
+Function GetBlockOutGreaterThanThisValInArrList(ArrList As IArrListObject, Val As Double, ByRef IsFound As Boolean) As IBlockOut
+    
+    ArrList.SortItems "xMin", False
+    
+    If ArrList.Count > 0 Then
+    
+        Dim vItems As Variant
+        vItems = ArrList.Items
+
+        IsFound = False
+        
+        Dim i As Integer
+        For i = LBound(vItems) To UBound(vItems)
+            
+            Dim oBlockOut As IBlockOut
+            Set oBlockOut = vItems(i)
+            
+            If oBlockOut.xMin > Val Then
+            
+                If Not i = 0 Then
+
+                    Set GetBlockOutGreaterThanThisValInArrList = vItems(i - 1)
+                    IsFound = True
+                    
+                End If
+                
+                Exit For
+            
+            End If
+        
+        Next i
+        
+    End If
+    
+End Function
+
+Sub GetCallOutYPos(oFloorComp As IComp, ByRef yPos As Double, ByRef AnnYPos As Double, DistFromEnd As Double, IsBottom As Boolean)
+
+    If IsBottom Then
+        
+        yPos = oFloorComp.yMin + DistFromEnd
+        AnnYPos = oFloorComp.yMin - 0.025
+        
+    Else
+    
+        yPos = oFloorComp.yMax - DistFromEnd
+        AnnYPos = oFloorComp.yMax + 0.025
+        
+    End If
+
+End Sub
+' Function InsertInspectionBalloon(swDrawing As SldWorks.DrawingDoc, AnnXPos As Double, AnnYPos As Double, Optional CustomTextTop As String = "", Optional CustomTextBottom As String = "") As SldWorks.Annotation
+'
+'    Dim BalloonContent As swBalloonTextContent_e
+'
+'    If CustomTextTop = "" And CustomTextBottom = "" Then
+'        BalloonContent = swBalloonTextPartNumberBOM
+'    End If
+'
+'    Dim swNote As SldWorks.Note
+'    Set swNote = swDrawing.InsertBOMBalloon2(swBS_Inspection, swBF_Tightest, BalloonContent, _
+'                            CustomTextTop, BalloonContent, CustomTextBottom)
+'
+'    If Not swNote Is Nothing Then
+'
+'        Dim swAnnotation As SldWorks.Annotation
+'        Set swAnnotation = swNote.GetAnnotation()
+'
+'        swAnnotation.SetPosition AnnXPos, AnnYPos, 0
+'
+'        Set InsertInspectionBalloon = swAnnotation
+'
+'    End If
+'
+'End Function

@@ -22,6 +22,7 @@ Public RightBlockOut As IBlockOut
 Public BottomBlockOut As IBlockOut
 Public TopBlockOut As IBlockOut
 
+
 Property Get GetLoop() As SldWorks.Loop2
     Set GetLoop = cLoop
 End Property

@@ -23,6 +23,9 @@ Private cVerticalBodiesList As IArrListObject
 Private cHorizontalBodiesList As IArrListObject
 Private Part As SldWorks.PartDoc
 
+Public VisibleFace As SldWorks.Face2
+Private cBlockOutList As IArrListObject
+
 Private orgViewPosition As Variant
 Private orgScaleDecimal As Double
 
@@ -37,6 +40,12 @@ End Property
 Property Get Name() As String
 
     Name = cComp.Name2
+    
+End Property
+
+Property Get BlockOutList() As IArrListObject
+
+    Set BlockOutList = cBlockOutList
     
 End Property
 
@@ -107,6 +116,7 @@ Sub Initialize(swComp As IComponent2, swView As SldWorks.View)
     Set cComp = swComp
     Set cVerticalBodiesList = New IArrListObject
     Set cHorizontalBodiesList = New IArrListObject
+    Set cBlockOutList = New IArrListObject
     
     Set swCompModel = ResolveAndGetModelDoc(swComp)
         
@@ -349,6 +359,12 @@ Private Function GetCutlistForThisBody(swBody As SldWorks.Body2, vCutlists As Va
     Next i
     
 End Function
+
+Function AddToBlockOutList(oBlockOut As IBlockOut)
+
+    cBlockOutList.AddtoList oBlockOut
+    
+End Function
 '
 'Private Function GetBodyFolder() As SldWorks.BodyFolder
 '
@@ -369,8 +385,6 @@ End Function
 '    Wend
 '
 'End Function
-'
-
 '
 'Function GetBOMPartNumber(ConfigName As String) As String
 '

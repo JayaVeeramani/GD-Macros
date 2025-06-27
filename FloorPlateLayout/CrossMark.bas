@@ -222,26 +222,14 @@ Sub AddBalloon(oBlockOut As IBlockOut, swView As SldWorks.View, swDrawing As Sld
     
     Call GetBalloonPosData(oBlockOut, swEdge, SelXPos, SelYPos, AnnXPos, AnnYPos, oComp)
     
-    Dim IsSelected As Boolean
-    IsSelected = SelectEdgeWithSelectData(swEdge, swView, swDrawing, SelXPos, SelYPos)
+    Dim swAnnotation As SldWorks.Annotation
+    Set swAnnotation = SelectAndAddAnnotation(swEdge, swDrawing, swView, SelXPos, _
+       SelYPos, AnnXPos, AnnYPos, oBlockOut.BalloonLegend)
     
-    If IsSelected Then
-    
-        Dim swNote As SldWorks.Note
-        Set swNote = swDrawing.InsertBOMBalloon2(swBS_Inspection, swBF_Tightest, swBalloonTextCustom, _
-                            oBlockOut.BalloonLegend, swBalloonTextCustom, "Lower text")
+    If Not swAnnotation Is Nothing Then
         
-        If Not swNote Is Nothing Then
-    
-            Dim swAnnotation As SldWorks.Annotation
-            Set swAnnotation = swNote.GetAnnotation()
-    
-            swAnnotation.SetPosition AnnXPos, AnnYPos, 0
-            oBlockOut.BalloonId = swDrawing.Extension.GetObjectId(swAnnotation)
-    
-            swAnnotation.Layer = LayerName
-    
-        End If
+        swAnnotation.Layer = LayerName
+        oBlockOut.BalloonId = swDrawing.Extension.GetObjectId(swAnnotation)
         
     End If
 
@@ -592,7 +580,7 @@ Sub CheckandAddLayer(LayName As String, LayerDesc As String, swLayerMgr As SldWo
     
 End Sub
 
- Function SelectEdgeWithSelectData(swEdge As SldWorks.Edge, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc, _
+ Function SelectEntityWithSelectData(swEnt As Object, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc, _
                 SelXPos As Double, SelYPos As Double) As Boolean
 
     Dim swSelectMgr As SldWorks.SelectionMgr
@@ -607,10 +595,12 @@ End Sub
     swSelectData.Y = SelYPos 'vStartPoint(1)
     
     Dim swEntity As SldWorks.Entity
-    Set swEntity = swEdge
+    Set swEntity = swEnt
 
-    SelectEdgeWithSelectData = swEntity.Select4(False, swSelectData)
+    SelectEntityWithSelectData = swEntity.Select4(False, swSelectData)
     
 End Function
+
+
 
 
