@@ -1,0 +1,1114 @@
+VERSION 5.00
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} HideShowForm 
+   Caption         =   "Hide/ Show Components"
+   ClientHeight    =   5244
+   ClientLeft      =   108
+   ClientTop       =   456
+   ClientWidth     =   6636
+   OleObjectBlob   =   "HideShowForm.frx":0000
+   StartUpPosition =   1  'CenterOwner
+End
+Attribute VB_Name = "HideShowForm"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Explicit
+
+Dim swCoverPlate As SldWorks.Component2
+Dim swSketchMgr As SldWorks.SketchManager
+
+Const BalloonWidth As Double = 0.0065
+Const SheetBorderTop As Double = 0.27030866
+Const SheetBorderLeft As Double = 0.01590679
+Const SheetBorderRight As Double = 0.41595679
+Dim compDict As Scripting.Dictionary
+Const HorizontalMaxDim As Double = 0.371
+Const VerticalMaxDim As Double = 0.1295
+
+Private Sub AddCompButton_Click()
+
+    Dim swModel As SldWorks.ModelDoc2
+    Set swModel = swApp.ActiveDoc
+    
+    Dim swSelect As SldWorks.SelectionMgr
+    Set swSelect = swModel.SelectionManager
+    
+    If swSelect.GetSelectedObjectCount2(-1) > 0 Then
+    
+        Dim i As Integer
+        For i = 1 To swSelect.GetSelectedObjectCount2(-1)
+        
+            If swSelect.GetSelectedObjectType3(i, -1) = swSelectType_e.swSelFTRFOLDER Then
+                
+                Dim swFeat As SldWorks.Feature
+                Set swFeat = swSelect.GetSelectedObject6(i, -1)
+                
+                Dim vCompArr() As SldWorks.Component2
+                ReDim vCompArr(0)
+                
+                Call GetComponentsFromFolder(swFeat, vCompArr, 0)
+                Call AddComponentsToDictionary(vCompArr)
+
+            Else
+        
+                Dim swComp As SldWorks.Component2
+                Set swComp = swSelect.GetSelectedObjectsComponent4(i, -1)
+                Call CheckAndAddToList(swComp)
+                
+            End If
+
+        Next i
+
+    Else
+
+        Me.CompListButton.BackColor = vbRed
+        MsgBox "No Components were selected"
+    
+    End If
+    
+    swModel.ClearSelection2 True
+    
+End Sub
+
+Sub AddComponentsToDictionary(CompArr As Variant)
+
+    Dim i As Integer
+    For i = LBound(CompArr) To UBound(CompArr)
+    
+        Dim swComp As SldWorks.Component2
+        Set swComp = CompArr(i)
+        
+        Call CheckAndAddToList(swComp)
+    
+    Next i
+
+End Sub
+
+Private Sub CheckAndAddToList(swComp As SldWorks.Component2)
+
+    If Not (compDict.Exists(swComp.Name2)) Then
+
+        Me.CompListButton.AddItem
+        Me.CompListButton.List(Me.CompListButton.ListCount - 1, 0) = swComp.Name2
+        compDict.Add swComp.Name2, swComp
+            
+    End If
+    
+End Sub
+
+Private Sub clearListButton_Click()
+
+    Dim i As Integer
+    With Me.CompListButton
+
+        For i = .ListCount - 1 To 0 Step -1
+                         
+            compDict.Remove .List(i, 0)
+            .RemoveItem (i)
+                    
+        Next i
+        
+    End With
+
+    
+End Sub
+
+Function GetComponentsFromFolder(swFeat As SldWorks.Feature, ByRef TempCompArr As Variant, Level As Integer)
+
+    Dim swFeatFolder As SldWorks.FeatureFolder
+    Set swFeatFolder = swFeat.GetSpecificFeature2
+            
+    Dim i As Integer
+    Dim vFeats As Variant
+    vFeats = swFeatFolder.GetFeatures
+            
+    For i = LBound(vFeats) To UBound(vFeats)
+                
+        Dim compFeat As SldWorks.Feature
+        Set compFeat = vFeats(i)
+        
+        Debug.Print compFeat.Name
+                
+        If Not (compFeat.GetTypeName2 = "FtrFolder") Then
+                
+            Dim swComp As SldWorks.Component2
+            Set swComp = compFeat.GetSpecificFeature2
+                    
+            If Not swComp Is Nothing Then
+            
+                Set TempCompArr(UBound(TempCompArr)) = swComp
+                ReDim Preserve TempCompArr(UBound(TempCompArr) + 1)
+                
+            End If
+                
+        Else
+                
+            Call GetComponentsFromFolder(compFeat, TempCompArr, Level + 1)
+                             
+        End If
+
+    Next i
+    
+    If Level = 0 Then
+    
+        ReDim Preserve TempCompArr(UBound(TempCompArr) - 1)
+        
+    End If
+    
+End Function
+    
+Private Sub CloseButton_Click()
+    
+    Unload Me
+    
+End Sub
+
+Private Function GetOppositeVector(Dir As Variant) As Double()
+
+    Dim Temp(2) As Double
+    Dim i As Integer
+    For i = LBound(Dir) To UBound(Dir)
+    
+        Temp(i) = -1 * Dir(i)
+    
+    Next i
+    
+    GetOppositeVector = Temp
+    
+End Function
+
+Private Sub cPlateSelectionButton_Click()
+
+    Dim swSelect As SldWorks.SelectionMgr
+    Set swSelect = swTopLevelModel.SelectionManager
+    
+    If swSelect.GetSelectedObjectCount2(-1) = 1 Then
+
+        Set swCoverPlate = swSelect.GetSelectedObjectsComponent4(1, -1)
+        
+        If Not swCoverPlate Is Nothing Then
+            
+            Dim swCoverPlateModel As SldWorks.ModelDoc2
+            Set swCoverPlateModel = ResolveAndGetModelDoc(swCoverPlate)
+            
+            If swCoverPlateModel.GetType = swDocumentTypes_e.swDocPART Then
+                
+                If swCoverPlateModel.IsWeldment Then
+            
+                    Me.cPlateSelectionTextBox.Value = "Selected"
+                    Me.cPlateSelectionTextBox.BackColor = vbGreen
+                    
+                Else
+                
+                    MsgBox "Warning! Select component is not a weldment. Please select the floor weldment part", vbCritical, "Selection Warning!"
+                
+                End If
+                
+            Else
+            
+                MsgBox "Warning! Selected component is not a part. Please select the floor weldment part", vbCritical, "Selection Warning!"
+                
+            End If
+            
+        Else
+        
+            Me.cPlateSelectionTextBox.Value = "Not Selected"
+            Me.cPlateSelectionTextBox.BackColor = vbRed
+            
+        End If
+
+    ElseIf swSelect.GetSelectedObjectCount2(-1) = 0 Then
+        
+        MsgBox "Warning! Nothing Selected." & vbCrLf & _
+        "Please select Floor Weldment component only", vbCritical, "Selection Warning!"
+    
+    Else
+    
+    
+        MsgBox "Warning! More than one items are selected." & vbCrLf & _
+                "Please select Floor Weldment component only", vbCritical, "Selection Warning!"
+
+    End If
+End Sub
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+
+    Unload DrawingForm
+
+End Sub
+
+
+Private Sub CreateButton_Click()
+ 
+    Me.Hide
+
+    Dim ProjectNo As String
+    ProjectNo = DrawingForm.ProjectNoBox.Value
+    
+    Dim WeldmentNo As String
+    WeldmentNo = Me.WeldNoBox.Value
+    
+    Unload DrawingForm
+
+    Set swMathUtility = swApp.GetMathUtility
+    
+    Call ActivateAndRebuildComponent(swFloorWeldment)
+    Call ActivateAndRebuildComponent(swTopLevelModel, False)
+    'Call swTopLevelModel.Extension.Rebuild(swRebuildOptions_e.swForceRebuildAll)
+
+    Dim swDrawing As SldWorks.DrawingDoc
+    Set swDrawing = swApp.NewDocument("C:\FBD\COMMON\FBD Templates\DEFAULT\METAL FAB DRAWING.DRWDOT", 0, 0, 0)
+
+    Set swSketchMgr = swDrawing.SketchManager
+
+    Dim swSheet As SldWorks.Sheet
+    Set swSheet = swDrawing.GetCurrentSheet
+
+    Call InsertSketchBlock(swDrawing, swSheet, ProjectNo)
+
+    Dim swTopView As SldWorks.View
+    Set swTopView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), "*Top", 0.21593179, 0.17578398, 0)
+    
+    Dim oFloorComp As IComp
+    Set oFloorComp = New IComp
+    
+    oFloorComp.Initialize swFloorWeldment, swTopView
+    
+    Dim ViewWidth As Double
+    ViewWidth = oFloorComp.xMax - oFloorComp.xMin
+    
+    Dim ViewHeight As Double
+    ViewHeight = oFloorComp.yMax - oFloorComp.yMin
+    
+    Call RotateAndScaleView(swDrawing, swTopView, ViewWidth, ViewHeight)
+    Call UpdateTopViewPosition(oFloorComp, swDrawing, swTopView)
+    
+    Dim FloorPlateList As IArrListObject
+    Set FloorPlateList = GetFloorPlateList(compDict.Items, swTopView)
+
+    Dim vBlockOutList As IArrListObject
+    Set vBlockOutList = GetBlockOutList(FloorPlateList.Items, swTopView)
+    
+    Dim oCoverPlateComp As IComp
+    Set oCoverPlateComp = New IComp
+    
+    oCoverPlateComp.Initialize swCoverPlate, swTopView
+
+    Dim vCoverPlateList As IArrListObject
+    Set vCoverPlateList = oCoverPlateComp.BodiesList
+    
+    vCoverPlateList.SortItems "zMin"
+    
+    Dim yMinCoverPlateDict As Scripting.Dictionary
+    Set yMinCoverPlateDict = GetConsolidatedDict(vCoverPlateList, "yMin", swTopView)
+    
+    Dim xMinCoverPlateDict As Scripting.Dictionary
+    Set xMinCoverPlateDict = GetConsolidatedDict(vCoverPlateList, "xMin", swTopView)
+    
+    Dim ClonedCoverPlateList As IArrListObject
+    Set ClonedCoverPlateList = vCoverPlateList.Clone
+    
+    Dim yMaxCoverPlateDict As Scripting.Dictionary
+    Set yMaxCoverPlateDict = GetConsolidatedDict(ClonedCoverPlateList, "yMax", swTopView)
+    
+    Dim xMaxCoverPlateDict As Scripting.Dictionary
+    Set xMaxCoverPlateDict = GetConsolidatedDict(ClonedCoverPlateList, "xMax", swTopView)
+
+    Call FindAndAddBeforeCoverPlates(xMaxCoverPlateDict, ClonedCoverPlateList, "xMin", CoverPlateSide_e.Left)
+    Call FindAndAddAfterCoverPlates(xMinCoverPlateDict, ClonedCoverPlateList, "xMax", CoverPlateSide_e.Right)
+
+    Call FindAndAddBeforeCoverPlates(yMaxCoverPlateDict, ClonedCoverPlateList, "yMin", CoverPlateSide_e.Bottom)
+    Call FindAndAddAfterCoverPlates(yMinCoverPlateDict, ClonedCoverPlateList, "yMax", CoverPlateSide_e.Top)
+    
+
+    swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
+    Call AddCrossMarks(vBlockOutList, swDrawing, swTopView, oFloorComp)
+    Call AddBalloonForCoverPlates(vCoverPlateList.Items, swTopView, swDrawing, oFloorComp)
+    
+    swDrawing.ClearSelection2 True
+    swTopView.FocusLocked = True
+    Call AddNoteToView(swDrawing, "<FONT size=10PTS style=B>TOP VIEW WITH FLOOR PLATES", _
+        ((oFloorComp.xMax + oFloorComp.xMin) / 2) - 0.025, oFloorComp.yMin - 0.02875)
+     
+
+
+    
+    swTopView.FocusLocked = False
+     
+    Call EditTemplate(swDrawing, swDrawing.GetCurrentSheet, WeldmentNo, "FLOOR PLATE LAYOUT")
+    Call AddStructuralNotes(swDrawing)
+    Call SetHiddenEdgesVisibleAndRemoveTangentEdges(swTopView, swDrawing)
+    Call swDrawing.Extension.Rebuild(swRebuildOptions_e.swCurrentSheetDisp)
+
+    Set oFloorComp = Nothing
+    Set swFloorWeldment = Nothing
+
+    swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, True
+    
+    Unload Me
+
+End Sub
+
+
+Sub ActivateAndRebuildComponent(swComp As Object, Optional ToClose As Boolean = True)
+    
+    Dim swDoc As SldWorks.ModelDoc2
+    Set swDoc = swApp.ActivateDoc3(swComp.GetPathName, True, swRebuildOnActivation_e.swDontRebuildActiveDoc, Err)
+    
+    If Not swDoc Is Nothing Then
+        
+        Call swDoc.Extension.Rebuild(swRebuildOptions_e.swForceRebuildAll)
+        
+        If ToClose Then
+        
+            swApp.CloseDoc swDoc.GetPathName
+            
+        End If
+        
+    End If
+    
+End Sub
+
+Function GetCompListBasedonLocationParam(ArrList As IArrListObject, Param As String, swView As SldWorks.View) As IArrListObject
+    
+    Set GetCompListBasedonLocationParam = New IArrListObject
+    
+    If ArrList.Count > 0 Then
+        
+        ArrList.SortItems Param
+        
+        Dim vItems As Variant
+        vItems = ArrList.Items
+        
+        Dim keyVal As Double
+        
+        Dim i As Integer
+        For i = LBound(vItems) To UBound(vItems)
+        
+            Dim oComp As IComp
+            Set oComp = vItems(i)
+            
+            If i = LBound(vItems) Then
+                
+                keyVal = CallByName(oComp, Param, VbGet)
+                GetCompListBasedonLocationParam.AddtoList oComp
+                
+            Else
+            
+                If Abs(keyVal - CallByName(oComp, Param, VbGet)) < 0.125 * 0.0254 * swView.ScaleDecimal Then
+                
+                    GetCompListBasedonLocationParam.AddtoList oComp
+                
+                End If
+            
+            End If
+        
+        Next i
+
+    End If
+    
+End Function
+
+Function GetConsolidatedDict(MainArrList As IArrListObject, Param As String, swView As SldWorks.View) As Scripting.Dictionary
+    
+    MainArrList.SortItems Param, False
+    Set GetConsolidatedDict = New Scripting.Dictionary
+    
+    If MainArrList.Count > 0 Then
+        
+        Dim vComps As Variant
+        vComps = MainArrList.Items
+        
+        Dim i As Integer
+        For i = LBound(vComps) To UBound(vComps)
+        
+            Dim oComp As Object
+            Set oComp = vComps(i)
+
+            Dim keyVal As Double
+            keyVal = CallByName(oComp, Param, VbGet)
+            
+            Dim ArrList As IArrListObject
+            
+            If GetConsolidatedDict.Exists(keyVal) Then
+
+                Set ArrList = GetConsolidatedDict.Item(keyVal)
+                ArrList.AddtoList oComp
+
+            Else
+
+                If i = LBound(vComps) Then
+                
+                    Set ArrList = New IArrListObject
+                    ArrList.AddtoList oComp
+                    GetConsolidatedDict.Add keyVal, ArrList
+                       
+                Else
+                
+                    Dim PrevKeyVal As Double
+                    PrevKeyVal = GetConsolidatedDict.Keys(UBound(GetConsolidatedDict.Keys))
+                    
+                    If Abs(PrevKeyVal - CallByName(oComp, Param, VbGet)) < 0.125 * 0.0254 * swView.ScaleDecimal Then
+                        
+                       Set ArrList = GetConsolidatedDict.Item(PrevKeyVal)
+                       ArrList.AddtoList oComp
+                    
+                    Else
+                        
+                        Set ArrList = New IArrListObject
+                        ArrList.AddtoList oComp
+                        GetConsolidatedDict.Add keyVal, ArrList
+                    
+                    End If
+                
+                End If
+                
+            End If
+        
+        Next i
+        
+    End If
+    
+End Function
+
+Function GetFloorPlateList(vComps As Variant, swView As SldWorks.View) As IArrListObject
+
+    Set GetFloorPlateList = New IArrListObject
+
+    If Not IsEmpty(vComps) Then
+        
+        Dim i As Integer
+        For i = LBound(vComps) To UBound(vComps)
+        
+            Dim swComp As SldWorks.Component2
+            Set swComp = vComps(i)
+            
+            Dim oComp As IComp
+            Set oComp = New IComp
+            
+            If False = swComp.IsSuppressed Then
+            
+                oComp.Initialize swComp, swView
+                GetFloorPlateList.AddtoList oComp
+            
+            End If
+            
+        Next i
+        
+    End If
+
+End Function
+
+Function GetBlockOutList(vFloorPlates As Variant, swView As SldWorks.View) As IArrListObject
+    
+    Set GetBlockOutList = New IArrListObject
+
+    If Not IsEmpty(vFloorPlates) Then
+    
+        Dim i As Integer
+        For i = LBound(vFloorPlates) To UBound(vFloorPlates)
+        
+            Dim oFloorPlate As IComp
+            Set oFloorPlate = vFloorPlates(i)
+            
+            'Debug.Print oFloorPlate.GetComponent.Name2
+            
+            Dim vFaces As Variant
+            vFaces = swView.GetVisibleEntities2(oFloorPlate.GetComponent, swViewEntityType_e.swViewEntityType_Face)
+            
+            If Not IsEmpty(vFaces) Then
+                
+                Dim swFace As SldWorks.Face2
+            
+                If UBound(vFaces) = 0 Then
+                
+                   Set swFace = vFaces(0)
+                   
+                Else
+                
+                    Set swFace = GetLargestFace(vFaces)
+                    
+                End If
+                
+                Dim vLoops As Variant
+                vLoops = swFace.GetLoops
+                
+                Set oFloorPlate.VisibleFace = swFace
+
+                Call AddRectangularBlockoutsToList(vLoops, GetBlockOutList, oFloorPlate, swView)
+
+            End If
+
+        Next i
+        
+    End If
+    
+End Function
+
+Function GetLargestFace(vFaces As Variant) As SldWorks.Face2
+
+    Dim i As Integer
+    Dim Area As Double
+    Area = 0
+    For i = LBound(vFaces) To UBound(vFaces)
+    
+        Dim swFace As SldWorks.Face2
+        Set swFace = vFaces(i)
+        
+        If swFace.GetArea > Area Then
+        
+            Set GetLargestFace = swFace
+            Area = swFace.GetArea
+            
+        End If
+
+    Next i
+   
+End Function
+
+Sub AddRectangularBlockoutsToList(vLoops As Variant, ArrList As IArrListObject, oComp As IComp, swView As SldWorks.View)
+
+    Dim i As Integer
+    For i = LBound(vLoops) To UBound(vLoops)
+    
+        Dim swLoop As SldWorks.Loop2
+        Set swLoop = vLoops(i)
+        
+        If False = (swLoop.IsOuter) Then
+        
+            Dim vEdges As Variant
+            vEdges = swLoop.GetEdges
+            
+            If UBound(vEdges) = 3 Then
+            
+                If Not (IsAnyEdgeHaveNegligibleLength(vEdges)) Then
+                
+                    If Not (IsContainsCircularEdge(vEdges)) Then
+                        
+                        Dim oBlockOut As IBlockOut
+                        Set oBlockOut = New IBlockOut
+    
+                        oBlockOut.Initialize swLoop, oComp.GetComponent, swView
+                        
+                        oComp.AddToBlockOutList oBlockOut
+                        ArrList.AddtoList oBlockOut
+                    
+                    End If
+                    
+                End If
+            
+            End If
+
+        End If
+    
+    Next i
+
+End Sub
+
+Function IsAnyEdgeHaveNegligibleLength(vEdges As Variant) As Boolean
+
+    IsAnyEdgeHaveNegligibleLength = False
+    
+    Dim i As Integer
+    For i = LBound(vEdges) To UBound(vEdges)
+    
+        Dim swEdge As SldWorks.Edge
+        Set swEdge = vEdges(i)
+        
+        If GetEdgeLength(swEdge) < 0.1 * 0.0254 Then
+            
+            IsAnyEdgeHaveNegligibleLength = True
+            Exit For
+            
+        End If
+
+    Next i
+    
+End Function
+
+Function IsContainsCircularEdge(vEdges As Variant) As Boolean
+
+    IsContainsCircularEdge = False
+    
+    Dim i As Integer
+    For i = LBound(vEdges) To UBound(vEdges)
+    
+        Dim swEdge As SldWorks.Edge
+        Set swEdge = vEdges(i)
+        
+        Dim swCurve As SldWorks.Curve
+        Set swCurve = swEdge.GetCurve
+        
+        If swCurve.IsCircle Then
+        
+            IsContainsCircularEdge = True
+            Exit For
+            
+        End If
+    
+    Next i
+    
+End Function
+
+
+Private Sub GetViewMaxMinPoints(oComp As IComp, swView As SldWorks.View, ByRef xMin As Double, _
+                ByRef xMax As Double, ByRef yMin As Double, ByRef yMax As Double)
+
+    Dim vViewMaxPt As Variant
+    vViewMaxPt = GetComponentPointInViewSpace(oComp.GetComponent, oComp.GetMaxPointInModel, swView)
+            
+    Dim vViewMinPt As Variant
+    vViewMinPt = GetComponentPointInViewSpace(oComp.GetComponent, oComp.GetMinPointInModel, swView)
+    
+    Call StrucutralElevation.GetMaxMinPoint(vViewMinPt(0), vViewMaxPt(0), xMin, xMax)
+    Call StrucutralElevation.GetMaxMinPoint(vViewMinPt(1), vViewMaxPt(1), yMin, yMax)
+    
+End Sub
+
+Function EditTemplate(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Sheet, WeldmentNo As String, SheetName As String)
+    
+    Dim swSelect As SldWorks.SelectionMgr
+    Set swSelect = swDrawing.SelectionManager()
+    
+    swDrawing.EditTemplate
+
+    Dim SheetFormatName As String
+    SheetFormatName = swSheet.GetSheetFormatName
+    Dim Boolstatus As Boolean
+    
+    Dim swNote As INote
+    Boolstatus = swDrawing.Extension.SelectByID2("DetailItem1227@" & SheetFormatName, "NOTE", 0.355252206998469, 3.32049059009041E-02, 0, False, 0, Nothing, 0)
+    Set swNote = swSelect.GetSelectedObject6(1, -1)
+    swNote.SetText (SheetName)
+        
+    Boolstatus = swDrawing.Extension.SelectByID2("DetailItem1229@" & SheetFormatName, "NOTE", 0.355252206998469, 3.32049059009041E-02, 0, False, 0, Nothing, 0)
+    Set swNote = swSelect.GetSelectedObject6(1, -1)
+    swNote.SetText (WeldmentNo)
+    
+    Boolstatus = swDrawing.Extension.SelectByID2("DetailItem1262@" & SheetFormatName, "NOTE", 4.69556851111171E-02, 3.48062939323501E-02, 0, False, 0, Nothing, 0)
+    swDrawing.EditDelete
+        
+    swDrawing.EditSheet
+    
+End Function
+
+Function AddNoteToView(swDrawing As SldWorks.DrawingDoc, NoteText As String, xPos As Double, yPos As Double) As SldWorks.Note
+            
+    Set AddNoteToView = swDrawing.InsertNote(NoteText)
+            
+    If Not AddNoteToView Is Nothing Then
+
+        Dim swAnnotation As SldWorks.Annotation
+        Set swAnnotation = AddNoteToView.GetAnnotation()
+
+        If Not swAnnotation Is Nothing Then
+
+            swAnnotation.SetPosition xPos, yPos, 0
+
+        End If
+
+    End If
+    
+End Function
+ 
+Private Sub AddLocatingHoleDetailView(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
+        BottomFloorPlateList As IArrListObject)
+
+    Dim oFloorPlate As IComp
+    Set oFloorPlate = GetPlateWithLeastBlockOuts(BottomFloorPlateList.Items)
+    
+    Dim CircularEdge As ICircularEdge
+    Set CircularEdge = GetBottomCircularEdge(oFloorPlate, swView)
+'
+'    Dim vCircleParams As Variant
+'    vCircleParams = CircularEdge.GetCurve.CircleParams
+'
+'    Dim dCenterPt(2) As Double
+'    dCenterPt(0) = vCircleParams(0)
+'    dCenterPt(1) = vCircleParams(1)
+'    dCenterPt(2) = vCircleParams(2)
+'
+'    Dim vCircleCenter As Variant
+'    vCircleCenter = dCenterPt
+'    vCircleCenter = GetComponentPointInViewSpace(oFloorPlate.GetComponent, vCircleCenter, swView)
+    
+    Dim dPlateEndPoint(2) As Double
+    dPlateEndPoint(0) = oFloorPlate.xMin
+    dPlateEndPoint(1) = oFloorPlate.yMin
+    dPlateEndPoint(2) = 0
+    
+    Dim vPlateEndPoint As Variant
+    vPlateEndPoint = dPlateEndPoint
+    vPlateEndPoint = GetSheetPointInViewSpace(swView, vPlateEndPoint)
+
+    Dim vViewCenterPt(2) As Double
+    vViewCenterPt(0) = vPlateEndPoint(0) - 0.125 * 0.0254
+    vViewCenterPt(1) = CircularEdge.yViewMin
+    vViewCenterPt(2) = 0
+            
+
+    Dim radius As Double
+    radius = Sqr((vViewCenterPt(0) - CircularEdge.xViewMin) ^ 2 + (vViewCenterPt(1) - CircularEdge.yViewMin) ^ 2) + 4 * 0.0254
+            
+    Dim swSketchSegment As SldWorks.SketchSegment
+    Set swSketchSegment = swSketchMgr.CreateCircleByRadius(vViewCenterPt(0), vViewCenterPt(1), vViewCenterPt(2), radius)
+
+    Dim swDetailView As SldWorks.View
+    Set swDetailView = swDrawing.CreateDetailViewAt3(0.32, 0.07, 0, 2, 1, 12, "A", swDetCircleCIRCLE, False)
+                    
+    If Not swDetailView Is Nothing Then
+
+        Dim swDetailCircle As SldWorks.DetailCircle
+        Set swDetailCircle = swDetailView.GetDetail
+                    
+        swDetailCircle.Layer = "FORMAT"
+                
+        Dim vDetailOutline As Variant
+        vDetailOutline = swDetailView.GetOutline
+        
+        Dim swDetailLabel As SldWorks.Annotation
+        Set swDetailLabel = swDetailView.GetFirstAnnotation3
+        
+        swDetailLabel.SetPosition2 (vDetailOutline(0) + vDetailOutline(2)) / 2, vDetailOutline(1), 0
+        
+        Dim Bool As Boolean
+        Bool = swDetailView.SelectEntity(CircularEdge.GetEdge, False)
+
+        If Bool Then
+        
+            Call AddNoteToView(swDrawing, "FLOOR PLATE" & vbCrLf & "LOCATING HOLE", ((vDetailOutline(2) + vDetailOutline(0)) / 2) + radius * swDetailView.ScaleDecimal + 0.0025, ((vDetailOutline(1) + vDetailOutline(3)) / 2) + 0.0025)
+        
+        End If
+        
+        
+    End If
+
+    
+End Sub
+
+
+
+Private Sub SetHiddenEdgesVisibleAndRemoveTangentEdges(swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc)
+
+    Dim Bool As Boolean
+    Bool = swDrawing.Extension.SelectByID2(swView.Name, "DRAWINGVIEW", 0, 0, 0, False, 0, Nothing, swSelectOption_e.swSelectOptionDefault)
+    
+    If Bool Then
+    
+        swDrawing.ViewDisplayHiddengreyed
+    
+    End If
+    
+    swView.SetDisplayTangentEdges2 swDisplayTangentEdges_e.swTangentEdgesHidden
+    
+End Sub
+
+
+
+
+
+Sub UpdateViewLabelPosition(swView As SldWorks.View, yPos As Double)
+
+    Dim swLabelNote As SldWorks.Note
+    Set swLabelNote = swView.GetFirstNote
+            
+    If Not swLabelNote Is Nothing Then
+            
+        Dim swLabelAnn As SldWorks.Annotation
+        Set swLabelAnn = swLabelNote.GetAnnotation
+                
+        Dim LabelPos As Variant
+        LabelPos = swLabelAnn.GetPosition
+
+        swLabelAnn.SetPosition LabelPos(0), yPos, LabelPos(2)
+                
+    End If
+    
+End Sub
+
+
+
+
+
+
+
+Function GetViewInASheetByName(swSheet As SldWorks.Sheet, viewName As String) As SldWorks.View
+
+    Dim vViews As Variant
+    vViews = swSheet.GetViews
+    
+    Dim i As Integer
+    For i = LBound(vViews) To UBound(vViews)
+    
+        Dim swView As SldWorks.View
+        Set swView = vViews(i)
+        
+        If swView.Name = viewName Then
+            
+            Set GetViewInASheetByName = swView
+            Exit For
+            
+        End If
+    
+    Next i
+
+End Function
+
+
+
+Sub AddEllipseAndCreateDetailView(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, ArrList As IArrListObject, _
+    ByRef LegendAscii As Long, ByRef IsAsciiMaxReached As Boolean, ByRef ViewDict As Scripting.Dictionary, _
+    ByRef BodyDict As Scripting.Dictionary, ByRef IsSubWeldmentExists As Boolean)
+    
+    Dim scaleRatio As Variant
+    scaleRatio = swView.scaleRatio
+
+    If ArrList.Count > 0 Then
+        
+        Dim vItems As Variant
+        vItems = ArrList.Items
+        
+        Dim Clearance As Double
+        Clearance = 7.5 * 0.0254 '* swView.ScaleDecimal
+        
+        Dim i As Integer
+        For i = LBound(vItems) To UBound(vItems)
+        
+            Dim oBlockOut As IBlockOut
+            Set oBlockOut = vItems(i)
+                   
+            If oBlockOut.IsVertical Or False = oBlockOut.IsPerimeter Then
+            
+                Dim vMinPoint As Variant
+                Dim vMaxPoint As Variant
+        
+                vMinPoint = BodyExtremePointInViewSpace(oBlockOut, swView, False)
+                vMaxPoint = BodyExtremePointInViewSpace(oBlockOut, swView, True)
+                        
+                Dim Width As Double
+                Dim vStartPoint(2) As Double
+                Dim vEndPoint(2) As Double
+        
+                If oBlockOut.IsVertical Then
+                            
+                    Width = Abs(vMaxPoint(0) - vMinPoint(0)) + Clearance
+                    vStartPoint(0) = (vMinPoint(0) + vMaxPoint(0)) / 2
+                    vStartPoint(1) = vMinPoint(1)
+                    vStartPoint(2) = 0
+                            
+                    vEndPoint(0) = vStartPoint(0)
+                    vEndPoint(1) = vMaxPoint(1)
+                    vEndPoint(2) = 0
+        
+                Else
+        
+                    Width = Abs(vMaxPoint(1) - vMinPoint(1)) + Clearance
+                    vStartPoint(0) = vMinPoint(0)
+                    vStartPoint(1) = (vMinPoint(1) + vMaxPoint(1)) / 2
+                    vStartPoint(2) = 0
+                            
+                    vEndPoint(0) = vMaxPoint(0)
+                    vEndPoint(1) = vStartPoint(1)
+                    vEndPoint(2) = 0
+                        
+                End If
+                
+                swView.FocusLocked = True
+                        
+                Dim swSketchSlot As SldWorks.SketchSlot
+                Set swSketchSlot = swSketchMgr.CreateSketchSlot(swSketchSlotCreationType_e.swSketchSlotCreationType_line, _
+                                swSketchSlotLengthType_e.swSketchSlotLengthType_FullLength, Width, vStartPoint(0), vStartPoint(1), 0, vEndPoint(0), vEndPoint(1), 0, 0, 0, 0, 1, False)
+                
+                
+                
+                
+                If Not swDetailView Is Nothing Then
+                    
+                    swDetailView.UseSheetScale = 1
+                
+                    Dim swDetailCircle As SldWorks.DetailCircle
+                    Set swDetailCircle = swDetailView.GetDetail
+                    
+                    swDetailCircle.Layer = "FORMAT"
+                    
+                    If False = IsSubWeldmentExists Then
+                        
+                        IsSubWeldmentExists = True
+                    
+                    End If
+                    
+                    ViewDict.Add swDetailView.Name, swDetailView 'oBlockOut.GetBody.Name
+                    BodyDict.Add swDetailView.Name, oBlockOut
+                    
+                End If
+                
+                Call GetValidAscii(LegendAscii, IsAsciiMaxReached)
+                
+            End If
+            
+        Next i
+        
+    End If
+
+End Sub
+
+Private Sub UpdateTopViewPosition(oFloorComp As IComp, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+    
+    Call oFloorComp.CheckForUpdateInMaxMinDimensions(swView)
+    
+    Dim CenterX As Double
+    CenterX = (oFloorComp.xMin + oFloorComp.xMax) / 2
+    
+    Dim CenterY As Double
+    CenterY = (oFloorComp.yMin + oFloorComp.yMax) / 2
+
+    Dim viewPosition As Variant
+    viewPosition = swView.Position
+
+    viewPosition(0) = viewPosition(0) + (viewPosition(0) - CenterX)
+    viewPosition(1) = viewPosition(1) + (viewPosition(1) - CenterY)
+
+    swView.Position = viewPosition
+    
+    Call oFloorComp.CheckForUpdateInMaxMinDimensions(swView)
+
+End Sub
+
+Private Function SelectAndAddDimension(swEnt1 As SldWorks.Entity, swEnt2 As SldWorks.Entity, swDrawing As SldWorks.ModelDoc2, _
+            xPos As Double, yPos As Double, swView As SldWorks.View, Optional IsDual As Boolean = True) As SldWorks.DisplayDimension
+
+    If Not (swEnt1 Is Nothing) And Not (swEnt2 Is Nothing) Then
+
+        swDrawing.ClearSelection2 True
+        
+        swView.SelectEntity swEnt1, False
+        swView.SelectEntity swEnt2, True
+
+        Set SelectAndAddDimension = swDrawing.AddDimension2(xPos, yPos, 0)
+
+        If Not SelectAndAddDimension Is Nothing Then
+
+            SelectAndAddDimension.CenterText = True
+
+            If IsDual Then
+
+                SelectAndAddDimension.SetDual2 False, False
+
+            End If
+
+        End If
+
+    End If
+
+End Function
+
+Private Function AddStructuralNotes(swDrawing As SldWorks.DrawingDoc) As SldWorks.Note
+    
+    Dim swSheet As SldWorks.Sheet
+    Set swSheet = swDrawing.GetCurrentSheet
+    
+    swDrawing.ActivateSheet swSheet.GetName
+
+    Dim swStructuralNote As SldWorks.Note
+    Dim Note As String
+    
+    Note = "<FONT size=10PTS style=B>NOTES:" & vbCrLf & _
+            "<FONT size=8PTS style=R>1. DIMENSION ORIGIN STARTING AT LOWER LEFT CORNER OF FLOOR BEAM." & vbCrLf & _
+            "2. MAKE SURE THE 1/4" & Chr(34) & " LOCATING HOLES AT WALL-A LOWER LEFT CORNER FOR EACH FLOOR TOP PLATES."
+
+    Set swStructuralNote = swDrawing.CreateText2(Note, 1.99241243641486E-02, 6.92464210842187E-02, 0, 0, 0)
+    swStructuralNote.SetTextJustification swTextJustification_e.swTextJustificationLeft
+
+End Function
+'
+Private Sub InsertSketchBlock(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Sheet, ProjectNo As String)
+
+    swDrawing.ActivateSheet swSheet.GetName
+
+    Dim vSheetProp As Variant
+    vSheetProp = swSheet.GetProperties
+
+    Dim vPt(2) As Double
+    vPt(0) = 0.01590679 * vSheetProp(3)
+    vPt(1) = 0.00995866 * vSheetProp(3)
+    vPt(2) = 0
+
+    Dim SketchBlockInsertionPt As SldWorks.MathPoint
+    Set SketchBlockInsertionPt = swMathUtility.CreatePoint(vPt)
+
+    Dim swBlockDefinition As SldWorks.SketchBlockDefinition
+    Set swBlockDefinition = swDrawing.SketchManager.MakeSketchBlockFromFile(SketchBlockInsertionPt, _
+                "C:\FBD\COMMON\BLOCKS\" & ProjectNo & " EXTERNAL ELEVATION KEY.SLDBLK", True, 1, 0)
+
+
+End Sub
+
+Function RotateAndScaleView(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
+            ViewWidth As Double, ViewHeight As Double) As SldWorks.View
+    
+
+    If ViewHeight > ViewWidth Then
+        
+        swView.Angle = 1.57079632679
+        
+        Dim TempVal As Double
+        TempVal = ViewHeight
+        ViewHeight = ViewWidth
+        ViewWidth = TempVal
+        
+    End If
+
+    Dim xScale As Integer
+    Dim yScale As Integer
+    xScale = GetScaleValue(ViewWidth / (swView.ScaleDecimal * HorizontalMaxDim))
+    yScale = GetScaleValue(ViewHeight / (swView.ScaleDecimal * VerticalMaxDim)) '0.20995
+    
+    Dim IsScaleSet As Boolean
+    IsScaleSet = False
+    
+    If xScale > 0 And yScale > 0 Then
+        
+        If yScale > xScale Then
+            
+            IsScaleSet = swView.Sheet.SetScale(1, yScale, True, True)
+           
+        Else
+            
+            IsScaleSet = swView.Sheet.SetScale(1, xScale, True, True)
+        
+        End If
+        
+    End If
+
+End Function
+
+Function GetScaleValue(scaleVal As Double) As Integer
+
+    GetScaleValue = 0
+    
+    Dim stdScales As Variant
+    stdScales = Array(1, 2, 4, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 384)
+    
+    Dim i As Integer
+    For i = LBound(stdScales) To UBound(stdScales)
+    
+        If stdScales(i) >= scaleVal Then
+           GetScaleValue = stdScales(i)
+           Exit For
+        End If
+    
+    Next i
+
+End Function
+
+
+
+Private Sub UserForm_Initialize()
+
+    Set compDict = New Scripting.Dictionary
+
+End Sub
+
+
