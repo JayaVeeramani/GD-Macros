@@ -44,7 +44,7 @@ Private Sub ActivateDSButton_Click()
         
             swConfig.ApplyDisplayState DisplayStateName
             
-            HideShowForm.WeldNoBox.Value = Mid(swFloorWeldment.GetPathName, InStrRev(swFloorWeldment.GetPathName, "\") + 1, 7)
+            HideShowForm.WeldNoBox.Value = Mid(swTopLevelModel.GetPathName, InStrRev(swTopLevelModel.GetPathName, "\") + 1, 6)
             HideShowForm.Show vbModeless
             
         End If

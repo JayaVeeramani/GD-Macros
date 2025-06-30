@@ -83,6 +83,8 @@ Sub AddCrossMarkAndBalloons(BlockOutList As IArrListObject, swDrawing As SldWork
         Next i
         
         swView.FocusLocked = False
+        
+        'swDrawing.ActivateSheet swDrawing.GetCurrentSheet.GetName
         Call AddLegendNoteAtBottom(ConsolidatedNote, swDrawing)
     
         Dim swlayer As ILayer
@@ -445,6 +447,14 @@ Sub GetAnnXPosWhenCalledOutVertically(oBlockOut As IBlockOut, LeftBlockOut As IB
         ElseIf LeftDiff > 0.01 And RightDiff < 0.01 Then
             
             AnnXPos = SelXPos - 0.00375
+            
+        Else
+            
+            If Abs(oBlockOut.xMax - oBlockOut.xMin) < 0.0035 Then
+            
+                AnnXPos = AnnXPos + 0.00075
+                
+            End If
             
         End If
 

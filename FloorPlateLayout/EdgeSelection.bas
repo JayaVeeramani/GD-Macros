@@ -154,6 +154,19 @@ Function GetComponentEdges(swComp As SldWorks.Component2)
 
 End Function
 
+Function CombineArr(ByVal MainArr As Variant, ArrToAdd As Variant)
+
+    Dim i As Integer
+    For i = LBound(ArrToAdd) To UBound(ArrToAdd)
+    
+        ReDim Preserve MainArr(UBound(MainArr) + 1)
+        Set MainArr(UBound(MainArr)) = ArrToAdd(i)
+        
+    Next i
+    
+    CombineArr = MainArr
+    
+End Function
 
 
 Function GetEdgeInViewForBody(swComp As SldWorks.Component2, oBody As IBlockOut, swView As SldWorks.View, _

@@ -493,7 +493,7 @@ Sub AddFloorPlateEdgesToList(vFloorCompsList As Variant, swView As SldWorks.View
 End Sub
 
 Sub AddFloorPlateCallouts(xMinFloorDict As Scripting.Dictionary, swDrawing As SldWorks.DrawingDoc, _
-        swView As SldWorks.View, IsBottom As Boolean, oFloorComp As IComp)
+        swView As SldWorks.View, OrgIsBottom As Boolean, oFloorComp As IComp)
 
     Dim vItems As Variant
     vItems = xMinFloorDict.Items
@@ -509,6 +509,11 @@ Sub AddFloorPlateCallouts(xMinFloorDict As Scripting.Dictionary, swDrawing As Sl
         Dim yPos As Double
         Dim AnnXPos As Double
         Dim AnnYPos As Double
+        
+        Dim IsBottom As Boolean
+        IsBottom = OrgIsBottom
+        
+        PlateArrList.SortItems "yMin", False
         
         Dim vFloorPlates As Variant
         vFloorPlates = PlateArrList.Items
@@ -605,20 +610,22 @@ Sub GetFloorPlateCallOutPosition(oFloorPlate As IComp, ByRef xPos As Double, ByR
         Dim TopGap As Double
         TopGap = oFloorPlate.yMax - vBlockOutList.Items(UBound(vBlockOutList.Items)).yMax
         
+        Debug.Print oFloorPlate.GetComponent.Name2
+        
         Dim Gap As Double
         Gap = GetGapInfoForFloorPlateCallout(TopGap, BottomGap, IsBottom)
         
         Dim CallOutBlockOut As IBlockOut
         Dim IsFound As Boolean
-        Set CallOutBlockOut = GetBlockOutGreaterThanThisValInArrList(vBlockOutList, xPos, IsFound)
+        'Set CallOutBlockOut = GetBlockOutGreaterThanThisValInArrList(vBlockOutList, xPos, IsFound)
         
-        xPos = 0.75 * oFloorPlate.xMin + 0.25 * oFloorPlate.xMax
+        'xPos = 0.75 * oFloorPlate.xMin + 0.25 * oFloorPlate.xMax
         
-        If IsFound Then
+        'If IsFound Then
         
             Call xPosInCaseOfBlockOuts(vBlockOutList, oFloorPlate, xPos)
 
-        End If
+        'End If
 
         Call GetCallOutYPos(oFloorPlate, yPos, AnnYPos, Gap, IsBottom)
 
@@ -655,6 +662,8 @@ Function xPosInCaseOfBlockOuts(ArrList As IArrListObject, oFloorPlate As IComp, 
 
     If ArrList.Count > 0 Then
     
+        ArrList.SortItems "xMin", False
+    
         Dim vItems As Variant
         vItems = ArrList.Items
 
@@ -681,6 +690,7 @@ Function xPosInCaseOfBlockOuts(ArrList As IArrListObject, oFloorPlate As IComp, 
 
                 Dim NextBlockOut As IBlockOut
                 Set NextBlockOut = vItems(i + 1)
+                
                 
                 TempGap = NextBlockOut.xMin - oBlockOut.xMin
                 TempPos = NextBlockOut.xMin - 0.4 * TempGap

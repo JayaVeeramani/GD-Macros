@@ -198,8 +198,9 @@ Private Sub CreateButton_Click()
 
     Set swMathUtility = swApp.GetMathUtility
     
-    Call ActivateAndRebuildComponent(swFloorWeldment, False)
-    Call swTopLevelModel.Extension.Rebuild(swRebuildOptions_e.swForceRebuildAll)
+    Call ActivateAndRebuildComponent(swFloorWeldment)
+    Call ActivateAndRebuildComponent(swTopLevelModel, False)
+    'Call swTopLevelModel.Extension.Rebuild(swRebuildOptions_e.swForceRebuildAll)
 
     Dim swDrawing As SldWorks.DrawingDoc
     Set swDrawing = swApp.NewDocument("C:\FBD\COMMON\FBD Templates\DEFAULT\METAL FAB DRAWING.DRWDOT", 0, 0, 0)
@@ -212,7 +213,7 @@ Private Sub CreateButton_Click()
     Call InsertSketchBlock(swDrawing, swSheet, ProjectNo)
 
     Dim swTopView As SldWorks.View
-    Set swTopView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), "*Top", 0.21593179, 0.15578398, 0)
+    Set swTopView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), "*Top", 0.21593179, 0.17578398, 0)
     
     Dim oFloorComp As IComp
     Set oFloorComp = New IComp
@@ -267,29 +268,28 @@ Private Sub CreateButton_Click()
     Call FindAndAddBeforeBlockOuts(yMaxBlockOutDict, ClonedBlockOutList, "yMin", BlockOutSide_e.Bottom)
     Call FindAndAddAfterBlockOuts(yMinBlockOutDict, ClonedBlockOutList, "yMax", BlockOutSide_e.Top)
     
+
     Call SegregateAndAddDimensionVertically(xMinBlockOutDict, xMaxPlateList, xMinFloorDict, oFloorComp, swDrawing, swTopView)
     Call SegregateAndAddDimensionHorizontally(yMinBlockOutDict, yMaxPlateList, yMinFloorDict, oFloorComp, swDrawing, swTopView)
 
-    
-    
     swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
-    'Call AddCrossMarkAndBalloons(vBlockOutList, swDrawing, swTopView, oFloorComp)
-
-    'Call AddSeeNote2Circle(swDrawing, swTopView, BottomBeamList.Items, RightBeamList.Items, False)
+    Call AddCrossMarkAndBalloons(vBlockOutList, swDrawing, swTopView, oFloorComp)
     
     swDrawing.ClearSelection2 True
+    swTopView.FocusLocked = True
     Call AddNoteToView(swDrawing, "<FONT size=10PTS style=B>TOP VIEW WITH FLOOR PLATES", _
-        (oFloorComp.xMax + oFloorComp.xMin) / 2, oFloorComp.yMin - 0.025)
+        ((oFloorComp.xMax + oFloorComp.xMin) / 2) - 0.025, oFloorComp.yMin - 0.02875)
      
-    'Call AddEllipseAndCreateDetailView(swDrawing, swTopView, VerticalSubWeldmentList, LegendAscii, IsAsciiMaxReached, SubWeldmentViewDict, SubWeldBodyDict, IsSubWeldmentExists)
+
+    Dim BottomFloorList As IArrListObject
+    Set BottomFloorList = yMinFloorDict.Items(0)
+    Call AddLocatingHoleDetailView(swDrawing, swTopView, BottomFloorList)
     
-    
-    Call EditTemplate(swDrawing, swDrawing.GetCurrentSheet, WeldmentNo, "CUTLIST AND BEAM DETAILS")
- 
+    swTopView.FocusLocked = flase
+     
+    Call EditTemplate(swDrawing, swDrawing.GetCurrentSheet, WeldmentNo, "FLOOR PLATE LAYOUT")
     Call AddStructuralNotes(swDrawing)
-
     Call SetHiddenEdgesVisibleAndRemoveTangentEdges(swTopView, swDrawing)
-
     Call swDrawing.Extension.Rebuild(swRebuildOptions_e.swCurrentSheetDisp)
 
     Set oFloorComp = Nothing
@@ -729,64 +729,166 @@ Function AddNoteToView(swDrawing As SldWorks.DrawingDoc, NoteText As String, xPo
     
 End Function
  
-Private Sub AddSeeNote2Circle(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
-        vHorBeams As Variant, vRightBeams As Variant, Optional IsTop As Boolean = True)
-    
-    Dim oBeam As IBlockOut
-    Set oBeam = vHorBeams(UBound(vHorBeams))
-    
-    Dim RightBeam As IBlockOut
-    Set RightBeam = vRightBeams(0)
-    
-    Dim vShCenterPt(2) As Double
-    vShCenterPt(0) = (RightBeam.xMin + RightBeam.xMax) / 2
-    vShCenterPt(1) = (oBeam.yMin + oBeam.yMax) / 2
-    vShCenterPt(2) = 0
+Private Sub AddLocatingHoleDetailView(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
+        BottomFloorPlateList As IArrListObject)
 
-    Dim vShEndPt(2) As Double
-    vShEndPt(0) = oBeam.xMax
-    vShEndPt(2) = oBeam.zMin
+    Dim oFloorPlate As IComp
+    Set oFloorPlate = GetPlateWithLeastBlockOuts(BottomFloorPlateList.Items)
     
-    Dim YClearnace As Double
+    Dim CircularEdge As ICircularEdge
+    Set CircularEdge = GetBottomCircularEdge(oFloorPlate, swView)
+'
+'    Dim vCircleParams As Variant
+'    vCircleParams = CircularEdge.GetCurve.CircleParams
+'
+'    Dim dCenterPt(2) As Double
+'    dCenterPt(0) = vCircleParams(0)
+'    dCenterPt(1) = vCircleParams(1)
+'    dCenterPt(2) = vCircleParams(2)
+'
+'    Dim vCircleCenter As Variant
+'    vCircleCenter = dCenterPt
+'    vCircleCenter = GetComponentPointInViewSpace(oFloorPlate.GetComponent, vCircleCenter, swView)
     
-    If IsTop Then
-        
-        vShEndPt(1) = oBeam.yMax
-        vShCenterPt(1) = vShCenterPt(1) - 1.75 * 0.0254 * swView.ScaleDecimal
-        YClearnace = -0.005
-        
-    Else
+    Dim dPlateEndPoint(2) As Double
+    dPlateEndPoint(0) = oFloorPlate.xMin
+    dPlateEndPoint(1) = oFloorPlate.yMin
+    dPlateEndPoint(2) = 0
     
-        vShEndPt(1) = oBeam.yMin
-        vShCenterPt(1) = vShCenterPt(1) + 1.75 * 0.0254 * swView.ScaleDecimal
-         YClearnace = 0.0075
-    
-    End If
-    
-    Dim vViewCenterPt As Variant
-    vViewCenterPt = GetSheetPointInViewSpace(swView, vShCenterPt)
+    Dim vPlateEndPoint As Variant
+    vPlateEndPoint = dPlateEndPoint
+    vPlateEndPoint = GetSheetPointInViewSpace(swView, vPlateEndPoint)
+
+    Dim vViewCenterPt(2) As Double
+    vViewCenterPt(0) = vPlateEndPoint(0) - 0.125 * 0.0254
+    vViewCenterPt(1) = CircularEdge.yViewMin
+    vViewCenterPt(2) = 0
             
-    Dim vViewEndPt As Variant
-    vViewEndPt = GetSheetPointInViewSpace(swView, vShEndPt)
 
     Dim radius As Double
-    radius = Sqr((vViewCenterPt(0) - vViewEndPt(0)) ^ 2 + (vViewCenterPt(1) - vViewEndPt(1)) ^ 2) + 2 * 0.0254
+    radius = Sqr((vViewCenterPt(0) - CircularEdge.xViewMin) ^ 2 + (vViewCenterPt(1) - CircularEdge.yViewMin) ^ 2) + 4 * 0.0254
             
     Dim swSketchSegment As SldWorks.SketchSegment
     Set swSketchSegment = swSketchMgr.CreateCircleByRadius(vViewCenterPt(0), vViewCenterPt(1), vViewCenterPt(2), radius)
-    swSketchSegment.ConstructionGeometry = True
+
+    Dim swDetailView As SldWorks.View
+    Set swDetailView = swDrawing.CreateDetailViewAt3(0.32, 0.07, 0, 2, 1, 12, "A", swDetCircleCIRCLE, False)
+                    
+    If Not swDetailView Is Nothing Then
+
+        Dim swDetailCircle As SldWorks.DetailCircle
+        Set swDetailCircle = swDetailView.GetDetail
+                    
+        swDetailCircle.Layer = "FORMAT"
+                
+        Dim vDetailOutline As Variant
+        vDetailOutline = swDetailView.GetOutline
+        
+        Dim swDetailLabel As SldWorks.Annotation
+        Set swDetailLabel = swDetailView.GetFirstAnnotation3
+        
+        swDetailLabel.SetPosition2 (vDetailOutline(0) + vDetailOutline(2)) / 2, vDetailOutline(1), 0
+        
+        Dim Bool As Boolean
+        Bool = swDetailView.SelectEntity(CircularEdge.GetEdge, False)
+
+        If Bool Then
+        
+            Call AddNoteToView(swDrawing, "FLOOR PLATE" & vbCrLf & "LOCATING HOLE", ((vDetailOutline(2) + vDetailOutline(0)) / 2) + radius * swDetailView.ScaleDecimal + 0.0025, ((vDetailOutline(1) + vDetailOutline(3)) / 2) + 0.0025)
+        
+        End If
+        
+        
+    End If
+
     
-    Dim Bool As Boolean
-    Bool = swDrawing.Extension.SelectByID2("Arc" & swSketchSegment.GetID(1), "SKETCHSEGMENT", vShCenterPt(0) + radius * swView.ScaleDecimal, _
-            vShCenterPt(1), 0, False, 0, Nothing, 0)
+End Sub
+
+Private Function GetBottomCircularEdge(oComp As IComp, swView As SldWorks.View) As ICircularEdge
+
+    Dim vEnts As Variant
+    vEnts = GetComponentEdges(oComp.GetComponent)
+    
+    Dim CircularEdgeList As IArrListObject
+    Set CircularEdgeList = New IArrListObject
+    
+    If Not IsEmpty(vEnts) Then
+    
+        Dim i As Integer
+        For i = LBound(vEnts) To UBound(vEnts)
+        
+            Dim swEdge As SldWorks.Edge
+            Set swEdge = vEnts(i)
             
-    If Bool Then
-    
-        Call AddNoteToView(swDrawing, "SEE NOTE 2", vShCenterPt(0) + radius * swView.ScaleDecimal + 0.00625, vShCenterPt(1) + YClearnace)
+            Dim swCurve As SldWorks.Curve
+            Set swCurve = swEdge.GetCurve
+            
+            If swCurve.IsCircle Then
+            
+                Dim vCircleParams As Variant
+                vCircleParams = swCurve.CircleParams
+                
+                If (vCircleParams(6) - 0.125 * 0.0254) <= 0.0001 Then
+                    
+                    Dim oCircleEdge As ICircularEdge
+                    Set oCircleEdge = New ICircularEdge
+                    
+                    oCircleEdge.Initialize swEdge, vCircleParams, swView, oComp.GetComponent
+                    CircularEdgeList.AddtoList oCircleEdge
+                    
+                End If
+                
+            End If
+
+        Next i
+        
+        If CircularEdgeList.Count > 0 Then
+        
+            CircularEdgeList.SortItems "xMin", False
+            CircularEdgeList.SortItems "yMin", False
+            
+            Set GetBottomCircularEdge = CircularEdgeList.Items(0)
+            
+        End If
     
     End If
     
-End Sub
+End Function
+
+Private Function GetPlateWithLeastBlockOuts(vComps As Variant) As IComp
+    
+    If Not IsEmpty(vComps) Then
+    
+        If UBound(vComps) > 0 Then
+        
+            Dim i As Integer
+            
+            Dim TempCount As Integer
+            TempCount = 1000
+            
+            For i = 1 To UBound(vComps)
+            
+                Dim oComp As IComp
+                Set oComp = vComps(i)
+                
+                If oComp.BlockOutList.Count < TempCount Then
+                
+                    TempCount = oComp.BlockOutList.Count
+                    Set GetPlateWithLeastBlockOuts = oComp
+                    
+                End If
+            
+            Next i
+            
+        Else
+        
+            Set GetPlateWithLeastBlockOuts = vComps(0)
+            
+        End If
+        
+    End If
+
+End Function
 
 Private Sub AddHorizontalAssyOrdinate(vBottomBeams As Variant, vTopBeams As Variant, _
     swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
@@ -845,89 +947,6 @@ Function CombineArr(ByVal MainArr As Variant, ArrToAdd As Variant)
     
 End Function
 
-'Private Sub AddVerticalBeamOrdinateDimensions(oBeam As Iblockout, IsAfter As Boolean, vComps As Variant, _
-'                swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View, _
-'                Optional IsSelectEnd As Boolean = True, Optional Clearance As Double = 0.01)
-'
-'    If Not IsEmpty(vComps) Then
-'
-'        Dim BeamLeftEdge As SldWorks.Edge
-'        Set BeamLeftEdge = GetEdgeInViewForBody(oBeam.GetComponent, oBeam, swView, False, False)
-'
-'        swDrawing.ClearSelection2 True
-'        swDrawing.SetPickMode
-'        swView.SelectEntity BeamLeftEdge, False
-'
-'        Dim yPos As Double
-'
-'        If IsAfter Then
-'
-'            yPos = oBeam.yMax + Clearance
-'
-'        Else
-'
-'            yPos = oBeam.yMin - Clearance
-'
-'        End If
-'
-'        Call SelectFirstFaceofConnectingPlates(vComps, swView, False)
-'
-'        If IsSelectEnd Then
-'
-'            Dim BeamRightEdge As SldWorks.Edge
-'            Set BeamRightEdge = GetEdgeInViewForBody(oBeam.GetComponent, oBeam, swView, False, True)
-'
-'            swView.SelectEntity BeamRightEdge, True
-'
-'        End If
-'
-'        swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swHorizontalOrdinate, oBeam.xMax, yPos, 0
-'
-'    End If
-'
-'End Sub
-'
-'Private Sub AddHorizontalBeamOrdinateDimensions(oBeam As Iblockout, IsAfter As Boolean, vComps As Variant, _
-'        swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View, Optional IsSelectEnd As Boolean = True, Optional Clearance As Double = 0.01)
-'
-'    If Not IsEmpty(vComps) Then
-'
-'        swDrawing.ClearSelection2 True
-'        swDrawing.SetPickMode
-'
-'        Dim BeamBottomEdge As SldWorks.Edge
-'        Set BeamBottomEdge = GetEdgeInViewForBody(oBeam.GetComponent, oBeam, swView, True, False)
-'
-'        swView.SelectEntity BeamBottomEdge, False
-'
-'
-'        Dim xPos As Double
-'
-'        If IsAfter Then
-'
-'            xPos = oBeam.xMax + Clearance
-'
-'        Else
-'            xPos = oBeam.xMin - Clearance
-'
-'        End If
-'
-'        Call SelectFirstFaceofConnectingPlates(vComps, swView, True)
-'
-'        If IsSelectEnd Then
-'
-'            Dim BeamTopEdge As SldWorks.Edge
-'            Set BeamTopEdge = GetEdgeInViewForBody(oBeam.GetComponent, oBeam, swView, True, True)
-'
-'            swView.SelectEntity BeamTopEdge, True
-'
-'        End If
-'
-'        swDrawing.Extension.AddOrdinateDimension swAddOrdinateDims_e.swVerticalOrdinate, xPos, oBeam.yMin, 0
-'
-'    End If
-'
-'End Sub
 
 Sub UpdateViewLabelPosition(swView As SldWorks.View, yPos As Double)
 
@@ -1042,8 +1061,7 @@ Sub AddEllipseAndCreateDetailView(swDrawing As SldWorks.DrawingDoc, swView As Sl
                                 swSketchSlotLengthType_e.swSketchSlotLengthType_FullLength, Width, vStartPoint(0), vStartPoint(1), 0, vEndPoint(0), vEndPoint(1), 0, 0, 0, 0, 1, False)
                 
                 
-                Dim swDetailView As SldWorks.View
-                Set swDetailView = swDrawing.CreateDetailViewAt3((oBlockOut.xMin + oBlockOut.xMax) / 2, ((oBlockOut.yMin + oBlockOut.yMax) / 2) - 11 * 0.0254, 0, 2, scaleRatio(0), scaleRatio(1), UCase(Chr(LegendAscii)), 0, False)
+                
                 
                 If Not swDetailView Is Nothing Then
                     
@@ -1074,65 +1092,6 @@ Sub AddEllipseAndCreateDetailView(swDrawing As SldWorks.DrawingDoc, swView As Sl
     End If
 
 End Sub
-'Private Function BodyExtremePointInViewSpace(oBlockOut As Iblockout, swView As SldWorks.View, IsMax As Boolean) As Variant
-'
-'    Dim Point(2) As Double
-'    If IsMax Then
-'
-'        Point(0) = oBlockOut.xMax
-'        Point(1) = oBlockOut.yMax
-'        Point(2) = oBlockOut.zMax
-'
-'    Else
-'
-'        Point(0) = oBlockOut.xMin
-'        Point(1) = oBlockOut.yMin
-'        Point(2) = oBlockOut.zMin
-'
-'    End If
-'
-'    BodyExtremePointInViewSpace = GetSheetPointInViewSpace(swView, Point)
-'
-'End Function
-
-
-
-'Function GetVertexPoint(swView As SldWorks.View, swBeam As Iblockout, IsMax As Boolean, _
-'        ParamToCheck As String) As SldWorks.Vertex
-'
-'    Dim swEdge As SldWorks.Edge
-'    Set swEdge = GetEdgeInViewForBody(swBeam.GetComponent, swBeam, swView, True, IsMax)
-'
-'    Dim swStartVertex As SldWorks.Vertex
-'    Set swStartVertex = swEdge.GetStartVertex
-'
-'    Dim swEndVertex As SldWorks.Vertex
-'    Set swEndVertex = swEdge.GetEndVertex
-'
-'    Dim vStartPoint As Variant
-'    vStartPoint = swStartVertex.GetPoint
-'
-'    Dim vEndPoint As Variant
-'    vEndPoint = swEndVertex.GetPoint
-'
-'    vStartPoint = GetComponentPointInSheetSpace(swBeam.GetComponent, vStartPoint, swView)
-'    vEndPoint = GetComponentPointInSheetSpace(swBeam.GetComponent, vEndPoint, swView)
-'
-'    If Abs(CallByName(swBeam, ParamToCheck, VbGet) - vStartPoint(0)) <= 0.0001 Then
-'
-'        Set GetVertexPoint = swStartVertex
-'
-'    ElseIf Abs(CallByName(swBeam, ParamToCheck, VbGet) - vEndPoint(0)) <= 0.0001 Then
-'
-'        Set GetVertexPoint = swEndVertex
-'
-'    End If
-'
-'End Function
-
-
-
-
 
 Private Sub UpdateTopViewPosition(oFloorComp As IComp, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
     
