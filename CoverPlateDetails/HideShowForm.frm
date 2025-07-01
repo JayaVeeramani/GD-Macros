@@ -20,9 +20,6 @@ Dim swCoverPlate As SldWorks.Component2
 Dim swSketchMgr As SldWorks.SketchManager
 
 Const BalloonWidth As Double = 0.0065
-Const SheetBorderTop As Double = 0.27030866
-Const SheetBorderLeft As Double = 0.01590679
-Const SheetBorderRight As Double = 0.41595679
 Dim compDict As Scripting.Dictionary
 Const HorizontalMaxDim As Double = 0.371
 Const VerticalMaxDim As Double = 0.1295
@@ -269,7 +266,7 @@ Private Sub CreateButton_Click()
     Call InsertSketchBlock(swDrawing, swSheet, ProjectNo)
 
     Dim swTopView As SldWorks.View
-    Set swTopView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), "*Top", 0.21593179, 0.17578398, 0)
+    Set swTopView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), "*Top", 0.21593179, 0.16078398, 0)
     
     Dim oFloorComp As IComp
     Set oFloorComp = New IComp
@@ -287,6 +284,9 @@ Private Sub CreateButton_Click()
     
     Dim FloorPlateList As IArrListObject
     Set FloorPlateList = GetFloorPlateList(compDict.Items, swTopView)
+    
+    Dim xMinFloorDict As Scripting.Dictionary
+    Set xMinFloorDict = GetConsolidatedDict(FloorPlateList, "xMin", swTopView)
 
     Dim vBlockOutList As IArrListObject
     Set vBlockOutList = GetBlockOutList(FloorPlateList.Items, swTopView)
@@ -326,18 +326,20 @@ Private Sub CreateButton_Click()
     swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
     Call AddCrossMarks(vBlockOutList, swDrawing, swTopView, oFloorComp)
     Call AddBalloonForCoverPlates(vCoverPlateList.Items, swTopView, swDrawing, oFloorComp)
+    Call AddFloorPlateCallouts(xMinFloorDict, swDrawing, swTopView, oFloorComp)
+    Call AddViewAndWeldTable(swCoverPlate, swDrawing, oFloorComp.yMax + 0.01)
     
     swDrawing.ClearSelection2 True
     swTopView.FocusLocked = True
-    Call AddNoteToView(swDrawing, "<FONT size=10PTS style=B>TOP VIEW WITH FLOOR PLATES", _
-        ((oFloorComp.xMax + oFloorComp.xMin) / 2) - 0.025, oFloorComp.yMin - 0.02875)
+    Call AddNoteToView(swDrawing, "<FONT size=10PTS style=B>TOP VIEW WITH COVER PLATES", _
+        ((oFloorComp.xMax + oFloorComp.xMin) / 2) - 0.025, oFloorComp.yMin - 0.02)
      
 
 
     
     swTopView.FocusLocked = False
      
-    Call EditTemplate(swDrawing, swDrawing.GetCurrentSheet, WeldmentNo, "FLOOR PLATE LAYOUT")
+    Call EditTemplate(swDrawing, swDrawing.GetCurrentSheet, WeldmentNo, "COVER PLATE DETAILS")
     Call AddStructuralNotes(swDrawing)
     Call SetHiddenEdgesVisibleAndRemoveTangentEdges(swTopView, swDrawing)
     Call swDrawing.Extension.Rebuild(swRebuildOptions_e.swCurrentSheetDisp)
@@ -1014,9 +1016,13 @@ Private Function AddStructuralNotes(swDrawing As SldWorks.DrawingDoc) As SldWork
     Dim swStructuralNote As SldWorks.Note
     Dim Note As String
     
+    
     Note = "<FONT size=10PTS style=B>NOTES:" & vbCrLf & _
-            "<FONT size=8PTS style=R>1. DIMENSION ORIGIN STARTING AT LOWER LEFT CORNER OF FLOOR BEAM." & vbCrLf & _
-            "2. MAKE SURE THE 1/4" & Chr(34) & " LOCATING HOLES AT WALL-A LOWER LEFT CORNER FOR EACH FLOOR TOP PLATES."
+            "<FONT size=8PTS style=R>1. BLOCKOUT COVER PLATE TYPES ARE LISTED BELOW:" & vbCrLf & _
+            "PR - DENOTES RECESSED COVER PLATES; 4 1/2" & Chr(34) & " DEEP." & vbCrLf & _
+            "PS - DENOTES SURFACE MOUNTED COVERPLATES." & vbCrLf & _
+            "PF - DENOTES FLUSH MOUNTED COVERPLATES."
+            
 
     Set swStructuralNote = swDrawing.CreateText2(Note, 1.99241243641486E-02, 6.92464210842187E-02, 0, 0, 0)
     swStructuralNote.SetTextJustification swTextJustification_e.swTextJustificationLeft

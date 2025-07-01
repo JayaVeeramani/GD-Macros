@@ -22,8 +22,7 @@ Sub SegregateAndAddDimensionVertically(xMinBlockOutDict As Scripting.Dictionary,
     
     Call SegregateVerticalEdges(xMinBlockOutDict, BottomSideEdges, TopSideEdges, oFloorComp)
     
-    Call AddFloorPlateCallouts(xMinFloorDict, swDrawing, swView, BottomSideEdges.Count < TopSideEdges.Count, oFloorComp)
-    
+
     If BottomSideEdges.Count < TopSideEdges.Count Then
         
         Call AddFloorPlateEdgesToList(xMinFloorDict.Items, swView, FloorPlateRightEdge, BottomSideEdges, False, True)
@@ -493,7 +492,7 @@ Sub AddFloorPlateEdgesToList(vFloorCompsList As Variant, swView As SldWorks.View
 End Sub
 
 Sub AddFloorPlateCallouts(xMinFloorDict As Scripting.Dictionary, swDrawing As SldWorks.DrawingDoc, _
-        swView As SldWorks.View, OrgIsBottom As Boolean, oFloorComp As IComp)
+        swView As SldWorks.View, oFloorComp As IComp)
 
     Dim vItems As Variant
     vItems = xMinFloorDict.Items
@@ -509,10 +508,7 @@ Sub AddFloorPlateCallouts(xMinFloorDict As Scripting.Dictionary, swDrawing As Sl
         Dim yPos As Double
         Dim AnnXPos As Double
         Dim AnnYPos As Double
-        
-        Dim IsBottom As Boolean
-        IsBottom = OrgIsBottom
-        
+
         PlateArrList.SortItems "yMin", False
         
         Dim vFloorPlates As Variant
@@ -520,9 +516,14 @@ Sub AddFloorPlateCallouts(xMinFloorDict As Scripting.Dictionary, swDrawing As Sl
                         
         Dim swAnnotation As SldWorks.Annotation
         
+        Dim BottomBlockOutList As IArrListObject
+        Dim TopBlockOutList As IArrListObject
+        Dim IsBottom As Boolean
+        
         If PlateArrList.Count = 1 Then
             
             Set oFloorPlate = vFloorPlates(0)
+            IsBottom = IsMaxBlockOutsOnTop(oFloorPlate, BottomBlockOutList, TopBlockOutList)
             
             If (oFloorPlate.yMin - oFloorComp.yMin) > 2 * 0.0254 * swView.ScaleDecimal And (oFloorComp.yMax - oFloorPlate.yMax) < 0.5 * 0.0254 * swView.ScaleDecimal Then
             
@@ -534,7 +535,7 @@ Sub AddFloorPlateCallouts(xMinFloorDict As Scripting.Dictionary, swDrawing As Sl
                 
             End If
             
-            Call GetFloorPlateCallOutPosition(oFloorPlate, xPos, yPos, AnnXPos, AnnYPos, IsBottom)
+            Call GetFloorPlateCallOutPosition(oFloorPlate, xPos, yPos, AnnXPos, AnnYPos, IsBottom, BottomBlockOutList, TopBlockOutList)
             Set swAnnotation = SelectAndAddAnnotation(oFloorPlate.VisibleFace, swDrawing, swView, xPos, _
                    yPos, AnnXPos, AnnYPos)
         
@@ -544,7 +545,8 @@ Sub AddFloorPlateCallouts(xMinFloorDict As Scripting.Dictionary, swDrawing As Sl
             For j = LBound(vFloorPlates) To UBound(vFloorPlates)
 
                 Set oFloorPlate = vFloorPlates(j)
-                Call GetFloorPlateCallOutPosition(oFloorPlate, xPos, yPos, AnnXPos, AnnYPos, j = 0)
+                IsBottom = IsMaxBlockOutsOnTop(oFloorPlate, BottomBlockOutList, TopBlockOutList)
+                Call GetFloorPlateCallOutPosition(oFloorPlate, xPos, yPos, AnnXPos, AnnYPos, j = 0, BottomBlockOutList, TopBlockOutList)
 
                 Set swAnnotation = SelectAndAddAnnotation(oFloorPlate.VisibleFace, swDrawing, swView, xPos, _
                    yPos, AnnXPos, AnnYPos)
@@ -556,6 +558,47 @@ Sub AddFloorPlateCallouts(xMinFloorDict As Scripting.Dictionary, swDrawing As Sl
     Next i
 
 End Sub
+
+Function IsMaxBlockOutsOnTop(oFloorPlate As IComp, ByRef BottomBlockOutList As IArrListObject, ByRef TopBlockOutList As IArrListObject) As Boolean
+    
+    If oFloorPlate.BlockOutList.Count > 0 Then
+    
+        Set BottomBlockOutList = New IArrListObject
+        Set TopBlockOutList = New IArrListObject
+    
+        Dim vBlockOuts As Variant
+        vBlockOuts = oFloorPlate.BlockOutList.Items
+        
+        Dim FloorMid As Double
+        FloorMid = (oFloorPlate.yMax + oFloorPlate.yMin) / 2
+
+        Dim i As Integer
+        For i = LBound(vBlockOuts) To UBound(vBlockOuts)
+        
+            Dim oBlockOut As IBlockOut
+            Set oBlockOut = vBlockOuts(i)
+            
+            If oBlockOut.yMax > FloorMid Then
+
+                TopBlockOutList.AddtoList oBlockOut
+                
+            Else
+            
+                BottomBlockOutList.AddtoList oBlockOut
+                
+            End If
+
+        Next i
+        
+        If TopBlockOutList.Count > BottomBlockOutList.Count Then
+        
+            IsMaxBlockOutsOnTop = True
+
+        End If
+
+    End If
+    
+End Function
 
 Function SelectAndAddAnnotation(swEnt As Object, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, SelXPos As Double, _
        SelYPos As Double, AnnXPos As Double, AnnYPos As Double, Optional CustomTextTop As String = "", _
@@ -590,8 +633,10 @@ Function SelectAndAddAnnotation(swEnt As Object, swDrawing As SldWorks.DrawingDo
     End If
 End Function
 
+
 Sub GetFloorPlateCallOutPosition(oFloorPlate As IComp, ByRef xPos As Double, ByRef yPos As Double, _
-                ByRef AnnXPos As Double, ByRef AnnYPos As Double, IsBottom As Boolean)
+                ByRef AnnXPos As Double, ByRef AnnYPos As Double, IsBottom As Boolean, BottomBlockOutList As IArrListObject, _
+                    TopBlockOutList As IArrListObject)
     
    xPos = (oFloorPlate.xMin + oFloorPlate.xMax) / 2
    
@@ -617,15 +662,16 @@ Sub GetFloorPlateCallOutPosition(oFloorPlate As IComp, ByRef xPos As Double, ByR
         
         Dim CallOutBlockOut As IBlockOut
         Dim IsFound As Boolean
-        'Set CallOutBlockOut = GetBlockOutGreaterThanThisValInArrList(vBlockOutList, xPos, IsFound)
         
-        'xPos = 0.75 * oFloorPlate.xMin + 0.25 * oFloorPlate.xMax
+        If IsBottom Then
         
-        'If IsFound Then
+            Call xPosInCaseOfBlockOuts(BottomBlockOutList, oFloorPlate, xPos)
+            
+        Else
         
-            Call xPosInCaseOfBlockOuts(vBlockOutList, oFloorPlate, xPos)
-
-        'End If
+            Call xPosInCaseOfBlockOuts(TopBlockOutList, oFloorPlate, xPos)
+            
+        End If
 
         Call GetCallOutYPos(oFloorPlate, yPos, AnnYPos, Gap, IsBottom)
 

@@ -271,6 +271,8 @@ Private Sub CreateButton_Click()
 
     Call SegregateAndAddDimensionVertically(xMinBlockOutDict, xMaxPlateList, xMinFloorDict, oFloorComp, swDrawing, swTopView)
     Call SegregateAndAddDimensionHorizontally(yMinBlockOutDict, yMaxPlateList, yMinFloorDict, oFloorComp, swDrawing, swTopView)
+    
+    Call AddFloorPlateCallouts(xMinFloorDict, swDrawing, swTopView, oFloorComp)
 
     swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
     Call AddCrossMarkAndBalloons(vBlockOutList, swDrawing, swTopView, oFloorComp)
