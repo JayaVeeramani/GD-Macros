@@ -4,9 +4,8 @@ Sub AddBalloonForCoverPlates(vCoverPlates As Variant, swView As SldWorks.View, s
     
     
     If Not IsEmpty(vCoverPlates) Then
-    
-        Dim AllowableDiff As Double
-        AllowableDiff = 0.0015875 * swView.ScaleDecimal
+
+        vCoverPlates = GetQtyForCoverPlates(vCoverPlates, swView)
         
         Dim i As Integer
         For i = LBound(vCoverPlates) To UBound(vCoverPlates)
@@ -14,25 +13,6 @@ Sub AddBalloonForCoverPlates(vCoverPlates As Variant, swView As SldWorks.View, s
             Dim oCoverPlate As IWeldBody
             Set oCoverPlate = vCoverPlates(i)
 
-            If Not i = 0 Then
-            
-                Dim PrevCoverPlate As IWeldBody
-                Set PrevCoverPlate = vCoverPlates(i - 1)
-                
-                If Abs(PrevCoverPlate.xMin - oCoverPlate.xMin) <= AllowableDiff And _
-                        Abs(PrevCoverPlate.yMin - oCoverPlate.yMin) <= AllowableDiff Then
-                    
-                    If PrevCoverPlate.zMin > oCoverPlate.zMin Then
-                    
-                        GoTo NextIter
-                        
-                    End If
-                
-                End If
-                
-            End If
-            
-            
             Dim SelXPos As Double
             Dim SelYPos As Double
             
@@ -44,27 +24,73 @@ Sub AddBalloonForCoverPlates(vCoverPlates As Variant, swView As SldWorks.View, s
             
             Dim swAnnotation As SldWorks.Annotation
             Set swAnnotation = SelectAndAddAnnotation(swEdge, swDrawing, swView, SelXPos, _
-               SelYPos, AnnXPos, AnnYPos, swBS_SplitCirc, "$PRPWLD:" & Chr(34) & "LEGEND" & Chr(34), "$PRPWLD:" & Chr(34) & "ITEM NO" & Chr(34))
+               SelYPos, AnnXPos, AnnYPos, swBS_SplitCirc, "$PRPWLD:" & Chr(34) & "LEGEND" & Chr(34), "$PRPWLD:" & Chr(34) & "ITEM NO" & Chr(34), oCoverPlate.CoverPlateQty)
             
             If Not swAnnotation Is Nothing Then
                 
                 swAnnotation.Layer = LayerName
                 
             End If
-NextIter:
-    
+            
         Next i
     
     End If
 
 End Sub
 
+Function GetQtyForCoverPlates(vBodies As Variant, swView As SldWorks.View) As Variant
+
+    If Not IsEmpty(vBodies) Then
+    
+        Dim i As Integer
+        
+        Dim TempArrList As IArrListObject
+        Set TempArrList = New IArrListObject
+        
+        Dim AllowableDiff As Double
+        AllowableDiff = 0.0015875 * swView.ScaleDecimal
+        
+        For i = LBound(vBodies) To UBound(vBodies)
+            
+            Dim oCoverPlate As IWeldBody
+            Set oCoverPlate = vBodies(i)
+            
+            If i = 0 Then
+            
+                TempArrList.AddtoList oCoverPlate
+                
+            Else
+            
+                Dim PrevCoverPlate As IWeldBody
+                Set PrevCoverPlate = TempArrList.Items(UBound(TempArrList.Items))
+                
+                If Abs(PrevCoverPlate.xMin - oCoverPlate.xMin) <= AllowableDiff And _
+                        Abs(PrevCoverPlate.yMin - oCoverPlate.yMin) <= AllowableDiff Then
+                    
+                    PrevCoverPlate.CoverPlateQty = PrevCoverPlate.CoverPlateQty + 1
+                    
+                Else
+                
+                    TempArrList.AddtoList oCoverPlate
+                
+                End If
+                
+            End If
+        
+        Next i
+        
+        GetQtyForCoverPlates = TempArrList.Items
+    
+    End If
+    
+End Function
+
 Sub GetBalloonPosData(oCoverPlate As IWeldBody, ByRef swEdge As SldWorks.Edge, ByRef SelXPos As Double, SelYPos As Double, _
             ByRef AnnXPos As Double, ByRef AnnYPos As Double, oComp As IComp, swView As SldWorks.View)
     
     SelXPos = (oCoverPlate.xMin + oCoverPlate.xMax) / 2
     SelYPos = oCoverPlate.yMax
-    AnnXPos = SelXPos
+    AnnXPos = SelXPos - 0.001875
     
     If Abs(oComp.yMax - SelYPos) <= 0.015 Then
     
@@ -72,7 +98,7 @@ Sub GetBalloonPosData(oCoverPlate As IWeldBody, ByRef swEdge As SldWorks.Edge, B
         
     Else
         
-        AnnYPos = SelYPos + 0.01
+        AnnYPos = SelYPos + 0.015
         
     End If
         
@@ -109,7 +135,7 @@ Sub GetBalloonPosData(oCoverPlate As IWeldBody, ByRef swEdge As SldWorks.Edge, B
                 
             ElseIf TopDiff > 0.0075 And TopDiff < 0.01 Then
             
-                AnnYPos = SelYPos + 0.0075
+                AnnYPos = SelYPos + 0.01
 
             End If
             
@@ -145,7 +171,7 @@ Sub GetAnnPosDataForHorizontalCallout(oCoverPlate As IWeldBody, ByRef swEdge As 
             
     SelXPos = oCoverPlate.xMax
     SelYPos = (oCoverPlate.yMax + oCoverPlate.yMin) / 2
-    AnnYPos = SelYPos
+    AnnYPos = SelYPos - 0.001875
     
     If Abs(oComp.xMax - SelXPos) <= 0.015 Then
     
@@ -243,7 +269,7 @@ Sub GetCallOutDataForBottomEdge(oCoverPlate As IWeldBody, ByRef swEdge As SldWor
         
     Else
         
-        AnnYPos = SelYPos - 0.00625
+        AnnYPos = SelYPos - 0.0075
         
     End If
 
@@ -263,12 +289,12 @@ Sub GetAnnXPosWhenCalledOutVertically(oCoverPlate As IWeldBody, LeftCoverPlate A
             
         If LeftDiff < 0.01 And RightDiff > 0.01 Then
             
-            AnnXPos = SelXPos + 0.0025
+            AnnXPos = SelXPos + 0.00375
                 
                 
         ElseIf LeftDiff > 0.01 And RightDiff < 0.01 Then
             
-            AnnXPos = SelXPos - 0.00375
+            AnnXPos = SelXPos - 0.005
             
             
         End If
@@ -386,29 +412,39 @@ End Sub
 
 Function SelectAndAddAnnotation(swEnt As Object, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, SelXPos As Double, _
        SelYPos As Double, AnnXPos As Double, AnnYPos As Double, Optional BalloonStyle As swBalloonStyle_e = 13, Optional CustomTextTop As String = "", _
-        Optional CustomTextBottom As String = "") As SldWorks.Annotation
+        Optional CustomTextBottom As String = "", Optional Qty As Integer = 1) As SldWorks.Annotation
 
     Dim IsSelected As Boolean
     IsSelected = SelectEntityWithSelectData(swEnt, swView, swDrawing, SelXPos, SelYPos)
     
     If IsSelected Then
 
-        Dim BalloonContent As swBalloonTextContent_e
-    
-        If CustomTextTop = "" And CustomTextBottom = "" Then
-            BalloonContent = swBalloonTextPartNumberBOM
-            
-        Else
-            
-            BalloonContent = swBalloonTextCustom
-            
+        Dim swBalloonParams As SldWorks.BalloonOptions
+        Set swBalloonParams = swDrawing.Extension.CreateBalloonOptions()
+        swBalloonParams.Size = swBalloonFit_e.swBF_Tightest
+        swBalloonParams.Style = BalloonStyle
+        swBalloonParams.LowerTextContent = swBalloonTextContent_e.swBalloonTextPartNumberBOM
+
+               
+        If Qty > 1 Then
+        
+            swBalloonParams.ShowQuantity = True
+            swBalloonParams.QuantityOverride = True
+            swBalloonParams.QuantityOverrideValue = CStr(Qty)
+                    
         End If
         
         Dim swNote As SldWorks.Note
-        Set swNote = swDrawing.InsertBOMBalloon2(BalloonStyle, swBF_Tightest, BalloonContent, _
-                                CustomTextTop, BalloonContent, CustomTextBottom)
-            
+        Set swNote = swDrawing.Extension.InsertBOMBalloon2(swBalloonParams)
+        
         If Not swNote Is Nothing Then
+        
+            If Not (CustomTextTop = "" And CustomTextBottom = "") Then
+                
+               Call swNote.SetBomBalloonText(swDetailingNoteTextContent_e.swDetailingNoteTextCustom, CustomTextTop, swDetailingNoteTextContent_e.swDetailingNoteTextCustom, CustomTextBottom)
+
+            End If
+            
         
             Dim swAnnotation As SldWorks.Annotation
             Set swAnnotation = swNote.GetAnnotation()

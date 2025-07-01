@@ -29,7 +29,7 @@ Public TopWeldBody As IWeldBody
 
 Private orgViewPosition As Variant
 Private orgScaleDecimal As Double
-
+Public CoverPlateQty As Integer
 
 
 Property Get GetComponent() As SldWorks.Component2
@@ -110,7 +110,7 @@ Sub Initialize(swComp As SldWorks.Component2, swBody As SldWorks.Body2, oCutlist
     cBodyMaxPoint(2) = vBodyBounds(5)
 
     Call UpdateSheetMaxMinDimensions(swView)
-    
+    CoverPlateQty = 1
  
 
 End Sub
