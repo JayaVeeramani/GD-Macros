@@ -1,0 +1,54 @@
+VERSION 5.00
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} DrawingForm 
+   Caption         =   "Activate Display State"
+   ClientHeight    =   2784
+   ClientLeft      =   108
+   ClientTop       =   456
+   ClientWidth     =   6732
+   OleObjectBlob   =   "DrawingForm.frx":0000
+   StartUpPosition =   1  'CenterOwner
+End
+Attribute VB_Name = "DrawingForm"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+
+Option Explicit
+
+
+Private Sub CloseButton_Click()
+    
+    Unload Me
+    
+End Sub
+
+Private Sub ActivateDSButton_Click()
+
+    If Me.DisplayList.ListIndex = -1 Then
+    
+         MsgBox "Please Select a Display state of the respective wall from the list", vbCritical, "Select Display State"
+         
+    Else
+        
+        If swConcretePanel Is Nothing Then
+        
+            MsgBox "Please select the Floor Weldment", vbExclamation, "Floor Weldment Not Selected!"
+
+        Else
+        
+            Me.Hide
+            
+            Dim DisplayStateName As String
+            DisplayStateName = Me.DisplayList.List(Me.DisplayList.ListIndex)
+        
+            swConfig.ApplyDisplayState DisplayStateName
+            
+            HideShowForm.WeldNoBox.Value = Mid(swTopLevelModel.GetPathName, InStrRev(swTopLevelModel.GetPathName, "\") + 1, 6)
+            HideShowForm.Show vbModeless
+            
+        End If
+        
+    End If
+
+End Sub
