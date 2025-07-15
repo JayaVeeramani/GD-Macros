@@ -1,0 +1,505 @@
+VERSION 1.0 CLASS
+BEGIN
+  MultiUse = -1  'True
+END
+Attribute VB_Name = "IWeldBody"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = False
+Private cBody As SldWorks.Body2
+Private cComp As SldWorks.Component2
+Private cxMin As Double
+Private cyMin As Double
+Private cZMin As Double
+
+Private cxMax As Double
+Private cyMax As Double
+Private cZMax As Double
+
+Private cView As SldWorks.View
+Private cBodyMinPoint(2) As Double
+Private cBodyMaxPoint(2) As Double
+
+'Private cCutlist As ICutlist
+Private cViewNormalVector As SldWorks.MathVector
+Private cNormalFace As SldWorks.Face2
+Private cIsNormalFaceFound As Boolean
+
+Private cLeftEdge As SldWorks.Edge
+Private cRightEdge As SldWorks.Edge
+Private cBottomEdge As SldWorks.Edge
+Private cTopEdge As SldWorks.Edge
+
+Private cLeftBottomVertex As SldWorks.Vertex
+Private cRightBottomVertex As SldWorks.Vertex
+Private cLeftTopVertex As SldWorks.Vertex
+Private cRightTopVertex As SldWorks.Vertex
+
+
+Private cIsCircular As Boolean
+Private cIsRectangular As Boolean
+Private cCircularEdge As SldWorks.Edge
+
+Private orgViewPosition As Variant
+Private orgScaleDecimal As Double
+
+Property Get NormalFace() As SldWorks.Face2
+    
+    If False = cIsNormalFaceFound Then
+    
+        Call GetNormalFace
+    
+    End If
+    
+    Set NormalFace = cNormalFace
+    
+End Property
+
+Property Get LeftBottomVertex() As SldWorks.Vertex
+
+    Set LeftBottomVertex = cLeftBottomVertex
+
+End Property
+
+Property Get RightBottomVertex() As SldWorks.Vertex
+
+    Set RightBottomVertex = cRightBottomVertex
+    
+End Property
+
+Property Get LeftTopVertex() As SldWorks.Vertex
+
+    Set LeftTopVertex = cLeftTopVertex
+
+End Property
+
+Property Get RightTopVertex() As SldWorks.Vertex
+
+    Set RightTopVertex = cRightTopVertex
+
+End Property
+
+Property Get LeftEdge() As SldWorks.Edge
+
+    Set LeftEdge = cLeftEdge
+
+End Property
+
+Property Get RightEdge() As SldWorks.Edge
+
+    Set RightEdge = cRightEdge
+    
+End Property
+
+Property Get TopEdge() As SldWorks.Edge
+
+    Set TopEdge = cTopEdge
+
+End Property
+
+Property Get BottomEdge() As SldWorks.Edge
+
+    Set BottomEdge = cBottomEdge
+
+End Property
+
+Property Get IsCircular() As Boolean
+    
+    IsCircular = cIsCircular
+    
+End Property
+
+Property Get IsRectangular() As Boolean
+    
+    IsRectangular = cIsRectangular
+    
+End Property
+
+Private Function IsContainsCircularEdge() As Boolean
+
+    IsContainsCircularEdge = False
+    
+    Dim vEdges As Variant
+    vEdges = NormalFace.GetEdges
+    
+    Dim i As Integer
+    For i = LBound(vEdges) To UBound(vEdges)
+    
+        Dim swEdge As SldWorks.Edge
+        Set swEdge = vEdges(i)
+        
+        Dim swCurve As SldWorks.Curve
+        Set swCurve = swEdge.GetCurve
+        
+        If swCurve.IsCircle Then
+
+            IsContainsCircularEdge = True
+            Set cCircularEdge = swEdge
+            Exit For
+            
+        End If
+    
+    Next i
+    
+End Function
+
+Property Get GetComponent() As SldWorks.Component2
+
+    Set GetComponent = cComp
+    
+End Property
+
+
+Property Get GetBody() As SldWorks.Body2
+
+    Set GetBody = cBody
+    
+End Property
+
+
+Property Get xMin() As Double
+ 
+    xMin = cxMin
+    
+End Property
+
+Property Get yMin() As Double
+
+    yMin = cyMin
+    
+End Property
+
+Property Get zMin() As Double
+
+    zMin = cZMin
+    
+End Property
+
+Property Get xMax() As Double
+
+    xMax = cxMax
+    
+End Property
+
+Property Get yMax() As Double
+
+    yMax = cyMax
+    
+End Property
+
+Property Get zMax() As Double
+
+    zMax = cZMax
+    
+End Property
+
+Sub Initialize(swComp As SldWorks.Component2, swBody As SldWorks.Body2, _
+        swView As SldWorks.View, swViewNormalVector As SldWorks.MathVector) ' oCutlist As ICutlist,
+    
+    Set cComp = swComp
+    Set cBody = swBody
+    Set cView = swView
+    'Set cCutlist = oCutlist
+    Set cViewNormalVector = swViewNormalVector
+    cIsNormalFaceFound = False
+    
+    orgViewPosition = cView.Position
+    orgScaleDecimal = cView.ScaleDecimal
+
+    Dim vBodyBounds As Variant
+    vBodyBounds = swBody.GetBodyBox
+        
+    cBodyMinPoint(0) = vBodyBounds(0)
+    cBodyMinPoint(1) = vBodyBounds(1)
+    cBodyMinPoint(2) = vBodyBounds(2)
+        
+    cBodyMaxPoint(0) = vBodyBounds(3)
+    cBodyMaxPoint(1) = vBodyBounds(4)
+    cBodyMaxPoint(2) = vBodyBounds(5)
+
+    Call UpdateSheetMaxMinDimensions(swView)
+    
+    cIsCircular = IsContainsCircularEdge
+    cIsRectangular = False
+    
+    If False = cIsCircular Then
+ 
+        Set cLeftEdge = GetEdgeInViewForThisBody(False, False)
+        Set cRightEdge = GetEdgeInViewForThisBody(False, True)
+        Set cTopEdge = GetEdgeInViewForThisBody(True, True)
+        Set cBottomEdge = GetEdgeInViewForThisBody(True, False)
+        
+        If NormalFace.GetEdgeCount = 4 Then
+            
+            cIsRectangular = True
+            
+            Set cLeftBottomVertex = GetVertexPoint(cBottomEdge, cxMin)
+            Set cRightTopVertex = GetVertexPoint(cTopEdge, cxMax)
+            Set cLeftTopVertex = GetVertexPoint(cTopEdge, cxMin)
+            Set cRightBottomVertex = GetVertexPoint(cBottomEdge, cxMax)
+            
+        End If
+        
+    End If
+
+End Sub
+
+Private Sub UpdateSheetMaxMinDimensions(swView As SldWorks.View)
+
+    Dim MinPoint As Variant
+    MinPoint = GetComponentPointInSheetSpace(cComp, cBodyMinPoint, swView)
+
+    Dim MaxPoint As Variant
+    MaxPoint = GetComponentPointInSheetSpace(cComp, cBodyMaxPoint, swView)
+    
+    Call GetMaxMinPoint(MinPoint(0), MaxPoint(0), cxMin, cxMax)
+    Call GetMaxMinPoint(MinPoint(1), MaxPoint(1), cyMin, cyMax)
+    Call GetMaxMinPoint(MinPoint(2), MaxPoint(2), cZMin, cZMax)
+    
+End Sub
+
+Sub CheckForUpdateInMaxMinDimensions(swView As SldWorks.View)
+
+    If IsViewChanged(swView) Then
+        
+        Call UpdateSheetMaxMinDimensions(swView)
+        Set cView = swView
+        orgScaleDecimal = swView.ScaleDecimal
+        orgViewPosition = swView.Position
+            
+    End If
+
+End Sub
+
+Private Function IsViewChanged(swView As SldWorks.View) As Boolean
+    
+    IsViewChanged = False
+
+    If (swView.Name = cView.Name) Then
+
+        Dim actualViewPosition As Variant
+        actualViewPosition = swView.Position
+    
+        If Not (swView.ScaleDecimal = orgScaleDecimal) Or Not (orgViewPosition(0) = actualViewPosition(0)) _
+                Or Not (orgViewPosition(1) = actualViewPosition(1)) Or Not (swView.Angle = cView.Angle) Then
+
+            IsViewChanged = True
+     
+        End If
+            
+    Else
+            
+        IsViewChanged = True
+            
+    End If
+    
+End Function
+
+Private Function GetVertexPoint(swEdge As SldWorks.Edge, PointToCheck As Double, Optional IsXVal As Boolean = True) As SldWorks.Vertex
+    
+    Dim Idx As Integer
+    If IsXVal Then
+    
+        Idx = 0
+        
+    Else
+    
+        Idx = 1
+        
+    End If
+    
+    Dim swStartVertex As SldWorks.Vertex
+    Set swStartVertex = swEdge.GetStartVertex
+    
+    Dim swEndVertex As SldWorks.Vertex
+    Set swEndVertex = swEdge.GetEndVertex
+    
+    Dim vStartPoint As Variant
+    vStartPoint = swStartVertex.GetPoint
+    
+    Dim vEndPoint As Variant
+    vEndPoint = swEndVertex.GetPoint
+    
+    vStartPoint = GetComponentPointInSheetSpace(cComp, vStartPoint, cView)
+    vEndPoint = GetComponentPointInSheetSpace(cComp, vEndPoint, cView)
+    
+    If Abs(PointToCheck - vStartPoint(Idx)) <= 0.0001 Then
+    
+        Set GetVertexPoint = swStartVertex
+
+    ElseIf Abs(PointToCheck - vEndPoint(Idx)) <= 0.0001 Then
+    
+        Set GetVertexPoint = swEndVertex
+
+    End If
+
+End Function
+
+Private Sub GetNormalFace()
+
+    cIsNormalFaceFound = True
+    
+    Dim vFaces As Variant
+    vFaces = cView.GetVisibleEntities2(cComp, swViewEntityType_e.swViewEntityType_Face)
+            
+    Set cNormalFace = GetFaceOfTheBody(vFaces)
+    
+    If cNormalFace Is Nothing Then
+    
+        vFaces = cBody.GetFaces
+        
+        Dim vNormalFaces  As Variant
+        vNormalFaces = GetNormalFaces(vFaces, cComp.Transform2, cViewNormalVector)
+    
+        Set cNormalFace = GetLargestFace(vNormalFaces)
+        
+    End If
+    
+End Sub
+
+Private Function GetFaceOfTheBody(vFaces As Variant) As SldWorks.Face2
+    
+    If Not IsEmpty(vFaces) Then
+    
+        Dim i As Integer
+        For i = LBound(vFaces) To UBound(vFaces)
+        
+            Dim swFace As SldWorks.Face2
+            Set swFace = vFaces(i)
+            
+            Dim swFaceBody As SldWorks.Body2
+            Set swFaceBody = swFace.GetBody
+            
+            If swFaceBody.Name = cBody.Name Then
+            
+                Set GetFaceOfTheBody = swFace
+                Exit For
+                
+            End If
+    
+        Next i
+    
+    End If
+
+End Function
+
+Private Function GetEdgeInViewForThisBody(IsHorizontal As Boolean, IsMax As Boolean, Optional CheckAllVisibleEdgesOnly As Boolean = True) As SldWorks.Edge
+    
+    Dim xFMin As Double
+    Dim yFMin As Double
+    Dim xFMax As Double
+    Dim yFMax As Double
+    
+    Dim vPointMin(2) As Double
+    vPointMin(0) = cxMin
+    vPointMin(1) = cyMin
+    vPointMin(2) = cZMin
+    
+    Dim vPointMax(2) As Double
+    vPointMax(0) = cxMax
+    vPointMax(1) = cyMax
+    vPointMax(2) = cZMax
+    
+    Call GetMaxMinPoint(vPointMin(0), vPointMax(0), xFMin, xFMax)
+    Call GetMaxMinPoint(vPointMin(1), vPointMax(1), yFMax, yFMax)
+    
+    Dim Idx As Integer
+    Dim ValToMatch As Double
+    If IsHorizontal Then
+        
+        Idx = 1
+        If IsMax Then
+        
+            ValToMatch = yFMax
+            
+        Else
+        
+             ValToMatch = yFMin
+             
+        End If
+        
+    Else
+    
+        Idx = 0
+        
+        If IsMax Then
+        
+            ValToMatch = xFMax
+            
+        Else
+        
+             ValToMatch = xFMin
+             
+        End If
+        
+    End If
+
+     Dim TempLength As Double
+     TempLength = 0
+        
+
+    Dim vEnts As Variant
+    If CheckAllVisibleEdgesOnly Then
+    
+        vEnts = cView.GetVisibleEntities2(cComp, swViewEntityType_e.swViewEntityType_Edge)
+        
+    Else
+    
+        vEnts = oBody.GetBody.GetEdges
+        
+    End If
+
+    If Not IsEmpty(vEnts) Then
+    
+        Dim i As Integer
+        For i = LBound(vEnts) To UBound(vEnts)
+        
+            Dim swEdge As SldWorks.Edge
+            Set swEdge = vEnts(i)
+            
+            Dim swEdgeBody As SldWorks.Body2
+            Set swEdgeBody = swEdge.GetBody
+                
+            If swEdgeBody.Name = cBody.Name Then
+
+                Dim swCurve As SldWorks.Curve
+                Set swCurve = swEdge.GetCurve
+                
+                If swCurve.IsLine Then
+                
+                    Dim vStartPoint As Variant
+                    vStartPoint = swEdge.GetStartVertex.GetPoint
+                    vStartPoint = GetComponentPointInSheetSpace(cComp, vStartPoint, cView)
+                    
+                    Dim vEndPoint As Variant
+                    vEndPoint = swEdge.GetEndVertex.GetPoint
+                    vEndPoint = GetComponentPointInSheetSpace(cComp, vEndPoint, cView)
+
+                    If Abs(vStartPoint(Idx) - vEndPoint(Idx)) <= 0.00001 And Abs(vStartPoint(Idx) - ValToMatch) <= 0.00001 Then
+                        
+                        Dim vCurveParam As Variant
+                        vCurveParam = swEdge.GetCurveParams2
+    
+                        If swCurve.GetLength2(vCurveParam(6), vCurveParam(7)) > TempLength Then
+                            
+                            TempLength = swCurve.GetLength2(vCurveParam(6), vCurveParam(7))
+                            Set GetEdgeInViewForThisBody = swEdge
+                            
+                        End If
+                        
+                    End If
+                
+                End If
+                
+            End If
+            
+        Next i
+
+    End If
+
+End Function
+
+
+
+

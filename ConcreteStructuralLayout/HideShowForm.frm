@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} HideShowForm 
    Caption         =   "Hide/ Show Components"
-   ClientHeight    =   9108.001
+   ClientHeight    =   9804.001
    ClientLeft      =   108
    ClientTop       =   456
    ClientWidth     =   6636
@@ -162,6 +162,7 @@ Private Sub BlockOutFoamSelection_Click()
                 "Please select Block Out Foam component only", vbCritical, "Selection Warning!"
 
     End If
+    
 End Sub
 
 
@@ -347,7 +348,7 @@ Private Sub CreateButton_Click()
 
     Call ScaleView(swDrawing, swView, ViewWidth, ViewHeight)
     Call UpdateTopViewPosition(oConcreteComp, swDrawing, swView)
-    
+
     Dim swBottomEdge As SldWorks.Edge
     Dim swTopEdge As SldWorks.Edge
     
@@ -356,7 +357,33 @@ Private Sub CreateButton_Click()
     
     Call ConvertAndGetExtremeEdges(swBottomEdge, swTopEdge, swLeftEdge, swRightEdge, swView, oConcreteComp, swViewNormalVector)
     
-'
+    Call HideDrawingComponent(swConcretePanel, swView)
+    Call HideDrawingComponent(swWireMesh, swView)
+
+    Dim blockOutBodyList As IArrListObject
+    If Not swBlockOutComp Is Nothing Then
+    
+        Dim blockOutComp As IComp
+        Set blockOutComp = New IComp
+        
+        blockOutComp.Initialize swBlockOutComp, swView
+
+        Set blockOutBodyList = blockOutComp.GetBodiesList(swView, swViewNormalVector)
+    
+        Call AddCrossMark(blockOutBodyList, swDrawing, swView)
+    
+    End If
+    
+    
+    
+    Dim foamBodyList As IArrListObject
+    Set foamBodyList = GetFoamBodiesList(swDrawing, swView, swViewNormalVector)
+    
+    Call AddHatchAndCallOutForFoams(foamBodyList, swDrawing, swView, swViewNormalVector)
+    
+
+
+    
 '    Dim FloorPlateList As IArrListObject
 '    Set FloorPlateList = GetFloorPlateList(RebarCompDict.Items, swTopView)
 '
@@ -402,10 +429,10 @@ Private Sub CreateButton_Click()
 '
 '    Call AddFloorPlateCallouts(xMinFloorDict, swDrawing, swTopView, oFloorComp)
 '
-'    swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
+    swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
 '    Call AddCrossMarkAndBalloons(vBlockOutList, swDrawing, swTopView, oFloorComp)
 '
-'    swDrawing.ClearSelection2 True
+    swDrawing.ClearSelection2 True
 '    swTopView.FocusLocked = True
 '    Call AddNoteToView(swDrawing, "<FONT size=10PTS style=B>TOP VIEW WITH FLOOR PLATES", _
 '        ((oFloorComp.xMax + oFloorComp.xMin) / 2) - 0.025, oFloorComp.yMin - 0.02875)
@@ -431,6 +458,47 @@ Private Sub CreateButton_Click()
 
 End Sub
 
+Sub HideDrawingComponent(swComp As SldWorks.Component2, swView As SldWorks.View)
+    
+    If Not swComp Is Nothing Then
+    
+        swComp.GetDrawingComponent(swView).Visible = False
+        
+    End If
+    
+End Sub
+
+
+
+Function GetFoamBodiesList(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
+        swNormalVector As SldWorks.MathVector) As IArrListObject
+
+    Dim vComps As Variant
+    vComps = FoamCompDict.Items
+    
+    Set GetFoamBodiesList = New IArrListObject
+    
+    If Not IsEmpty(vComps) Then
+    
+        Dim i As Integer
+        For i = LBound(vComps) To UBound(vComps)
+        
+            Dim swComp As SldWorks.Component2
+            Set swComp = vComps(i)
+            
+            Dim oComp As IComp
+            Set oComp = New IComp
+            
+            oComp.Initialize swComp, swView
+            
+            GetFoamBodiesList.AddItems oComp.GetBodiesList(swView, swNormalVector).Items
+
+        Next i
+
+    End If
+
+End Function
+
 Sub ConvertAndGetExtremeEdges(ByRef swBottomEdge As SldWorks.Edge, ByRef swTopEdge As SldWorks.Edge, _
     ByRef swLeftEdge As SldWorks.Edge, ByRef swRightEdge As SldWorks.Edge, swView As SldWorks.View, _
         oComp As IComp, swViewNormalVector As SldWorks.MathVector)
@@ -441,55 +509,91 @@ Sub ConvertAndGetExtremeEdges(ByRef swBottomEdge As SldWorks.Edge, ByRef swTopEd
     Set swRightEdge = GetEdgeInView(oComp, swView, False, True, False)
     
     Dim swFace As SldWorks.Face2
-    
+
     Dim vFaces As Variant
-    vFaces = GetComponentFaces(oComp.GetComponent)
+    vFaces = swView.GetVisibleEntities2(oComp.GetComponent, swViewEntityType_e.swViewEntityType_Face)
 
     If Not IsEmpty(vFaces) Then
+    
+        If UBound(vFaces) = 0 Then
 
-'        Dim vNormalFaces As Variant
-'        vNormalFaces = GetNormalFaces(vFaces, oComp.GetComponent.Transform2, swViewNormalVector)
+            Set swFace = GetLargestFace(vFaces)
+            Call SelectAndConvertEntities(swFace, swView)
         
-        Set swFace = GetLargestFace(vFaces)
-
-        Call SelectAndConvertEntities(swFace, swView)
+        Else
+            
+            Call SelectAndConvertEdge(swBottomEdge, swView)
+            Call SelectAndConvertEdge(swTopEdge, swView)
+            Call SelectAndConvertEdge(swLeftEdge, swView)
+            Call SelectAndConvertEdge(swRightEdge, swView)
+ 
+        End If
+    
+    Else
+    
+        Call ConvertLargestFace(oComp, swView)
         
     End If
     
 End Sub
 
-Sub SelectAndConvertEntities(swFace As SldWorks.Face2, swView As SldWorks.View)
+Sub SelectAndConvertEdge(swEdge As SldWorks.Edge, swView As SldWorks.View)
 
-    Dim vLoops As Variant
-    vLoops = swFace.GetLoops
+    swView.SelectEntity swEdge, False
+    Call swSketchMgr.SketchUseEdge2(False)
+        
+End Sub
+
+Sub ConvertLargestFace(oComp As IComp, swView As SldWorks.View)
+        
+    Dim vFaces As Variant
+    vFaces = GetComponentFaces(oComp.GetComponent)
     
-    Dim i As Integer
-    For i = LBound(vLoops) To UBound(vLoops)
+    If Not IsEmpty(vFaces) Then
         
-        Dim swLoop As SldWorks.Loop2
-        Set swLoop = vLoops(i)
-        
-        If swLoop.IsOuter Then
-        
-            Dim vEdges As Variant
-            vEdges = swLoop.GetEdges
-        
-            Dim j As Integer
-            For j = LBound(vEdges) To UBound(vEdges)
-                
-                Dim swEdge As SldWorks.Edge
-                Set swEdge = vEdges(j)
-                
-                swView.SelectEntity swEdge, False
-                Call swSketchMgr.SketchUseEdge2(False)
-                
-            Next j
+        Dim swFace As SldWorks.Face2
+        Set swFace = GetLargestFace(vFaces)
+        Call SelectAndConvertEntities(swFace, swView)
             
-            Exit For
-        
-        End If
+    End If
     
-    Next i
+End Sub
+
+Sub SelectAndConvertEntities(swFace As SldWorks.Face2, swView As SldWorks.View)
+    
+    If Not swFace Is Nothing Then
+    
+        Dim vLoops As Variant
+        vLoops = swFace.GetLoops
+        
+        Dim i As Integer
+        For i = LBound(vLoops) To UBound(vLoops)
+            
+            Dim swLoop As SldWorks.Loop2
+            Set swLoop = vLoops(i)
+            
+            If swLoop.IsOuter Then
+            
+                Dim vEdges As Variant
+                vEdges = swLoop.GetEdges
+            
+                Dim j As Integer
+                For j = LBound(vEdges) To UBound(vEdges)
+                    
+                    Dim swEdge As SldWorks.Edge
+                    Set swEdge = vEdges(j)
+                    
+                    Call SelectAndConvertEdge(swEdge, swView)
+                    
+                Next j
+                
+                Exit For
+            
+            End If
+        
+        Next i
+        
+    End If
  
 End Sub
 
@@ -601,70 +705,7 @@ Function CombineArr(ByVal MainArr As Variant, ArrToAdd As Variant)
     
 End Function
 
-Function GetNormalFaces(vFaces As Variant, CompTransform As IMathTransform, _
-    swViewNormalVector As SldWorks.MathVector) As Variant
-    
-    Dim FaceCount As Integer
-    FaceCount = 0
-    
-    Dim NormalFaces() As SldWorks.Face2
 
-    Dim i As Integer
-    For i = LBound(vFaces) To UBound(vFaces)
-
-        Dim swFace As SldWorks.Face2
-        Set swFace = vFaces(i)
-
-        Dim swSurface As SldWorks.Surface
-        Set swSurface = swFace.GetSurface
-        
-        Set swViewNormalVector = swViewNormalVector.Normalise
-        
-        Dim swFaceNormalVector As SldWorks.MathVector
-        Set swFaceNormalVector = swMathUtility.CreateVector(swFace.Normal)
-        
-        Set swFaceNormalVector = swFaceNormalVector.MultiplyTransform(CompTransform)
-        Set swFaceNormalVector = swFaceNormalVector.Normalise
-        
-        Dim Angle As Double
-        Dim DotProduct As Double
-        DotProduct = swFaceNormalVector.Dot(swViewNormalVector)
-        
-        If DotProduct >= 1 Then
-        
-            Angle = Arccos(Int(DotProduct)) * 180# / 3.14159265359
-            
-        ElseIf DotProduct < -1 Then
-        
-            Angle = Arccos(Int(DotProduct) + 1) * 180# / 3.14159265359
-        
-        Else
-        
-            Angle = Arccos(DotProduct) * 180# / 3.14159265359
-            
-        End If
-        
-        If Not swSurface Is Nothing Then
- 
-        If swSurface.IsPlane And Angle <= 0.01 Then
-            
-            Dim swEnt As SldWorks.Entity
-            Set swEnt = swFace
-            Set swEnt = swEnt.GetSafeEntity
-            
-            ReDim Preserve NormalFaces(FaceCount)
-            Set NormalFaces(FaceCount) = swEnt
-            FaceCount = FaceCount + 1
-            
-        End If
-        
-        End If
-
-    Next i
-    
-    GetNormalFaces = NormalFaces
-
-End Function
 
 
 Sub GetListOfComponentsWithMatchingVal(PFList As IArrListObject, F42List As IArrListObject, _
@@ -935,26 +976,7 @@ Function GetBlockOutList(vFloorPlates As Variant, swView As SldWorks.View) As IA
     
 End Function
 
-Function GetLargestFace(vFaces As Variant) As SldWorks.Face2
 
-    Dim i As Integer
-    Dim Area As Double
-    Area = 0
-    For i = LBound(vFaces) To UBound(vFaces)
-    
-        Dim swFace As SldWorks.Face2
-        Set swFace = vFaces(i)
-        
-        If swFace.GetArea > Area Then
-        
-            Set GetLargestFace = swFace
-            Area = swFace.GetArea
-            
-        End If
-
-    Next i
-   
-End Function
 
 Sub AddRectangularBlockoutsToList(vLoops As Variant, ArrList As IArrListObject, oComp As IComp, swView As SldWorks.View)
 
@@ -1717,3 +1739,48 @@ Private Sub PanelSelectionButton_Click()
 End Sub
 
 
+Private Sub wireMeshSelection_Click()
+
+    Dim swSelect As SldWorks.SelectionMgr
+    Set swSelect = swTopLevelModel.SelectionManager
+    
+    If swSelect.GetSelectedObjectCount2(-1) = 1 Then
+
+        Set swWireMesh = swSelect.GetSelectedObjectsComponent4(1, -1)
+        
+        If Not swWireMesh Is Nothing Then
+            
+            Dim swWireMeshModel As SldWorks.ModelDoc2
+            Set swWireMeshModel = ResolveAndGetModelDoc(swWireMesh)
+            
+            If swWireMeshModel.GetType = swDocumentTypes_e.swDocPART Then
+
+                Me.wireMeshTextBox.Value = "Selected"
+                Me.wireMeshTextBox.BackColor = vbGreen
+
+            Else
+            
+                MsgBox "Warning! Selected component is not a part. Please select the Wire Mesh part", vbCritical, "Selection Warning!"
+                
+            End If
+            
+        Else
+        
+            Me.wireMeshTextBox.Value = "Not Selected"
+            Me.wireMeshTextBox.BackColor = vbRed
+            
+        End If
+
+    ElseIf swSelect.GetSelectedObjectCount2(-1) = 0 Then
+        
+        MsgBox "Warning! Nothing Selected." & vbCrLf & _
+        "Please select Wire Mesh component only", vbCritical, "Selection Warning!"
+    
+    Else
+    
+    
+        MsgBox "Warning! More than one items are selected." & vbCrLf & _
+                "Please select Wire Mesh component only", vbCritical, "Selection Warning!"
+
+    End If
+End Sub
