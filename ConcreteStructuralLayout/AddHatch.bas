@@ -1,53 +1,21 @@
 Attribute VB_Name = "AddHatch"
 
-Const HatchLayName As String = "EPS HATCH"
+Sub AddHatchAndCallOutForFoams(oFoamBody As IWeldBody, swDrawing As SldWorks.DrawingDoc, _
+    swView As SldWorks.View)
 
-
-
-
-Sub AddHatchAndCallOutForFoams(foamList As IArrListObject, swDrawing As SldWorks.DrawingDoc, _
-    swView As SldWorks.View, swViewNormalVector As SldWorks.MathVector)
-
-    If foamList.Count > 0 Then
-        
-        Dim swLayerMgr As SldWorks.LayerMgr
-        Set swLayerMgr = swDrawing.GetLayerManager
-        
-        Call CheckandAddLayer(HatchLayName, "FOAM HATCHES", swLayerMgr)
-        
-        Dim swHatchLayer As SldWorks.Layer
-        Set swHatchLayer = swLayerMgr.GetLayer(HatchLayName)
-        
-        swHatchLayer.Color = RGB(192, 192, 192)
-        
-        Dim i As Integer
-        Dim foamBodies As Variant
-        foamBodies = foamList.Items
-
-        For i = LBound(foamBodies) To UBound(foamBodies)
+    Dim swFace As SldWorks.Face2
+    Set swFace = oFoamBody.NormalFace
             
-            Dim oFoamBody As IWeldBody
-            Set oFoamBody = foamBodies(i)
-
-            Dim swFace As SldWorks.Face2
-            Set swFace = oFoamBody.NormalFace
+    Dim xPos As Double
+    xPos = (oFoamBody.xMax + oFoamBody.xMin) / 2
             
-            Dim xPos As Double
-            xPos = (oFoamBody.xMax + oFoamBody.xMin) / 2
+    Dim yPos As Double
+    yPos = (oFoamBody.yMax + oFoamBody.yMin) / 2
             
-            Dim yPos As Double
-            yPos = (oFoamBody.yMax + oFoamBody.yMin) / 2
-            
-            Call SelectAndAddItemNoAnnotation(swFace, swDrawing, swView, xPos, yPos, xPos - 0.002, yPos + 0.00125, True)
+    Call SelectAndAddItemNoAnnotation(swFace, swDrawing, swView, xPos, yPos, xPos - 0.002, yPos + 0.00125, True)
 
-            swView.SelectEntity swFace, False
-            swDrawing.InsertHatchedFace
-
-        Next i
-        
-        Call UpdateHatchProperties(swView)
-        
-    End If
+    swView.SelectEntity swFace, False
+    swDrawing.InsertHatchedFace
 
 End Sub
 

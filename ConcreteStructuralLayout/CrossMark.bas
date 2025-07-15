@@ -1,6 +1,6 @@
 Attribute VB_Name = "CrossMark"
 Const LayerName As String = "BLOCKOUT SKETCH AND LEGENDS"
-Const DimLayerName As String = "BLOCKOUT DIMENSIONS HIDDEN"
+Public Const HatchLayName As String = "EPS HATCH"
 
 Sub AddCrossMark(BlockOutList As IArrListObject, swDrawing As SldWorks.DrawingDoc, _
         swView As SldWorks.View)
@@ -16,6 +16,7 @@ Sub AddCrossMark(BlockOutList As IArrListObject, swDrawing As SldWorks.DrawingDo
         Set swLayerMgr = swDrawing.GetLayerManager
         
         Call CheckandAddLayer(LayerName, "BLOCKOUT SKETCH, NOTES & BALLOONS", swLayerMgr)
+        Call CheckandAddLayer(HatchLayName, "FOAM HATCHES", swLayerMgr)
     
         Dim i As Integer
         For i = LBound(vBlockOuts) To UBound(vBlockOuts)
@@ -44,11 +45,16 @@ Sub AddCrossMark(BlockOutList As IArrListObject, swDrawing As SldWorks.DrawingDo
                 Call AddSketchSegmentsAndConstraints(swSketchManager, CDbl(vViewMinPoint(0)), CDbl(vViewMaxPoint(1)), CDbl(vViewMaxPoint(0)), _
                     CDbl(vViewMinPoint(1)), oBlockOut.LeftTopVertex, oBlockOut.RightBottomVertex, swDrawing, swView)
                     
+            Else
+            
+                Call AddHatchAndCallOutForFoams(oBlockOut, swDrawing, swView)
+                    
             End If
 
         
         Next i
         
+        Call UpdateHatchProperties(swView)
         swView.FocusLocked = False
    
     End If

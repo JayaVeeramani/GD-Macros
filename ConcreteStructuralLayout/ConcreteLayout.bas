@@ -3,7 +3,6 @@ Public swApp As SldWorks.SldWorks
 Public swTopLevelModel As SldWorks.ModelDoc2
 
 Public swConcretePanel As SldWorks.Component2
-Public swBlockOutComp As SldWorks.Component2
 Public swWireMesh As SldWorks.Component2
 
 Public swConfig As SldWorks.Configuration

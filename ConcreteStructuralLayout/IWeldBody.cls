@@ -402,7 +402,7 @@ Private Function GetEdgeInViewForThisBody(IsHorizontal As Boolean, IsMax As Bool
     vPointMax(2) = cZMax
     
     Call GetMaxMinPoint(vPointMin(0), vPointMax(0), xFMin, xFMax)
-    Call GetMaxMinPoint(vPointMin(1), vPointMax(1), yFMax, yFMax)
+    Call GetMaxMinPoint(vPointMin(1), vPointMax(1), yFMax, yFMin)
     
     Dim Idx As Integer
     Dim ValToMatch As Double
@@ -462,6 +462,8 @@ Private Function GetEdgeInViewForThisBody(IsHorizontal As Boolean, IsMax As Bool
             Set swEdgeBody = swEdge.GetBody
                 
             If swEdgeBody.Name = cBody.Name Then
+            
+                'cView.SelectEntity swEdge, False
 
                 Dim swCurve As SldWorks.Curve
                 Set swCurve = swEdge.GetCurve

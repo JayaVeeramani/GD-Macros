@@ -118,55 +118,6 @@ Private Sub CheckAndAddToList(swComp As SldWorks.Component2, ByRef Dict As Scrip
     
 End Sub
 
-Private Sub BlockOutFoamSelection_Click()
-
-    Dim swSelect As SldWorks.SelectionMgr
-    Set swSelect = swTopLevelModel.SelectionManager
-    
-    If swSelect.GetSelectedObjectCount2(-1) = 1 Then
-
-        Set swBlockOutComp = swSelect.GetSelectedObjectsComponent4(1, -1)
-        
-        If Not swBlockOutComp Is Nothing Then
-            
-            Dim swBlockOutModel As SldWorks.ModelDoc2
-            Set swBlockOutModel = ResolveAndGetModelDoc(swBlockOutComp)
-            
-            If swBlockOutModel.GetType = swDocumentTypes_e.swDocPART Then
-
-                Me.BlockOutTextBox.Value = "Selected"
-                Me.BlockOutTextBox.BackColor = vbGreen
-
-            Else
-            
-                MsgBox "Warning! Selected component is not a part. Please select the Block Out Foam part", vbCritical, "Selection Warning!"
-                
-            End If
-            
-        Else
-        
-            Me.BlockOutTextBox.Value = "Not Selected"
-            Me.BlockOutTextBox.BackColor = vbRed
-            
-        End If
-
-    ElseIf swSelect.GetSelectedObjectCount2(-1) = 0 Then
-        
-        MsgBox "Warning! Nothing Selected." & vbCrLf & _
-        "Please select Block Out Foam component only", vbCritical, "Selection Warning!"
-    
-    Else
-    
-    
-        MsgBox "Warning! More than one items are selected." & vbCrLf & _
-                "Please select Block Out Foam component only", vbCritical, "Selection Warning!"
-
-    End If
-    
-End Sub
-
-
-
 Function GetComponentsFromFolder(swFeat As SldWorks.Feature, ByRef TempCompArr As Variant, Level As Integer)
 
     Dim swFeatFolder As SldWorks.FeatureFolder
@@ -360,26 +311,12 @@ Private Sub CreateButton_Click()
     Call HideDrawingComponent(swConcretePanel, swView)
     Call HideDrawingComponent(swWireMesh, swView)
 
-    Dim blockOutBodyList As IArrListObject
-    If Not swBlockOutComp Is Nothing Then
-    
-        Dim blockOutComp As IComp
-        Set blockOutComp = New IComp
-        
-        blockOutComp.Initialize swBlockOutComp, swView
-
-        Set blockOutBodyList = blockOutComp.GetBodiesList(swView, swViewNormalVector)
-    
-        Call AddCrossMark(blockOutBodyList, swDrawing, swView)
-    
-    End If
-    
-    
     
     Dim foamBodyList As IArrListObject
     Set foamBodyList = GetFoamBodiesList(swDrawing, swView, swViewNormalVector)
     
-    Call AddHatchAndCallOutForFoams(foamBodyList, swDrawing, swView, swViewNormalVector)
+    Call AddCrossMark(foamBodyList, swDrawing, swView)
+    
     
 
 
@@ -485,6 +422,8 @@ Function GetFoamBodiesList(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.
         
             Dim swComp As SldWorks.Component2
             Set swComp = vComps(i)
+            
+            Debug.Print swComp.Name2
             
             Dim oComp As IComp
             Set oComp = New IComp
