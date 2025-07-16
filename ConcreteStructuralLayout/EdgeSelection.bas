@@ -287,3 +287,29 @@ Function GetEdgeInViewForBody(swComp As SldWorks.Component2, oBody As IWeldBody,
 
 End Function
 
+ Function SelectEntityWithSelectData(swEnt As Object, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc, _
+                SelXPos As Double, SelYPos As Double) As Boolean
+
+    Dim swSelectData As SldWorks.SelectData
+    Set swSelectData = CreateSelectData(swView, swDrawing, SelXPos, SelYPos)
+
+    Dim swEntity As SldWorks.Entity
+    Set swEntity = swEnt
+
+    SelectEntityWithSelectData = swEntity.Select4(False, swSelectData)
+    
+End Function
+
+Function CreateSelectData(swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc, _
+                SelXPos As Double, SelYPos As Double) As SldWorks.SelectData
+
+    Dim swSelectMgr As SldWorks.SelectionMgr
+    Set swSelectMgr = swDrawing.SelectionManager
+    
+    Set CreateSelectData = swSelectMgr.CreateSelectData
+
+    CreateSelectData.View = swView
+    CreateSelectData.X = SelXPos
+    CreateSelectData.Y = SelYPos
+
+End Function

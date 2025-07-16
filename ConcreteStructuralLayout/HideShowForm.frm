@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} HideShowForm 
    Caption         =   "Hide/ Show Components"
-   ClientHeight    =   9804.001
+   ClientHeight    =   9168.001
    ClientLeft      =   108
    ClientTop       =   456
    ClientWidth     =   6636
@@ -21,6 +21,9 @@ Const BalloonWidth As Double = 0.0065
 Const SheetBorderTop As Double = 0.27030866
 Const SheetBorderLeft As Double = 0.01590679
 Const SheetBorderRight As Double = 0.41595679
+
+Const ViewXPos As Double = 0.21593179
+Const ViewYPos As Double = 0.15578398
 
 Dim RebarCompDict As Scripting.Dictionary
 Dim FoamCompDict As Scripting.Dictionary
@@ -217,7 +220,7 @@ End Sub
 
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
 
-    Unload DrawingForm
+    Unload Me
 
 End Sub
 
@@ -262,8 +265,7 @@ Private Sub CreateButton_Click()
     Call GetListOfComponentsWithMatchingVal(PFList, F42List, LiftingBurkeList, DowelBarList)
     
     Debug.Print WeldmentNo
-    
-'
+
     Set swMathUtility = swApp.GetMathUtility
     
     Dim swViewNormalVector As SldWorks.MathVector
@@ -284,7 +286,7 @@ Private Sub CreateButton_Click()
     'Call InsertSketchBlock(swDrawing, swSheet, ProjectNo)
 
     Dim swView As SldWorks.View
-    Set swView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), viewName, 0.21593179, 0.17578398, 0)
+    Set swView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), viewName, ViewXPos, ViewYPos, 0)
 
     Dim oConcreteComp As IComp
     Set oConcreteComp = New IComp
@@ -298,7 +300,21 @@ Private Sub CreateButton_Click()
     ViewHeight = oConcreteComp.yMax - oConcreteComp.yMin
 
     Call ScaleView(swDrawing, swView, ViewWidth, ViewHeight)
-    Call UpdateTopViewPosition(oConcreteComp, swDrawing, swView)
+    Call UpdateViewPosition(oConcreteComp, swDrawing, swView)
+    
+        
+    Dim IsViewSelected As Boolean
+    IsViewSelected = swDrawing.Extension.SelectByID2(swView.Name, "DRAWINGVIEW", 0, 0, 0, False, 0, Nothing, 0)
+
+    Dim swProjectedView As SldWorks.View
+    Set swProjectedView = swDrawing.CreateUnfoldedViewAt3(oConcreteComp.xMax + 0.0254, ViewYPos, 0, False)
+    
+    Dim oProjectedConcreteComp As IComp
+    Set oProjectedConcreteComp = New IComp
+    
+    oProjectedConcreteComp.Initialize swConcretePanel, swProjectedView
+    Call UpdateViewPosition(oProjectedConcreteComp, swDrawing, swProjectedView)
+    Call AddThkDimensionAndCastingBedNote(oProjectedConcreteComp, swDrawing, swProjectedView)
 
     Dim swBottomEdge As SldWorks.Edge
     Dim swTopEdge As SldWorks.Edge
@@ -311,11 +327,10 @@ Private Sub CreateButton_Click()
     Call HideDrawingComponent(swConcretePanel, swView)
     Call HideDrawingComponent(swWireMesh, swView)
 
-    
     Dim foamBodyList As IArrListObject
     Set foamBodyList = GetFoamBodiesList(swDrawing, swView, swViewNormalVector)
     
-    Call AddCrossMark(foamBodyList, swDrawing, swView)
+    Call AddCrossMarkHatchAndItemNoCallOuts(foamBodyList, swDrawing, swView)
     
     
 
@@ -395,6 +410,43 @@ Private Sub CreateButton_Click()
 
 End Sub
 
+Sub AddThkDimensionAndCastingBedNote(oComp As IComp, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+
+    Dim xMin As Double
+    Dim yMin As Double
+    Dim xMax As Double
+    Dim yMax As Double
+    Call GetViewMaxMinPoints(oComp, swView, xMin, xMax, yMin, yMax)
+    
+    swView.FocusLocked = True
+    
+    Const SketchLength As Double = 12
+    
+    Dim swSketchSegment As SldWorks.SketchSegment
+    Set swSketchSegment = swSketchMgr.CreateLine(xMax, yMin, _
+                                0, xMax, yMin - SketchLength * 0.0254, 0)
+                                
+    swSketchSegment.ConstructionGeometry = True
+    
+    Dim swSelectData As SldWorks.SelectData
+    Set swSelectData = CreateSelectData(swView, swDrawing, xMax, yMin - SketchLength * 0.5 * 0.0254)
+    
+    swSketchSegment.Select4 False, swSelectData
+    Call AddNoteToView(swDrawing, "CASTING BED", oComp.xMax + 0.0075, oComp.yMin - SketchLength * 0.5 * 0.0254 * swView.ScaleDecimal - 0.005)
+        
+    Dim swRightEdge As SldWorks.Edge
+    Set swRightEdge = GetEdgeInView(oComp, swView, False, True)
+    
+    Dim swLeftEdge As SldWorks.Edge
+    Set swLeftEdge = GetEdgeInView(oComp, swView, False, False)
+        
+    Call AddCollinearRelation(swDrawing, swRightEdge, swSketchSegment, swView)
+    Call SelectAndAddDimension(swRightEdge, swLeftEdge, swDrawing, oComp.xMax + 0.01, (oComp.yMax + oComp.yMin) / 2, swView, False)
+    
+     swView.FocusLocked = False
+
+End Sub
+
 Sub HideDrawingComponent(swComp As SldWorks.Component2, swView As SldWorks.View)
     
     If Not swComp Is Nothing Then
@@ -404,8 +456,6 @@ Sub HideDrawingComponent(swComp As SldWorks.Component2, swView As SldWorks.View)
     End If
     
 End Sub
-
-
 
 Function GetFoamBodiesList(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
         swNormalVector As SldWorks.MathVector) As IArrListObject
@@ -451,6 +501,8 @@ Sub ConvertAndGetExtremeEdges(ByRef swBottomEdge As SldWorks.Edge, ByRef swTopEd
 
     Dim vFaces As Variant
     vFaces = swView.GetVisibleEntities2(oComp.GetComponent, swViewEntityType_e.swViewEntityType_Face)
+    
+    swView.FocusLocked = True
 
     If Not IsEmpty(vFaces) Then
     
@@ -473,6 +525,8 @@ Sub ConvertAndGetExtremeEdges(ByRef swBottomEdge As SldWorks.Edge, ByRef swTopEd
         Call ConvertLargestFace(oComp, swView)
         
     End If
+    
+    swView.FocusLocked = False
     
 End Sub
 
@@ -1077,8 +1131,8 @@ Private Sub GetViewMaxMinPoints(oComp As IComp, swView As SldWorks.View, ByRef x
     Dim vViewMinPt As Variant
     vViewMinPt = GetComponentPointInViewSpace(oComp.GetComponent, oComp.GetMinPointInModel, swView)
     
-    Call StrucutralElevation.GetMaxMinPoint(vViewMinPt(0), vViewMaxPt(0), xMin, xMax)
-    Call StrucutralElevation.GetMaxMinPoint(vViewMinPt(1), vViewMaxPt(1), yMin, yMax)
+    Call GetMaxMinPoint(vViewMinPt(0), vViewMaxPt(0), xMin, xMax)
+    Call GetMaxMinPoint(vViewMinPt(1), vViewMaxPt(1), yMin, yMax)
     
 End Sub
 
@@ -1109,24 +1163,7 @@ Function EditTemplate(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Shee
     
 End Function
 
-Function AddNoteToView(swDrawing As SldWorks.DrawingDoc, NoteText As String, xPos As Double, yPos As Double) As SldWorks.Note
-            
-    Set AddNoteToView = swDrawing.InsertNote(NoteText)
-            
-    If Not AddNoteToView Is Nothing Then
 
-        Dim swAnnotation As SldWorks.Annotation
-        Set swAnnotation = AddNoteToView.GetAnnotation()
-
-        If Not swAnnotation Is Nothing Then
-
-            swAnnotation.SetPosition xPos, yPos, 0
-
-        End If
-
-    End If
-    
-End Function
  
 Private Sub AddLocatingHoleDetailView(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
         BottomFloorPlateList As IArrListObject)
@@ -1473,15 +1510,15 @@ Sub AddEllipseAndCreateDetailView(swDrawing As SldWorks.DrawingDoc, swView As Sl
 
 End Sub
 
-Private Sub UpdateTopViewPosition(oFloorComp As IComp, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+Private Sub UpdateViewPosition(oConcreteComp As IComp, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
     
-    Call oFloorComp.CheckForUpdateInMaxMinDimensions(swView)
+    Call oConcreteComp.CheckForUpdateInMaxMinDimensions(swView)
     
     Dim CenterX As Double
-    CenterX = (oFloorComp.xMin + oFloorComp.xMax) / 2
+    CenterX = (oConcreteComp.xMin + oConcreteComp.xMax) / 2
     
     Dim CenterY As Double
-    CenterY = (oFloorComp.yMin + oFloorComp.yMax) / 2
+    CenterY = (oConcreteComp.yMin + oConcreteComp.yMax) / 2
 
     Dim viewPosition As Variant
     viewPosition = swView.Position
@@ -1491,37 +1528,11 @@ Private Sub UpdateTopViewPosition(oFloorComp As IComp, swDrawing As SldWorks.Dra
 
     swView.Position = viewPosition
     
-    Call oFloorComp.CheckForUpdateInMaxMinDimensions(swView)
+    Call oConcreteComp.CheckForUpdateInMaxMinDimensions(swView)
 
 End Sub
 
-Private Function SelectAndAddDimension(swEnt1 As SldWorks.Entity, swEnt2 As SldWorks.Entity, swDrawing As SldWorks.ModelDoc2, _
-            xPos As Double, yPos As Double, swView As SldWorks.View, Optional IsDual As Boolean = True) As SldWorks.DisplayDimension
 
-    If Not (swEnt1 Is Nothing) And Not (swEnt2 Is Nothing) Then
-
-        swDrawing.ClearSelection2 True
-        
-        swView.SelectEntity swEnt1, False
-        swView.SelectEntity swEnt2, True
-
-        Set SelectAndAddDimension = swDrawing.AddDimension2(xPos, yPos, 0)
-
-        If Not SelectAndAddDimension Is Nothing Then
-
-            SelectAndAddDimension.CenterText = True
-
-            If IsDual Then
-
-                SelectAndAddDimension.SetDual2 False, False
-
-            End If
-
-        End If
-
-    End If
-
-End Function
 
 Private Function AddStructuralNotes(swDrawing As SldWorks.DrawingDoc) As SldWorks.Note
     

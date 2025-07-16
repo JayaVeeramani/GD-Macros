@@ -15,7 +15,6 @@ Sub main()
     
     If swTopLevelModel.GetType = swDocumentTypes_e.swDocASSEMBLY Then
 
-        Call PopulateDisplayStateInForm
         HideShowForm.WeldNoBox.Value = Mid(swTopLevelModel.GetPathName, InStrRev(swTopLevelModel.GetPathName, "\") + 1, 6)
         HideShowForm.Show vbModeless
         'DrawingForm.ProjectNoBox.Value = Mid(swTopLevelModel.GetPathName, InStrRev(swTopLevelModel.GetPathName, "\") + 1, 6)
@@ -24,27 +23,6 @@ Sub main()
     End If
     
 End Sub
-
-Function PopulateDisplayStateInForm()
-
-    Set swConfig = swTopLevelModel.ConfigurationManager.ActiveConfiguration
-    
-    Dim vDisplayStateNames As Variant
-    vDisplayStateNames = swConfig.GetDisplayStates()
-    
-    Dim i As Integer
-    For i = LBound(vDisplayStateNames) To UBound(vDisplayStateNames)
-        
-        With DrawingForm.DisplayList
-        
-            .AddItem
-            .List(i) = vDisplayStateNames(i)
-            
-        End With
-        
-    Next i
-    
-End Function
 
 Function ResolveAndGetModelDoc(swComp As SldWorks.Component2) As SldWorks.ModelDoc2
 

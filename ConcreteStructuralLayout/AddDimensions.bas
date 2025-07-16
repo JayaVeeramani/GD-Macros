@@ -600,79 +600,7 @@ Function IsMaxBlockOutsOnTop(oFloorPlate As IComp, ByRef BottomBlockOutList As I
     
 End Function
 
-Function SelectAndAddAnnotation(swEnt As Object, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, SelXPos As Double, _
-       SelYPos As Double, AnnXPos As Double, annYPos As Double, Optional CustomTextTop As String = "", _
-        Optional CustomTextBottom As String = "") As SldWorks.Annotation
 
-    Dim IsSelected As Boolean
-    IsSelected = SelectEntityWithSelectData(swEnt, swView, swDrawing, SelXPos, SelYPos)
-    
-    If IsSelected Then
-
-        Dim BalloonContent As swBalloonTextContent_e
-    
-        If CustomTextTop = "" And CustomTextBottom = "" Then
-            BalloonContent = swBalloonTextPartNumberBOM
-        End If
-        
-        Dim swNote As SldWorks.Note
-        Set swNote = swDrawing.InsertBOMBalloon2(swBS_Inspection, swBF_Tightest, BalloonContent, _
-                                CustomTextTop, BalloonContent, CustomTextBottom)
-            
-        If Not swNote Is Nothing Then
-        
-            Dim swAnnotation As SldWorks.Annotation
-            Set swAnnotation = swNote.GetAnnotation()
-        
-            swAnnotation.SetPosition AnnXPos, annYPos, 0
-    
-            Set SelectAndAddAnnotation = swAnnotation
-        
-        End If
-
-    End If
-    
-End Function
-
-Function SelectAndAddItemNoAnnotation(swEnt As Object, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, SelXPos As Double, _
-       SelYPos As Double, AnnXPos As Double, annYPos As Double, Optional IsNoLeader As Boolean = False) As SldWorks.Annotation
-
-    Dim IsSelected As Boolean
-    IsSelected = SelectEntityWithSelectData(swEnt, swView, swDrawing, SelXPos, SelYPos)
-    
-    If IsSelected Then
-    
-        Dim swBalloonParams As SldWorks.BalloonOptions
-        Set swBalloonParams = swDrawing.Extension.CreateBalloonOptions()
-        swBalloonParams.Size = swBalloonFit_e.swBF_Tightest
-        swBalloonParams.Style = swBalloonStyle_e.swBS_Circular
-        swBalloonParams.UpperTextContent = swBalloonTextContent_e.swBalloonTextCutlistProperties
-        swBalloonParams.UpperText = "$PRPWLD:" & Chr(34) & "ITEM NO" & Chr(34)
-
-        Dim swNote As SldWorks.Note
-        Set swNote = swDrawing.Extension.InsertBOMBalloon2(swBalloonParams)
-    
-        swNote.PropertyLinkedText = "$PRPWLD:" & Chr(34) & "ITEM NO" & Chr(34)
-            
-        If Not swNote Is Nothing Then
-        
-            Dim swAnnotation As SldWorks.Annotation
-            Set swAnnotation = swNote.GetAnnotation()
-        
-            swAnnotation.SetPosition AnnXPos, annYPos, 0
-            
-            If IsNoLeader Then
-                
-                swAnnotation.SetLeader3 swLeaderStyle_e.swNO_LEADER, swLeaderSide_e.swLS_SMART, False, False, True, False
-            
-            End If
-    
-            Set SelectAndAddItemNoAnnotation = swAnnotation
-        
-        End If
-
-    End If
-End Function
 
 
 Sub GetFloorPlateCallOutPosition(oFloorPlate As IComp, ByRef xPos As Double, ByRef yPos As Double, _
@@ -848,27 +776,44 @@ Sub GetCallOutYPos(oFloorComp As IComp, ByRef yPos As Double, ByRef annYPos As D
     End If
 
 End Sub
-' Function InsertInspectionBalloon(swDrawing As SldWorks.DrawingDoc, AnnXPos As Double, AnnYPos As Double, Optional CustomTextTop As String = "", Optional CustomTextBottom As String = "") As SldWorks.Annotation
-'
-'    Dim BalloonContent As swBalloonTextContent_e
-'
-'    If CustomTextTop = "" And CustomTextBottom = "" Then
-'        BalloonContent = swBalloonTextPartNumberBOM
-'    End If
-'
-'    Dim swNote As SldWorks.Note
-'    Set swNote = swDrawing.InsertBOMBalloon2(swBS_Inspection, swBF_Tightest, BalloonContent, _
-'                            CustomTextTop, BalloonContent, CustomTextBottom)
-'
-'    If Not swNote Is Nothing Then
-'
-'        Dim swAnnotation As SldWorks.Annotation
-'        Set swAnnotation = swNote.GetAnnotation()
-'
-'        swAnnotation.SetPosition AnnXPos, AnnYPos, 0
-'
-'        Set InsertInspectionBalloon = swAnnotation
-'
-'    End If
-'
-'End Function
+
+Function SelectAndAddDimension(swEnt1 As SldWorks.Entity, swEnt2 As SldWorks.Entity, swDrawing As SldWorks.ModelDoc2, _
+            xPos As Double, yPos As Double, swView As SldWorks.View, Optional IsDual As Boolean = True) As SldWorks.DisplayDimension
+
+    If Not (swEnt1 Is Nothing) And Not (swEnt2 Is Nothing) Then
+
+        swDrawing.ClearSelection2 True
+        
+        swView.SelectEntity swEnt1, False
+        swView.SelectEntity swEnt2, True
+
+        Set SelectAndAddDimension = swDrawing.AddDimension2(xPos, yPos, 0)
+
+        If Not SelectAndAddDimension Is Nothing Then
+
+            SelectAndAddDimension.CenterText = True
+
+            If IsDual Then
+
+                SelectAndAddDimension.SetDual2 False, False
+
+            End If
+
+        End If
+
+    End If
+
+End Function
+
+Sub AddCollinearRelation(swDrawing As SldWorks.DrawingDoc, swEdge As SldWorks.Edge, swSketchSegment As SldWorks.SketchSegment, swView As SldWorks.View)
+    
+    If Not (swEdge Is Nothing) And Not (swSketchSegment Is Nothing) Then
+        
+        swView.SelectEntity swEdge, False
+        swSketchSegment.Select4 True, Nothing
+                
+        swDrawing.SketchAddConstraints "sgCOLINEAR"
+        
+    End If
+    
+End Sub

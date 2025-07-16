@@ -2,7 +2,7 @@ Attribute VB_Name = "CrossMark"
 Const LayerName As String = "BLOCKOUT SKETCH AND LEGENDS"
 Public Const HatchLayName As String = "EPS HATCH"
 
-Sub AddCrossMark(BlockOutList As IArrListObject, swDrawing As SldWorks.DrawingDoc, _
+Sub AddCrossMarkHatchAndItemNoCallOuts(BlockOutList As IArrListObject, swDrawing As SldWorks.DrawingDoc, _
         swView As SldWorks.View)
     
     If (BlockOutList.Count > 0) Then
@@ -17,6 +17,11 @@ Sub AddCrossMark(BlockOutList As IArrListObject, swDrawing As SldWorks.DrawingDo
         
         Call CheckandAddLayer(LayerName, "BLOCKOUT SKETCH, NOTES & BALLOONS", swLayerMgr)
         Call CheckandAddLayer(HatchLayName, "FOAM HATCHES", swLayerMgr)
+        
+        Dim swHatchLayer As SldWorks.Layer
+        Set swHatchLayer = swLayerMgr.GetLayer(HatchLayName)
+        
+        swHatchLayer.Color = RGB(192, 192, 192)
     
         Dim i As Integer
         For i = LBound(vBlockOuts) To UBound(vBlockOuts)
@@ -26,7 +31,7 @@ Sub AddCrossMark(BlockOutList As IArrListObject, swDrawing As SldWorks.DrawingDo
 
             If oBlockOut.IsCircular Then
             
-                
+
             
             ElseIf oBlockOut.IsRectangular Then
             
@@ -45,6 +50,19 @@ Sub AddCrossMark(BlockOutList As IArrListObject, swDrawing As SldWorks.DrawingDo
                 Call AddSketchSegmentsAndConstraints(swSketchManager, CDbl(vViewMinPoint(0)), CDbl(vViewMaxPoint(1)), CDbl(vViewMaxPoint(0)), _
                     CDbl(vViewMinPoint(1)), oBlockOut.LeftTopVertex, oBlockOut.RightBottomVertex, swDrawing, swView)
                     
+
+                
+                Dim SelXPos As Double
+                Dim SelYPos As Double
+                Dim AnnXPos As Double
+                Dim AnnYPos As Double
+                
+                Dim IsLeaderReq As Boolean
+                IsLeaderReq = False
+                
+                Call GetBlockOutFoamAnnotationData(oBlockOut, SelXPos, SelYPos, AnnXPos, AnnYPos, IsLeaderReq)
+                Call SelectAndAddItemNoAnnotation(oBlockOut.NormalFace, swDrawing, swView, SelXPos, SelYPos, AnnXPos, AnnYPos, IsLeaderReq)
+                    
             Else
             
                 Call AddHatchAndCallOutForFoams(oBlockOut, swDrawing, swView)
@@ -60,6 +78,56 @@ Sub AddCrossMark(BlockOutList As IArrListObject, swDrawing As SldWorks.DrawingDo
     End If
     
 End Sub
+
+Sub GetBlockOutFoamAnnotationData(oBlockOut As IWeldBody, ByRef SelXPos As Double, ByRef SelYPos As Double, _
+            ByRef AnnXPos As Double, ByRef AnnYPos As Double, ByRef IsLeaderReq As Boolean)
+
+    Dim BlockOutLength As Double
+    BlockOutLength = oBlockOut.xMax - oBlockOut.xMin
+                
+    Dim BlockOutWidth As Double
+    BlockOutWidth = oBlockOut.yMax - oBlockOut.yMin
+                
+    If BlockOutLength < 0.0075 Or BlockOutWidth < 0.0075 Then
+                
+        IsLeaderReq = True
+        If BlockOutLength > BlockOutWidth Then
+        
+            SelXPos = (oBlockOut.xMin + oBlockOut.xMax) / 2
+            AnnXPos = SelXPos + 0.00125
+            SelYPos = oBlockOut.yMax
+            AnnYPos = SelYPos + 0.005
+                        
+        Else
+                    
+            SelXPos = oBlockOut.xMax
+            AnnXPos = SelXPos + 0.005
+            SelYPos = (oBlockOut.yMax + oBlockOut.yMin) / 2
+            AnnYPos = SelYPos + 0.00125
+                    
+        End If
+                
+    Else
+    
+        If BlockOutLength > BlockOutWidth Then
+                    
+            SelXPos = oBlockOut.xMin
+            SelYPos = (oBlockOut.yMax + oBlockOut.yMin) / 2
+                        
+        Else
+                    
+            SelXPos = (oBlockOut.xMin + oBlockOut.xMax) / 2
+            SelYPos = (oBlockOut.yMax + oBlockOut.yMin) / 2
+                    
+        End If
+        
+        AnnXPos = SelXPos + 0.00125
+        AnnYPos = SelYPos + 0.00125
+              
+    End If
+    
+End Sub
+
 
 Sub AddSketchSegmentsAndConstraints(swSketchManager As SldWorks.SketchManager, xStart As Double, yStart As Double, _
         xEnd As Double, yEnd As Double, StartVertex As SldWorks.Vertex, EndVertex As SldWorks.Vertex, _
@@ -130,26 +198,7 @@ Sub CheckandAddLayer(LayName As String, LayerDesc As String, swLayerMgr As SldWo
     
 End Sub
 
- Function SelectEntityWithSelectData(swEnt As Object, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc, _
-                SelXPos As Double, SelYPos As Double) As Boolean
 
-    Dim swSelectMgr As SldWorks.SelectionMgr
-    Set swSelectMgr = swDrawing.SelectionManager
-    
-    Dim swSelectData As SldWorks.SelectData
-    Set swSelectData = swSelectMgr.CreateSelectData
-
-
-    swSelectData.View = swView
-    swSelectData.X = SelXPos '(vStartPoint(0) + vEndPoint(0)) / 2
-    swSelectData.Y = SelYPos 'vStartPoint(1)
-    
-    Dim swEntity As SldWorks.Entity
-    Set swEntity = swEnt
-
-    SelectEntityWithSelectData = swEntity.Select4(False, swSelectData)
-    
-End Function
 
 
 

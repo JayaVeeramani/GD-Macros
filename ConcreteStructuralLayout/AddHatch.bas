@@ -19,7 +19,6 @@ Sub AddHatchAndCallOutForFoams(oFoamBody As IWeldBody, swDrawing As SldWorks.Dra
 
 End Sub
 
-
 Sub UpdateHatchProperties(swView As SldWorks.View)
     
     Dim swSketch As SldWorks.Sketch
