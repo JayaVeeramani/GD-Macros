@@ -17,10 +17,6 @@ Attribute VB_Exposed = False
 Option Explicit
 
 Dim swSketchMgr As SldWorks.SketchManager
-Const BalloonWidth As Double = 0.0065
-Const SheetBorderTop As Double = 0.27030866
-Const SheetBorderLeft As Double = 0.01590679
-Const SheetBorderRight As Double = 0.41595679
 
 Const ViewXPos As Double = 0.21593179
 Const ViewYPos As Double = 0.15578398
@@ -249,22 +245,6 @@ Private Sub CreateButton_Click()
     
     Dim WeldmentNo As String
     WeldmentNo = Me.WeldNoBox.Value
-    
-    Dim PFList As IArrListObject
-    Set PFList = New IArrListObject
-    
-    Dim F42List As IArrListObject
-    Set F42List = New IArrListObject
-    
-    Dim LiftingBurkeList As IArrListObject
-    Set LiftingBurkeList = New IArrListObject
-    
-    Dim DowelBarList As IArrListObject
-    Set DowelBarList = New IArrListObject
-    
-    Call GetListOfComponentsWithMatchingVal(PFList, F42List, LiftingBurkeList, DowelBarList)
-    
-    Debug.Print WeldmentNo
 
     Set swMathUtility = swApp.GetMathUtility
     
@@ -274,6 +254,8 @@ Private Sub CreateButton_Click()
 '    Call ActivateAndRebuildComponent(swConcretePanel)
 '    Call ActivateAndRebuildComponent(swTopLevelModel, False)
 '    'Call swTopLevelModel.Extension.Rebuild(swRebuildOptions_e.swForceRebuildAll)
+
+    swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
 '
     Dim swDrawing As SldWorks.DrawingDoc
     Set swDrawing = swApp.NewDocument("C:\FBD\COMMON\FBD Templates\DEFAULT\METAL FAB DRAWING.DRWDOT", 0, 0, 0)
@@ -301,8 +283,7 @@ Private Sub CreateButton_Click()
 
     Call ScaleView(swDrawing, swView, ViewWidth, ViewHeight)
     Call UpdateViewPosition(oConcreteComp, swDrawing, swView)
-    
-        
+
     Dim IsViewSelected As Boolean
     IsViewSelected = swDrawing.Extension.SelectByID2(swView.Name, "DRAWINGVIEW", 0, 0, 0, False, 0, Nothing, 0)
 
@@ -314,6 +295,9 @@ Private Sub CreateButton_Click()
     
     oProjectedConcreteComp.Initialize swConcretePanel, swProjectedView
     Call UpdateViewPosition(oProjectedConcreteComp, swDrawing, swProjectedView)
+    
+    Call InsertBOMAndOrderComponents(swDrawing, swView, oConcreteComp.yMax + 0.015)
+    
     Call AddThkDimensionAndCastingBedNote(oProjectedConcreteComp, swDrawing, swProjectedView)
 
     Dim swBottomEdge As SldWorks.Edge
@@ -330,12 +314,24 @@ Private Sub CreateButton_Click()
     Dim foamBodyList As IArrListObject
     Set foamBodyList = GetFoamBodiesList(swDrawing, swView, swViewNormalVector)
     
-    Call AddCrossMarkHatchAndItemNoCallOuts(foamBodyList, swDrawing, swView)
+    'Call AddCrossMarkHatchAndItemNoCallOuts(foamBodyList, swDrawing, swView)
     
+   
     
+    Dim PFList As IArrListObject
+    Set PFList = New IArrListObject
+    
+    Dim F42List As IArrListObject
+    Set F42List = New IArrListObject
+    
+    Dim LiftingBurkeList As IArrListObject
+    Set LiftingBurkeList = New IArrListObject
+    
+    Dim DowelBarList As IArrListObject
+    Set DowelBarList = New IArrListObject
+    
+    Call GetListOfComponentsWithMatchingVal(PFList, F42List, LiftingBurkeList, DowelBarList)
 
-
-    
 '    Dim FloorPlateList As IArrListObject
 '    Set FloorPlateList = GetFloorPlateList(RebarCompDict.Items, swTopView)
 '
@@ -381,7 +377,7 @@ Private Sub CreateButton_Click()
 '
 '    Call AddFloorPlateCallouts(xMinFloorDict, swDrawing, swTopView, oFloorComp)
 '
-    swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
+
 '    Call AddCrossMarkAndBalloons(vBlockOutList, swDrawing, swTopView, oFloorComp)
 '
     swDrawing.ClearSelection2 True
@@ -409,6 +405,8 @@ Private Sub CreateButton_Click()
     Unload Me
 
 End Sub
+
+
 
 Sub AddThkDimensionAndCastingBedNote(oComp As IComp, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
 
@@ -1145,18 +1143,18 @@ Function EditTemplate(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Shee
 
     Dim SheetFormatName As String
     SheetFormatName = swSheet.GetSheetFormatName
-    Dim Boolstatus As Boolean
+    Dim BoolStatus As Boolean
     
     Dim swNote As INote
-    Boolstatus = swDrawing.Extension.SelectByID2("DetailItem1227@" & SheetFormatName, "NOTE", 0.355252206998469, 3.32049059009041E-02, 0, False, 0, Nothing, 0)
+    BoolStatus = swDrawing.Extension.SelectByID2("DetailItem1227@" & SheetFormatName, "NOTE", 0.355252206998469, 3.32049059009041E-02, 0, False, 0, Nothing, 0)
     Set swNote = swSelect.GetSelectedObject6(1, -1)
     swNote.SetText (SheetName)
         
-    Boolstatus = swDrawing.Extension.SelectByID2("DetailItem1229@" & SheetFormatName, "NOTE", 0.355252206998469, 3.32049059009041E-02, 0, False, 0, Nothing, 0)
+    BoolStatus = swDrawing.Extension.SelectByID2("DetailItem1229@" & SheetFormatName, "NOTE", 0.355252206998469, 3.32049059009041E-02, 0, False, 0, Nothing, 0)
     Set swNote = swSelect.GetSelectedObject6(1, -1)
     swNote.SetText (WeldmentNo)
     
-    Boolstatus = swDrawing.Extension.SelectByID2("DetailItem1262@" & SheetFormatName, "NOTE", 4.69556851111171E-02, 3.48062939323501E-02, 0, False, 0, Nothing, 0)
+    BoolStatus = swDrawing.Extension.SelectByID2("DetailItem1262@" & SheetFormatName, "NOTE", 4.69556851111171E-02, 3.48062939323501E-02, 0, False, 0, Nothing, 0)
     swDrawing.EditDelete
         
     swDrawing.EditSheet

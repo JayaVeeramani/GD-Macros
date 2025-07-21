@@ -8,6 +8,11 @@ Public swWireMesh As SldWorks.Component2
 Public swConfig As SldWorks.Configuration
 Public swMathUtility As SldWorks.MathUtility
 
+Const BalloonWidth As Double = 0.0065
+Const SheetBorderTop As Double = 0.27030866
+Const SheetBorderLeft As Double = 0.01590679
+Const SheetBorderRight As Double = 0.41595679
+
 Sub main()
 
     Set swApp = Application.SldWorks
