@@ -3,7 +3,7 @@ Attribute VB_Name = "AddAnnotations"
 
 
 Function SelectAndAddAnnotation(swEnt As Object, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, SelXPos As Double, _
-       SelYPos As Double, AnnXPos As Double, annYPos As Double, Optional CustomTextTop As String = "", _
+       SelYPos As Double, AnnXPos As Double, AnnYPos As Double, Optional CustomTextTop As String = "", _
         Optional CustomTextBottom As String = "") As SldWorks.Annotation
 
     Dim IsSelected As Boolean
@@ -26,7 +26,7 @@ Function SelectAndAddAnnotation(swEnt As Object, swDrawing As SldWorks.DrawingDo
             Dim swAnnotation As SldWorks.Annotation
             Set swAnnotation = swNote.GetAnnotation()
         
-            swAnnotation.SetPosition AnnXPos, annYPos, 0
+            swAnnotation.SetPosition AnnXPos, AnnYPos, 0
     
             Set SelectAndAddAnnotation = swAnnotation
         
@@ -37,7 +37,7 @@ Function SelectAndAddAnnotation(swEnt As Object, swDrawing As SldWorks.DrawingDo
 End Function
 
 Function SelectAndAddItemNoAnnotation(swEnt As Object, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, SelXPos As Double, _
-       SelYPos As Double, AnnXPos As Double, annYPos As Double, Optional IsNoLeader As Boolean = False) As SldWorks.Annotation
+       SelYPos As Double, AnnXPos As Double, AnnYPos As Double, Optional IsLeaderReq As Boolean = False) As SldWorks.Annotation
 
     Dim IsSelected As Boolean
     IsSelected = SelectEntityWithSelectData(swEnt, swView, swDrawing, SelXPos, SelYPos)
@@ -61,10 +61,16 @@ Function SelectAndAddItemNoAnnotation(swEnt As Object, swDrawing As SldWorks.Dra
             Dim swAnnotation As SldWorks.Annotation
             Set swAnnotation = swNote.GetAnnotation()
         
-            swAnnotation.SetPosition AnnXPos, annYPos, 0
+            swAnnotation.SetPosition AnnXPos, AnnYPos, 0
             
-            If IsNoLeader Then
+            If IsLeaderReq Then
+            
+                Dim HeadStyle As Integer
+                swAnnotation.SetLeader3 swLeaderStyle_e.swAlwaysAttachToBalloon + swLeaderStyle_e.swSTRAIGHT, swLeaderSide_e.swLS_SMART, False, False, True, False
+                HeadStyle = swAnnotation.SetArrowHeadStyleAtIndex(0, swArrowStyle_e.swCLOSED_ARROWHEAD)
                 
+            Else
+            
                 swAnnotation.SetLeader3 swLeaderStyle_e.swNO_LEADER, swLeaderSide_e.swLS_SMART, False, False, True, False
             
             End If

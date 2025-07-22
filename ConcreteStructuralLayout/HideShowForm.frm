@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} HideShowForm 
    Caption         =   "Hide/ Show Components"
-   ClientHeight    =   9168.001
+   ClientHeight    =   4056
    ClientLeft      =   108
    ClientTop       =   456
    ClientWidth     =   6636
@@ -20,28 +20,22 @@ Dim swSketchMgr As SldWorks.SketchManager
 
 Const ViewXPos As Double = 0.21593179
 Const ViewYPos As Double = 0.15578398
-
-Dim RebarCompDict As Scripting.Dictionary
-Dim FoamCompDict As Scripting.Dictionary
+Const HorizontalMaxDim As Double = 0.371
+Const VerticalMaxDim As Double = 0.1295
 
 Dim xDirectionVector(2) As Double
 Dim yDirectionVector(2) As Double
 Dim zDirectionVector(2) As Double
 
-Const HorizontalMaxDim As Double = 0.371
-Const VerticalMaxDim As Double = 0.1295
+Dim swLeftOrdinateDim As SldWorks.DisplayDimension
+Dim swRightOrdinateDim As SldWorks.DisplayDimension
+Dim swTopOrdinateDim As SldWorks.DisplayDimension
+Dim swBottomOrdinateDim As SldWorks.DisplayDimension
 
-Private Sub AddEpsFoamButton_Click()
-    
-    Call AddToSelectionBox(Me.EpsFoamListBox, FoamCompDict)
-    
-End Sub
-
-Private Sub AddRebarButton_Click()
-
-    Call AddToSelectionBox(Me.RebarListBox, RebarCompDict)
-    
-End Sub
+Dim swLeftEdge As SldWorks.Edge
+Dim swRightEdge As SldWorks.Edge
+Dim swTopEdge As SldWorks.Edge
+Dim swBottomEdge As SldWorks.Edge
 
 Private Sub AddToSelectionBox(SelListBox As MSForms.ListBox, ByRef Dict As Scripting.Dictionary)
 
@@ -250,10 +244,6 @@ Private Sub CreateButton_Click()
     
     Dim swViewNormalVector As SldWorks.MathVector
     Set swViewNormalVector = swMathUtility.CreateVector(GetViewVector(viewName))
-'
-'    Call ActivateAndRebuildComponent(swConcretePanel)
-'    Call ActivateAndRebuildComponent(swTopLevelModel, False)
-'    'Call swTopLevelModel.Extension.Rebuild(swRebuildOptions_e.swForceRebuildAll)
 
     swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
 '
@@ -296,41 +286,37 @@ Private Sub CreateButton_Click()
     oProjectedConcreteComp.Initialize swConcretePanel, swProjectedView
     Call UpdateViewPosition(oProjectedConcreteComp, swDrawing, swProjectedView)
     
-    Call InsertBOMAndOrderComponents(swDrawing, swView, oConcreteComp.yMax + 0.015)
+    Dim swConfig As SldWorks.Configuration
+    Set swConfig = swTopLevelModel.GetActiveConfiguration
+    
+    Dim configName As String
+    configName = swConfig.Name
+    
+    Dim TableEndPt As Double
+    Dim swBomTableAnn As SldWorks.BomTableAnnotation
+    Set swBomTableAnn = InsertBOMAndOrderComponents(swDrawing, swView, configName, oConcreteComp.yMax + 0.01875, TableEndPt)
     
     Call AddThkDimensionAndCastingBedNote(oProjectedConcreteComp, swDrawing, swProjectedView)
+    Call ConvertAndGetExtremeEdges(swDrawing, swView, oConcreteComp, swViewNormalVector)
 
-    Dim swBottomEdge As SldWorks.Edge
-    Dim swTopEdge As SldWorks.Edge
-    
-    Dim swLeftEdge As SldWorks.Edge
-    Dim swRightEdge As SldWorks.Edge
-    
-    Call ConvertAndGetExtremeEdges(swBottomEdge, swTopEdge, swLeftEdge, swRightEdge, swView, oConcreteComp, swViewNormalVector)
-    
     Call HideDrawingComponent(swConcretePanel, swView)
-    Call HideDrawingComponent(swWireMesh, swView)
+    Call SegregrateComponentsAndAddAnnotations(swBomTableAnn, configName, swDrawing, swView, swViewNormalVector)
 
-    Dim foamBodyList As IArrListObject
-    Set foamBodyList = GetFoamBodiesList(swDrawing, swView, swViewNormalVector)
-    
-    'Call AddCrossMarkHatchAndItemNoCallOuts(foamBodyList, swDrawing, swView)
-    
-   
-    
-    Dim PFList As IArrListObject
-    Set PFList = New IArrListObject
-    
-    Dim F42List As IArrListObject
-    Set F42List = New IArrListObject
-    
-    Dim LiftingBurkeList As IArrListObject
-    Set LiftingBurkeList = New IArrListObject
-    
-    Dim DowelBarList As IArrListObject
-    Set DowelBarList = New IArrListObject
-    
-    Call GetListOfComponentsWithMatchingVal(PFList, F42List, LiftingBurkeList, DowelBarList)
+
+'
+'    Dim PFList As IArrListObject
+'    Set PFList = New IArrListObject
+'
+'    Dim F42List As IArrListObject
+'    Set F42List = New IArrListObject
+'
+'    Dim LiftingBurkeList As IArrListObject
+'    Set LiftingBurkeList = New IArrListObject
+'
+'    Dim DowelBarList As IArrListObject
+'    Set DowelBarList = New IArrListObject
+'
+'    Call GetListOfComponentsWithMatchingVal(PFList, F42List, LiftingBurkeList, DowelBarList)
 
 '    Dim FloorPlateList As IArrListObject
 '    Set FloorPlateList = GetFloorPlateList(RebarCompDict.Items, swTopView)
@@ -371,13 +357,11 @@ Private Sub CreateButton_Click()
 '    Call FindAndAddBeforeBlockOuts(yMaxBlockOutDict, ClonedBlockOutList, "yMin", BlockOutSide_e.Bottom)
 '    Call FindAndAddAfterBlockOuts(yMinBlockOutDict, ClonedBlockOutList, "yMax", BlockOutSide_e.Top)
 '
-'
 '    Call SegregateAndAddDimensionVertically(xMinBlockOutDict, xMaxPlateList, xMinFloorDict, oFloorComp, swDrawing, swTopView)
 '    Call SegregateAndAddDimensionHorizontally(yMinBlockOutDict, yMaxPlateList, yMinFloorDict, oFloorComp, swDrawing, swTopView)
 '
 '    Call AddFloorPlateCallouts(xMinFloorDict, swDrawing, swTopView, oFloorComp)
 '
-
 '    Call AddCrossMarkAndBalloons(vBlockOutList, swDrawing, swTopView, oFloorComp)
 '
     swDrawing.ClearSelection2 True
@@ -406,7 +390,53 @@ Private Sub CreateButton_Click()
 
 End Sub
 
+Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation, configName As String, _
+         swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, swViewNormalVector As SldWorks.MathVector)
 
+    Dim i As Integer
+    Dim AllFoamBodyList As IArrListObject
+    
+    For i = 1 To swTableAnn.rowCount - 1
+    
+        Dim Desc As String
+        Desc = swTableAnn.DisplayedText(i, 2)
+        
+        Dim vComps As Variant
+        vComps = swTableAnn.GetComponents2(i, configName)
+        
+        If InStr(Desc, "WIRE") > 0 And InStr(Desc, "MESH") > 0 Then
+        
+            Call HideComponents(vComps, swView)
+                
+        ElseIf InStr(Desc, "#3") > 0 And InStr(Desc, "REBAR") And Not (InStr(Desc, "BEND") > 0) Then
+                
+                
+                
+        ElseIf InStr(Desc, "#4") > 0 And InStr(Desc, "REBAR") > 0 Then
+            
+                
+            
+        ElseIf InStr(Desc, "#5") > 0 And InStr(Desc, "REBAR") > 0 Then
+
+                
+            
+        ElseIf InStr(Desc, "#6") > 0 And InStr(Desc, "REBAR") > 0 Then
+                
+                
+            
+        ElseIf InStr(Desc, "FOAM") > 0 Then
+            
+            Dim foamBodyList As IArrListObject
+            Set foamBodyList = GetFoamBodiesList(vComps, swDrawing, swView, swViewNormalVector)
+            Call AddCrossMarkHatchAndItemNoCallOuts(foamBodyList, swDrawing, swView)
+
+
+        End If
+    
+    
+    Next i
+
+End Sub
 
 Sub AddThkDimensionAndCastingBedNote(oComp As IComp, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
 
@@ -445,6 +475,20 @@ Sub AddThkDimensionAndCastingBedNote(oComp As IComp, swDrawing As SldWorks.Drawi
 
 End Sub
 
+Sub HideComponents(vComps As Variant, swView As SldWorks.View)
+
+    Dim i As Integer
+    For i = LBound(vComps) To UBound(vComps)
+    
+        Dim swComp As SldWorks.Component2
+        Set swComp = vComps(i)
+        
+        Call HideDrawingComponent(swComp, swView)
+    
+    Next i
+    
+End Sub
+
 Sub HideDrawingComponent(swComp As SldWorks.Component2, swView As SldWorks.View)
     
     If Not swComp Is Nothing Then
@@ -455,12 +499,9 @@ Sub HideDrawingComponent(swComp As SldWorks.Component2, swView As SldWorks.View)
     
 End Sub
 
-Function GetFoamBodiesList(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
+Function GetFoamBodiesList(vComps As Variant, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
         swNormalVector As SldWorks.MathVector) As IArrListObject
-
-    Dim vComps As Variant
-    vComps = FoamCompDict.Items
-    
+        
     Set GetFoamBodiesList = New IArrListObject
     
     If Not IsEmpty(vComps) Then
@@ -486,15 +527,22 @@ Function GetFoamBodiesList(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.
 
 End Function
 
-Sub ConvertAndGetExtremeEdges(ByRef swBottomEdge As SldWorks.Edge, ByRef swTopEdge As SldWorks.Edge, _
-    ByRef swLeftEdge As SldWorks.Edge, ByRef swRightEdge As SldWorks.Edge, swView As SldWorks.View, _
-        oComp As IComp, swViewNormalVector As SldWorks.MathVector)
+Sub ConvertAndGetExtremeEdges(swDrawing As SldWorks.DrawingDoc, _
+    swView As SldWorks.View, oComp As IComp, swViewNormalVector As SldWorks.MathVector)
     
     Set swBottomEdge = GetEdgeInView(oComp, swView, True, False, False)
     Set swTopEdge = GetEdgeInView(oComp, swView, True, True, False)
     Set swLeftEdge = GetEdgeInView(oComp, swView, False, False, False)
     Set swRightEdge = GetEdgeInView(oComp, swView, False, True, False)
+
+    Set swBottomOrdinateDim = SelectAndAddOrdinateOrigin(swLeftEdge, swDrawing, swView, oComp.xMin, oComp.yMin - 0.01, True)
+    Set swTopOrdinateDim = SelectAndAddOrdinateOrigin(swLeftEdge, swDrawing, swView, oComp.xMin, oComp.yMax + 0.01, True)
+    Set swLeftOrdinateDim = SelectAndAddOrdinateOrigin(swBottomEdge, swDrawing, swView, oComp.xMin - 0.01, oComp.yMin)
+    Set swRightOrdinateDim = SelectAndAddOrdinateOrigin(swBottomEdge, swDrawing, swView, oComp.xMax + 0.01, oComp.yMin)
     
+    Call SelectAndAddDimension(swBottomEdge, swTopEdge, swDrawing, oComp.xMin - 0.02, (oComp.yMax + oComp.yMin) / 2, swView, True)
+    Call SelectAndAddDimension(swLeftEdge, swRightEdge, swDrawing, (oComp.xMax + oComp.xMin) / 2, oComp.yMin - 0.02, swView, True)
+
     Dim swFace As SldWorks.Face2
 
     Dim vFaces As Variant
@@ -1623,9 +1671,6 @@ End Function
 
 Private Sub UserForm_Initialize()
 
-    Set RebarCompDict = New Scripting.Dictionary
-    Set FoamCompDict = New Scripting.Dictionary
-    
     With Me.WallNameComboBox
     
         .AddItem "Wall-A"

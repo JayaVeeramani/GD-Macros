@@ -507,7 +507,7 @@ Sub AddFloorPlateCallouts(xMinFloorDict As Scripting.Dictionary, swDrawing As Sl
         Dim xPos As Double
         Dim yPos As Double
         Dim AnnXPos As Double
-        Dim annYPos As Double
+        Dim AnnYPos As Double
 
         PlateArrList.SortItems "yMin", False
         
@@ -535,9 +535,9 @@ Sub AddFloorPlateCallouts(xMinFloorDict As Scripting.Dictionary, swDrawing As Sl
                 
             End If
             
-            Call GetFloorPlateCallOutPosition(oFloorPlate, xPos, yPos, AnnXPos, annYPos, IsBottom, BottomBlockOutList, TopBlockOutList)
+            Call GetFloorPlateCallOutPosition(oFloorPlate, xPos, yPos, AnnXPos, AnnYPos, IsBottom, BottomBlockOutList, TopBlockOutList)
             Set swAnnotation = SelectAndAddAnnotation(oFloorPlate.VisibleFace, swDrawing, swView, xPos, _
-                   yPos, AnnXPos, annYPos)
+                   yPos, AnnXPos, AnnYPos)
         
         Else
 
@@ -546,10 +546,10 @@ Sub AddFloorPlateCallouts(xMinFloorDict As Scripting.Dictionary, swDrawing As Sl
 
                 Set oFloorPlate = vFloorPlates(j)
                 IsBottom = IsMaxBlockOutsOnTop(oFloorPlate, BottomBlockOutList, TopBlockOutList)
-                Call GetFloorPlateCallOutPosition(oFloorPlate, xPos, yPos, AnnXPos, annYPos, j = 0, BottomBlockOutList, TopBlockOutList)
+                Call GetFloorPlateCallOutPosition(oFloorPlate, xPos, yPos, AnnXPos, AnnYPos, j = 0, BottomBlockOutList, TopBlockOutList)
 
                 Set swAnnotation = SelectAndAddAnnotation(oFloorPlate.VisibleFace, swDrawing, swView, xPos, _
-                   yPos, AnnXPos, annYPos)
+                   yPos, AnnXPos, AnnYPos)
                    
             Next j
             
@@ -604,14 +604,14 @@ End Function
 
 
 Sub GetFloorPlateCallOutPosition(oFloorPlate As IComp, ByRef xPos As Double, ByRef yPos As Double, _
-                ByRef AnnXPos As Double, ByRef annYPos As Double, IsBottom As Boolean, BottomBlockOutList As IArrListObject, _
+                ByRef AnnXPos As Double, ByRef AnnYPos As Double, IsBottom As Boolean, BottomBlockOutList As IArrListObject, _
                     TopBlockOutList As IArrListObject)
     
    xPos = (oFloorPlate.xMin + oFloorPlate.xMax) / 2
    
     If oFloorPlate.BlockOutList.Count = 0 Then
 
-        Call GetCallOutYPos(oFloorPlate, yPos, annYPos, 0.005, IsBottom)
+        Call GetCallOutYPos(oFloorPlate, yPos, AnnYPos, 0.005, IsBottom)
 
     Else
     
@@ -642,7 +642,7 @@ Sub GetFloorPlateCallOutPosition(oFloorPlate As IComp, ByRef xPos As Double, ByR
             
         End If
 
-        Call GetCallOutYPos(oFloorPlate, yPos, annYPos, Gap, IsBottom)
+        Call GetCallOutYPos(oFloorPlate, yPos, AnnYPos, Gap, IsBottom)
 
     End If
     AnnXPos = xPos
@@ -761,22 +761,47 @@ Function GetBlockOutGreaterThanThisValInArrList(ArrList As IArrListObject, Val A
     
 End Function
 
-Sub GetCallOutYPos(oFloorComp As IComp, ByRef yPos As Double, ByRef annYPos As Double, DistFromEnd As Double, IsBottom As Boolean)
+Sub GetCallOutYPos(oFloorComp As IComp, ByRef yPos As Double, ByRef AnnYPos As Double, DistFromEnd As Double, IsBottom As Boolean)
 
     If IsBottom Then
         
         yPos = oFloorComp.yMin + DistFromEnd
-        annYPos = oFloorComp.yMin - 0.025
+        AnnYPos = oFloorComp.yMin - 0.025
         
     Else
     
         yPos = oFloorComp.yMax - DistFromEnd
-        annYPos = oFloorComp.yMax + 0.025
+        AnnYPos = oFloorComp.yMax + 0.025
         
     End If
 
 End Sub
 
+Function SelectAndAddOrdinateOrigin(swEnt As SldWorks.Entity, swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View, _
+        xPos As Double, yPos As Double, Optional IsHorizontal As Boolean = False) As SldWorks.DisplayDimension
+
+    swDrawing.ClearSelection2 True
+    swDrawing.SetPickMode
+    swView.SelectEntity swEnt, False
+    
+    If IsHorizontal Then
+    
+        swDrawing.InsertHorizontalOrdinate
+
+    Else
+    
+         swDrawing.InsertVerticalOrdinate
+         
+    End If
+
+    Call swDrawing.Extension.SelectByID2("", "VIEW", xPos, yPos, 0, False, 0, Nothing, 0)
+    
+    Dim swSelectMgr As SldWorks.SelectionMgr
+    Set swSelectMgr = swDrawing.SelectionManager
+
+    Set SelectAndAddOrdinateOrigin = swSelectMgr.GetSelectedObject6(1, -1)
+
+End Function
 Function SelectAndAddDimension(swEnt1 As SldWorks.Entity, swEnt2 As SldWorks.Entity, swDrawing As SldWorks.ModelDoc2, _
             xPos As Double, yPos As Double, swView As SldWorks.View, Optional IsDual As Boolean = True) As SldWorks.DisplayDimension
 

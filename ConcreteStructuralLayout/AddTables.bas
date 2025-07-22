@@ -1,28 +1,28 @@
 Attribute VB_Name = "AddTables"
-Sub InsertBOMAndOrderComponents(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, ViewMaxLoc As Double)
+Function InsertBOMAndOrderComponents(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, ViewMaxLoc As Double, _
+            ByRef TableEndPt As Double) As SldWorks.BomTableAnnotation
     
     Dim swConfig As SldWorks.Configuration
     Set swConfig = swTopLevelModel.GetActiveConfiguration
     
     Dim configName As String
     configName = swConfig.Name
-        
-    Dim swBomTableAnnotation As SldWorks.BomTableAnnotation
-    Set swBomTableAnnotation = swView.InsertBomTable2(False, 0.41595679, 0.27030866, swBOMConfigurationAnchorType_e.swBOMConfigurationAnchor_TopRight, _
+
+    Set InsertBOMAndOrderComponents = swView.InsertBomTable2(False, SheetBorderRight, SheetBorderTop, swBOMConfigurationAnchorType_e.swBOMConfigurationAnchor_TopRight, _
                     swBomType_e.swBomType_PartsOnly, configName, "C:\FBD\COMMON\FBD Templates\SIMPLE BOM.sldbomtbt")
                     
     
-    If Not swBomTableAnnotation Is Nothing Then
+    If Not InsertBOMAndOrderComponents Is Nothing Then
     
         Dim swTableAnn As SldWorks.TableAnnotation
-        Set swTableAnn = swBomTableAnnotation
+        Set swTableAnn = InsertBOMAndOrderComponents
         
         Call OrderBOMTable(swTableAnn)
-        Call SplitTableIfNeeded(swTableAnn, ViewMaxLoc)
+        Call SplitTableIfNeeded(swTableAnn, ViewMaxLoc, TableEndPt)
     
     End If
     
-End Sub
+End Function
 
 Private Sub OrderBOMTable(swTableAnn As SldWorks.TableAnnotation)
     
@@ -33,8 +33,8 @@ Private Sub OrderBOMTable(swTableAnn As SldWorks.TableAnnotation)
         Desc = swTableAnn.DisplayedText(i, 2)
         
         Select Case True
-        
-            Case InStr(Desc, "WIRE MESH") > 0
+         
+            Case InStr(Desc, "WIRE") > 0 And InStr(Desc, "MESH") > 0
             
                 Call MoveTableRow(swTableAnn, i, 1)
                 
@@ -55,10 +55,17 @@ Private Sub OrderBOMTable(swTableAnn As SldWorks.TableAnnotation)
                 Call MoveTableRow(swTableAnn, i, 6)
             
             Case InStr(Desc, "FOAM") > 0
-            
-                Call MoveTableRow(swTableAnn, i, 7)
+                
+                If InStr(Desc, "4" & Chr(34)) > 0 Then
+                
+                    Call MoveTableRow(swTableAnn, i, 8)
+                
+                Else
+                
+                    Call MoveTableRow(swTableAnn, i, 7)
+                    
+                End If
 
-        
         End Select
 
     Next i
@@ -94,11 +101,10 @@ Private Sub MoveTableRow(swTableAnn As SldWorks.TableAnnotation, ByRef CurRow As
 
 End Sub
 
-
-
-Private Sub SplitTableIfNeeded(swTableAnn As SldWorks.TableAnnotation, ViewMaxLoc As Double)
+Private Sub SplitTableIfNeeded(swTableAnn As SldWorks.TableAnnotation, ViewMaxLoc As Double, ByRef TableEndPt As Double)
     
-
+    swTableAnn.setColumnWidth 2, 0.0875, swTableRowColSizeChangeBehavior_e.swTableRowColChange_TableSizeCanChange
+    
     Dim TableWidth As Double
     TableWidth = GetColumnWidth(swTableAnn)
 
@@ -106,8 +112,8 @@ Private Sub SplitTableIfNeeded(swTableAnn As SldWorks.TableAnnotation, ViewMaxLo
     rowHeight = swTableAnn.GetRowHeight(0)
     Debug.Print swTableAnn.Text(1, 2)
     
-    Dim ViewTopGap As Double
-    ViewTopGap = SheetBorderTop - ViewMaxLoc - 0.01
+'    Dim ViewTopGap As Double
+'    ViewTopGap = SheetBorderTop - ViewMaxLoc + 0.02
     
     
     Dim i As Integer
@@ -115,38 +121,81 @@ Private Sub SplitTableIfNeeded(swTableAnn As SldWorks.TableAnnotation, ViewMaxLo
     NoOfRows = Int(ViewTopGap / rowHeight)
         
     Dim MaxNoOfSplits As Integer
-    MaxNoOfSplits = Int((0.41595679 - 0.01590679) / TableWidth)
+    MaxNoOfSplits = Int((SheetBorderRight - SheetBorderLeft) / TableWidth)
+    
+    Dim GapBwTables As Double
+    
+    If MaxNoOfSplits > 1 Then
+    
+        GapBwTables = ((SheetBorderRight - SheetBorderLeft) - (MaxNoOfSplits * TableWidth)) / (MaxNoOfSplits - 1)
         
-    If Int(swTableAnn.rowCount / NoOfRows) < MaxNoOfSplits Then
+        If GapBwTables > 0.005 Then
             
-        MaxNoOfSplits = Int(swTableAnn.rowCount / NoOfRows)
+            GapBwTables = 0.005
             
+        End If
     Else
-            
-        NoOfRows = Int(swTableAnn.rowCount / (MaxNoOfSplits + 1)) + 1
-            
+        
+        GapBwTables = 0.005
+        
     End If
         
-    If Abs(swTableAnn.rowCount - NoOfRows) > 2 Then
+
+    Dim rowToSplit As Integer
         
-        For i = 1 To MaxNoOfSplits
+    For i = 1 To MaxNoOfSplits
     
-            Set swTableAnn = swTableAnn.Split(swTableSplitLocations_e.swTableSplit_AfterRow, i * (NoOfRows - 1))
-                    
+        TableEndPt = SheetBorderRight - TableWidth
+        rowToSplit = GetRowToSplitAfter(swTableAnn, ViewMaxLoc, rowToSplit)
+        
+        If rowToSplit = 0 Then
+            
+            Exit For
+            
+        Else
+            
+            Set swTableAnn = swTableAnn.Split(swTableSplitLocations_e.swTableSplit_AfterRow, rowToSplit)
+                        
             If Not swTableAnn Is Nothing Then
-                    
+                        
                 Dim swAnn As SldWorks.Annotation
                 Set swAnn = swTableAnn.GetAnnotation()
-                        
-                swAnn.SetPosition2 0.41595679 - i * (TableWidth + 0.005), SheetBorderTop, 0
-                        
+                            
+                swAnn.SetPosition2 0.41595679 - i * (TableWidth + GapBwTables), SheetBorderTop, 0
+                TableEndPt = 0.41595679 - i * (TableWidth + GapBwTables) - TableWidth
+                            
             End If
- 
-        Next i
             
-    End If
+        End If
+ 
+    Next i
+
 
 End Sub
+
+Private Function GetRowToSplitAfter(swTableAnn As SldWorks.TableAnnotation, ViewMaxLoc As Double, rowStart As Integer)
+
+    Dim TableLoc As Double
+    TableLoc = SheetBorderTop
+    
+    GetRowToSplitAfter = 0
+    
+    Dim i As Integer
+    For i = rowStart To swTableAnn.rowCount - 1
+        
+        swTableAnn.SetRowHeight i, 4.30772602443226E-03, swTableRowColSizeChangeBehavior_e.swTableRowColChange_TableSizeCanChange
+        TableLoc = TableLoc - swTableAnn.GetRowHeight(i)
+        
+        If TableLoc < ViewMaxLoc Then
+            
+            GetRowToSplitAfter = i - 1
+            Exit For
+            
+        End If
+    
+    Next i
+    
+End Function
 
 Private Function GetColumnWidth(swTable As SldWorks.TableAnnotation) As Double
     

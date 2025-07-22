@@ -12,7 +12,7 @@ Sub AddHatchAndCallOutForFoams(oFoamBody As IWeldBody, swDrawing As SldWorks.Dra
     Dim yPos As Double
     yPos = (oFoamBody.yMax + oFoamBody.yMin) / 2
             
-    Call SelectAndAddItemNoAnnotation(swFace, swDrawing, swView, xPos, yPos, xPos - 0.002, yPos + 0.00125, True)
+    Call SelectAndAddItemNoAnnotation(swFace, swDrawing, swView, xPos, yPos, xPos - 0.002, yPos + 0.00125)
 
     swView.SelectEntity swFace, False
     swDrawing.InsertHatchedFace
