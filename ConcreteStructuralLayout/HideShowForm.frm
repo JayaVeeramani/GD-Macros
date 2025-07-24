@@ -444,8 +444,8 @@ Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation
                 Call GetF42WithMatchDim(vComps, oConcreteComp, swView, LeftF42List, RightF42List, BottomF42List, TopF42List)
                 Call AddDimensionToCompsNearEnd(LeftF42List, swLeftOrdinateDim, swDrawing, swView)
                 Call AddDimensionToCompsNearEnd(RightF42List, swRightOrdinateDim, swDrawing, swView)
-                Call AddDimensionToCompsNearEnd(RightF42List, swBottomOrdinateDim, swDrawing, swView)
-                Call AddDimensionToCompsNearEnd(BottomF42List, swTopOrdinateDim, swDrawing, swView)
+                Call AddDimensionToCompsNearEnd(BottomF42List, swBottomOrdinateDim, swDrawing, swView)
+                Call AddDimensionToCompsNearEnd(TopF42List, swTopOrdinateDim, swDrawing, swView)
 
             ElseIf InStr(Desc, "POCKET") > 0 And InStr(Desc, "FORMER") > 0 Then
             
@@ -488,10 +488,10 @@ Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation
 End Sub
 
 Sub GetF42WithMatchDim(vComps As Variant, oConcreteComp As IComp, swView As SldWorks.View, _
-             LeftF42List As IArrListObject, RightF42List As IArrListObject, BottomF42List As IArrListObject, _
-                TopF42List As IArrListObject)
+             ByRef LeftF42List As IArrListObject, ByRef RightF42List As IArrListObject, ByRef BottomF42List As IArrListObject, _
+                ByRef TopF42List As IArrListObject)
     
-    Set Left42List = New IArrListObject
+    Set LeftF42List = New IArrListObject
     Set RightF42List = New IArrListObject
     Set BottomF42List = New IArrListObject
     Set TopF42List = New IArrListObject
@@ -507,19 +507,19 @@ Sub GetF42WithMatchDim(vComps As Variant, oConcreteComp As IComp, swView As SldW
         
         oComp.Initialize swComp, swView
         
-        If oConcreteComp.xMin = oComp.xOrgin Then
+        If Abs(oConcreteComp.xMin - oComp.xOrgin) <= 0.0001 Then
         
             LeftF42List.AddtoList oComp
             
-        ElseIf oConcreteComp.xMax = oComp.xOrgin Then
+        ElseIf Abs(oConcreteComp.xMax - oComp.xOrgin) <= 0.0001 Then
         
             RightF42List.AddtoList oComp
             
-        ElseIf oConcreteComp.yMin = oComp.yOrgin Then
+        ElseIf Abs(oConcreteComp.yMin - oComp.yOrgin) <= 0.0001 Then
             
             BottomF42List.AddtoList oComp
         
-        ElseIf oConcreteComp.yMax = oComp.yOrgin Then
+        ElseIf Abs(oConcreteComp.yMax - oComp.yOrgin) <= 0.0001 Then
         
             TopF42List.AddtoList oComp
             
@@ -595,8 +595,10 @@ Sub AddFoamDimensions(Dict As Scripting.Dictionary, LowerOrdDim As SldWorks.Disp
             
             If UBound(FoamItems) = 0 Then
             
-                If Abs(CallByName(oLowerFoam, MinParam, VbGet) - CallByName(oConcreteComp, MinParam, VbGet)) <= _
-                     Abs(CallByName(oLowerFoam, MaxParam, VbGet) - CallByName(oConcreteComp, MaxParam, VbGet)) Then
+                If Abs(CallByName(oLowerFoam, MinParam, VbGet) - CallByName(oConcreteComp, MinParam, VbGet)) < _
+                     Abs(CallByName(oLowerFoam, MaxParam, VbGet) - CallByName(oConcreteComp, MaxParam, VbGet)) Or _
+                      (Abs(CallByName(oLowerFoam, MinParam, VbGet) - CallByName(oConcreteComp, MinParam, VbGet)) - _
+                     Abs(CallByName(oLowerFoam, MaxParam, VbGet) - CallByName(oConcreteComp, MaxParam, VbGet))) <= 0.0001 Then
                      
                     Call AddToOrdinateDimension(LowerOrdDim, CallByName(oLowerFoam, EdgeName, VbGet), FoamList.Count, swDrawing, swView)
                 
@@ -611,8 +613,10 @@ Sub AddFoamDimensions(Dict As Scripting.Dictionary, LowerOrdDim As SldWorks.Disp
                 Dim oHigherFoam As IWeldBody
                 Set oHigherFoam = FoamItems(UBound(FoamItems))
 
-                If Abs(CallByName(oLowerFoam, MinParam, VbGet) - CallByName(oConcreteComp, MinParam, VbGet)) <= _
-                     Abs(CallByName(oHigherFoam, MaxParam, VbGet) - CallByName(oConcreteComp, MaxParam, VbGet)) Then
+                If Abs(CallByName(oLowerFoam, MinParam, VbGet) - CallByName(oConcreteComp, MinParam, VbGet)) < _
+                     Abs(CallByName(oHigherFoam, MaxParam, VbGet) - CallByName(oConcreteComp, MaxParam, VbGet)) Or _
+                      (Abs(CallByName(oLowerFoam, MinParam, VbGet) - CallByName(oConcreteComp, MinParam, VbGet)) - _
+                     Abs(CallByName(oHigherFoam, MaxParam, VbGet) - CallByName(oConcreteComp, MaxParam, VbGet))) <= 0.0001 Then
                      
                     Call AddToOrdinateDimension(LowerOrdDim, CallByName(oLowerFoam, EdgeName, VbGet), FoamList.Count, swDrawing, swView)
                 

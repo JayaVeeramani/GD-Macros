@@ -34,10 +34,14 @@ Private Sub OrderBOMTable(swTableAnn As SldWorks.TableAnnotation)
             
                 Call MoveTableRow(swTableAnn, i, 1)
                 
+            Case InStr(Desc, "#3") > 0 And InStr(Desc, "REBAR") And InStr(Desc, "BEND") > 0
+                
+                Call MoveTableRow(swTableAnn, i, 2)
+                
             Case InStr(Desc, "#3") > 0 And InStr(Desc, "REBAR") And Not (InStr(Desc, "BEND") > 0)
                 
                 Call MoveTableRow(swTableAnn, i, 3)
-                
+
             Case InStr(Desc, "#4") > 0 And InStr(Desc, "REBAR") > 0
             
                 Call MoveTableRow(swTableAnn, i, 4)
