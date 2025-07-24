@@ -402,7 +402,7 @@ Private Function GetEdgeInViewForThisBody(IsHorizontal As Boolean, IsMax As Bool
     vPointMax(2) = cZMax
     
     Call GetMaxMinPoint(vPointMin(0), vPointMax(0), xFMin, xFMax)
-    Call GetMaxMinPoint(vPointMin(1), vPointMax(1), yFMax, yFMin)
+    Call GetMaxMinPoint(vPointMin(1), vPointMax(1), yFMin, yFMax)
     
     Dim Idx As Integer
     Dim ValToMatch As Double

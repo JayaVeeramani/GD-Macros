@@ -1,12 +1,8 @@
 Attribute VB_Name = "AddTables"
-Function InsertBOMAndOrderComponents(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, ViewMaxLoc As Double, _
+Function InsertBOMAndOrderComponents(swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, configName As String, ViewMaxLoc As Double, _
             ByRef TableEndPt As Double) As SldWorks.BomTableAnnotation
     
-    Dim swConfig As SldWorks.Configuration
-    Set swConfig = swTopLevelModel.GetActiveConfiguration
-    
-    Dim configName As String
-    configName = swConfig.Name
+
 
     Set InsertBOMAndOrderComponents = swView.InsertBomTable2(False, SheetBorderRight, SheetBorderTop, swBOMConfigurationAnchorType_e.swBOMConfigurationAnchor_TopRight, _
                     swBomType_e.swBomType_PartsOnly, configName, "C:\FBD\COMMON\FBD Templates\SIMPLE BOM.sldbomtbt")

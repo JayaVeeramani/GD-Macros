@@ -300,23 +300,12 @@ Private Sub CreateButton_Click()
     Call ConvertAndGetExtremeEdges(swDrawing, swView, oConcreteComp, swViewNormalVector)
 
     Call HideDrawingComponent(swConcretePanel, swView)
-    Call SegregrateComponentsAndAddAnnotations(swBomTableAnn, configName, swDrawing, swView, swViewNormalVector)
+    Call SegregrateComponentsAndAddAnnotations(swBomTableAnn, configName, swDrawing, swView, swViewNormalVector, oConcreteComp)
+
+    Call SelectAndAddDimension(swBottomEdge, swTopEdge, swDrawing, oConcreteComp.xMin - 0.025, (oConcreteComp.yMax + oConcreteComp.yMin) / 2, swView, True)
+    Call SelectAndAddDimension(swLeftEdge, swRightEdge, swDrawing, (oConcreteComp.xMax + oConcreteComp.xMin) / 2, oConcreteComp.yMin - 0.025, swView, True)
 
 
-'
-'    Dim PFList As IArrListObject
-'    Set PFList = New IArrListObject
-'
-'    Dim F42List As IArrListObject
-'    Set F42List = New IArrListObject
-'
-'    Dim LiftingBurkeList As IArrListObject
-'    Set LiftingBurkeList = New IArrListObject
-'
-'    Dim DowelBarList As IArrListObject
-'    Set DowelBarList = New IArrListObject
-'
-'    Call GetListOfComponentsWithMatchingVal(PFList, F42List, LiftingBurkeList, DowelBarList)
 
 '    Dim FloorPlateList As IArrListObject
 '    Set FloorPlateList = GetFloorPlateList(RebarCompDict.Items, swTopView)
@@ -391,25 +380,28 @@ Private Sub CreateButton_Click()
 End Sub
 
 Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation, configName As String, _
-         swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, swViewNormalVector As SldWorks.MathVector)
+         swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, swViewNormalVector As SldWorks.MathVector, _
+         oConcreteComp As IComp)
 
     Dim i As Integer
     Dim AllFoamBodyList As IArrListObject
+    Set AllFoamBodyList = New IArrListObject
     
     For i = 1 To swTableAnn.rowCount - 1
     
         Dim Desc As String
         Desc = swTableAnn.DisplayedText(i, 2)
         
+        Dim PartNo As String
+        PartNo = swTableAnn.DisplayedText(i, 1)
+        
         Dim vComps As Variant
         vComps = swTableAnn.GetComponents2(i, configName)
         
-        If InStr(Desc, "WIRE") > 0 And InStr(Desc, "MESH") > 0 Then
-        
-            Call HideComponents(vComps, swView)
-                
-        ElseIf InStr(Desc, "#3") > 0 And InStr(Desc, "REBAR") And Not (InStr(Desc, "BEND") > 0) Then
-                
+
+        If InStr(Desc, "#3") > 0 And InStr(Desc, "REBAR") And Not (PartNo = "810-11450") Then
+            
+            
                 
                 
         ElseIf InStr(Desc, "#4") > 0 And InStr(Desc, "REBAR") > 0 Then
@@ -428,15 +420,216 @@ Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation
             
             Dim foamBodyList As IArrListObject
             Set foamBodyList = GetFoamBodiesList(vComps, swDrawing, swView, swViewNormalVector)
+            
             Call AddCrossMarkHatchAndItemNoCallOuts(foamBodyList, swDrawing, swView)
+            
+            Call AllFoamBodyList.AddItems(foamBodyList.Items)
+  
+        Else
 
+            If PartNo = "810-11450" Then '#3 Rebar Bend
+        
+        
+        
+            ElseIf PartNo = "198228" Then 'LiftingBurke
+            
+            
+            ElseIf PartNo = "806-11377" Then 'F-42
+            
+                Dim LeftF42List As IArrListObject
+                Dim RightF42List As IArrListObject
+                Dim TopF42List As IArrListObject
+                Dim BottomF42List As IArrListObject
+                
+                Call GetF42WithMatchDim(vComps, oConcreteComp, swView, LeftF42List, RightF42List, BottomF42List, TopF42List)
+                Call AddDimensionToCompsNearEnd(LeftF42List, swLeftOrdinateDim, swDrawing, swView)
+                Call AddDimensionToCompsNearEnd(RightF42List, swRightOrdinateDim, swDrawing, swView)
+                Call AddDimensionToCompsNearEnd(RightF42List, swBottomOrdinateDim, swDrawing, swView)
+                Call AddDimensionToCompsNearEnd(BottomF42List, swTopOrdinateDim, swDrawing, swView)
 
+            ElseIf InStr(Desc, "POCKET") > 0 And InStr(Desc, "FORMER") > 0 Then
+            
+            
+            
+            ElseIf InStr(Desc, "DOWEL") > 0 And InStr(Desc, "BAR") > 0 Then
+        
+            
+            
+            ElseIf InStr(Desc, "WIRE") > 0 And InStr(Desc, "MESH") > 0 Then 'WireMesh
+        
+                Call HideComponents(vComps, swView)
+
+            ElseIf InStr(Desc, "PVC") > 0 Then
+        
+                If InStr(Desc, "45") > 0 Then
+                
+                
+                Else
+                
+                
+                End If
+            
+            ElseIf InStr(Desc, "DOOR") > 0 And InStr(Desc, "FRAME") > 0 Then
+            
+            
+
+            Else
+            
+            
+            
+            End If
+            
         End If
     
-    
     Next i
+    
+    Call ConsolidateFoamsAndAddDimensions(AllFoamBodyList, swDrawing, swView, oConcreteComp)
 
 End Sub
+
+Sub GetF42WithMatchDim(vComps As Variant, oConcreteComp As IComp, swView As SldWorks.View, _
+             LeftF42List As IArrListObject, RightF42List As IArrListObject, BottomF42List As IArrListObject, _
+                TopF42List As IArrListObject)
+    
+    Set Left42List = New IArrListObject
+    Set RightF42List = New IArrListObject
+    Set BottomF42List = New IArrListObject
+    Set TopF42List = New IArrListObject
+    
+    Dim i As Integer
+    For i = LBound(vComps) To UBound(vComps)
+    
+        Dim swComp As SldWorks.Component2
+        Set swComp = vComps(i)
+        
+        Dim oComp As IComp
+        Set oComp = New IComp
+        
+        oComp.Initialize swComp, swView
+        
+        If oConcreteComp.xMin = oComp.xOrgin Then
+        
+            LeftF42List.AddtoList oComp
+            
+        ElseIf oConcreteComp.xMax = oComp.xOrgin Then
+        
+            RightF42List.AddtoList oComp
+            
+        ElseIf oConcreteComp.yMin = oComp.yOrgin Then
+            
+            BottomF42List.AddtoList oComp
+        
+        ElseIf oConcreteComp.yMax = oComp.yOrgin Then
+        
+            TopF42List.AddtoList oComp
+            
+        End If
+
+    Next i
+    
+End Sub
+
+Sub AddDimensionToCompsNearEnd(ArrList As IArrListObject, swOrdinateDim As SldWorks.DisplayDimension, _
+            swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+            
+    If ArrList.Count > 0 Then
+    
+        Dim vComps As Variant
+        vComps = ArrList.Items
+        
+        Dim i As Integer
+        For i = LBound(vComps) To UBound(vComps)
+        
+            Dim oComp As IComp
+            Set oComp = vComps(i)
+            
+            Call SelectComponentOriginAndAddToOrdinateDimension(swOrdinateDim, oComp.GetComponent, 1, swDrawing, swView)
+
+        Next i
+    
+    End If
+
+End Sub
+
+Sub ConsolidateFoamsAndAddDimensions(ArrList As IArrListObject, swDrawing As SldWorks.DrawingDoc, _
+                swView As SldWorks.View, oConcreteComp As IComp)
+
+    
+    Dim xMinFoamDict As Scripting.Dictionary
+    Set xMinFoamDict = GetConsolidatedDict(ArrList, "xMin", swView)
+    
+    Call AddFoamDimensions(xMinFoamDict, swBottomOrdinateDim, swTopOrdinateDim, _
+            oConcreteComp, "yMin", "yMax", "LeftEdge", swDrawing, swView)
+    
+    Dim yMinFoamDict As Scripting.Dictionary
+    Set yMinFoamDict = GetConsolidatedDict(ArrList, "yMin", swView)
+    
+    Call AddFoamDimensions(yMinFoamDict, swLeftOrdinateDim, swRightOrdinateDim, _
+            oConcreteComp, "xMin", "xMax", "BottomEdge", swDrawing, swView)
+    
+End Sub
+
+Sub AddFoamDimensions(Dict As Scripting.Dictionary, LowerOrdDim As SldWorks.DisplayDimension, _
+            HigherOrdDim As SldWorks.DisplayDimension, oConcreteComp As IComp, _
+            MinParam As String, MaxParam As String, EdgeName As String, _
+            swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+    
+    If Dict.Count > 0 Then
+    
+        Dim vItems As Variant
+        vItems = Dict.Items
+        
+        Dim i As Integer
+        For i = LBound(vItems) To UBound(vItems)
+            
+            Dim FoamList As IArrListObject
+            Set FoamList = vItems(i)
+            
+            FoamList.SortItems MinParam, False
+            
+            Dim FoamItems As Variant
+            FoamItems = FoamList.Items
+            
+            Dim oLowerFoam As IWeldBody
+            Set oLowerFoam = FoamItems(0)
+            
+            If UBound(FoamItems) = 0 Then
+            
+                If Abs(CallByName(oLowerFoam, MinParam, VbGet) - CallByName(oConcreteComp, MinParam, VbGet)) <= _
+                     Abs(CallByName(oLowerFoam, MaxParam, VbGet) - CallByName(oConcreteComp, MaxParam, VbGet)) Then
+                     
+                    Call AddToOrdinateDimension(LowerOrdDim, CallByName(oLowerFoam, EdgeName, VbGet), FoamList.Count, swDrawing, swView)
+                
+                Else
+                    
+                    Call AddToOrdinateDimension(HigherOrdDim, CallByName(oLowerFoam, EdgeName, VbGet), FoamList.Count, swDrawing, swView)
+                
+                End If
+            
+            Else
+                
+                Dim oHigherFoam As IWeldBody
+                Set oHigherFoam = FoamItems(UBound(FoamItems))
+
+                If Abs(CallByName(oLowerFoam, MinParam, VbGet) - CallByName(oConcreteComp, MinParam, VbGet)) <= _
+                     Abs(CallByName(oHigherFoam, MaxParam, VbGet) - CallByName(oConcreteComp, MaxParam, VbGet)) Then
+                     
+                    Call AddToOrdinateDimension(LowerOrdDim, CallByName(oLowerFoam, EdgeName, VbGet), FoamList.Count, swDrawing, swView)
+                
+                Else
+                
+                    Call AddToOrdinateDimension(HigherOrdDim, CallByName(oHigherFoam, EdgeName, VbGet), FoamList.Count, swDrawing, swView)
+                    
+                End If
+                
+            End If
+
+        Next i
+        
+    End If
+        
+End Sub
+
 
 Sub AddThkDimensionAndCastingBedNote(oComp As IComp, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
 
@@ -535,14 +728,11 @@ Sub ConvertAndGetExtremeEdges(swDrawing As SldWorks.DrawingDoc, _
     Set swLeftEdge = GetEdgeInView(oComp, swView, False, False, False)
     Set swRightEdge = GetEdgeInView(oComp, swView, False, True, False)
 
-    Set swBottomOrdinateDim = SelectAndAddOrdinateOrigin(swLeftEdge, swDrawing, swView, oComp.xMin, oComp.yMin - 0.01, True)
-    Set swTopOrdinateDim = SelectAndAddOrdinateOrigin(swLeftEdge, swDrawing, swView, oComp.xMin, oComp.yMax + 0.01, True)
-    Set swLeftOrdinateDim = SelectAndAddOrdinateOrigin(swBottomEdge, swDrawing, swView, oComp.xMin - 0.01, oComp.yMin)
-    Set swRightOrdinateDim = SelectAndAddOrdinateOrigin(swBottomEdge, swDrawing, swView, oComp.xMax + 0.01, oComp.yMin)
+    Set swBottomOrdinateDim = SelectAndAddOrdinateOrigin(swLeftEdge, swDrawing, swView, oComp.xMin, oComp.yMin - 0.00625, True)
+    Set swTopOrdinateDim = SelectAndAddOrdinateOrigin(swLeftEdge, swDrawing, swView, oComp.xMin, oComp.yMax + 0.0075, True)
+    Set swLeftOrdinateDim = SelectAndAddOrdinateOrigin(swBottomEdge, swDrawing, swView, oComp.xMin - 0.00625, oComp.yMin)
+    Set swRightOrdinateDim = SelectAndAddOrdinateOrigin(swBottomEdge, swDrawing, swView, oComp.xMax + 0.0075, oComp.yMin)
     
-    Call SelectAndAddDimension(swBottomEdge, swTopEdge, swDrawing, oComp.xMin - 0.02, (oComp.yMax + oComp.yMin) / 2, swView, True)
-    Call SelectAndAddDimension(swLeftEdge, swRightEdge, swDrawing, (oComp.xMax + oComp.xMin) / 2, oComp.yMin - 0.02, swView, True)
-
     Dim swFace As SldWorks.Face2
 
     Dim vFaces As Variant

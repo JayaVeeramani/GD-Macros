@@ -49,6 +49,9 @@ Sub SegregateAndAddDimensionVertically(xMinBlockOutDict As Scripting.Dictionary,
     
 End Sub
 
+
+
+
 Sub AddDimensionQtyToOrdinates(BeforeDimCount As Integer, BlockOutDict As Scripting.Dictionary, _
                 FloorDict As Scripting.Dictionary, MaxPlateCount As Integer, MaxDimVal As Double, swView As SldWorks.View, _
                 oFloorComp As IComp, Optional IsXDimension As Boolean = True)
@@ -800,6 +803,128 @@ Function SelectAndAddOrdinateOrigin(swEnt As SldWorks.Entity, swDrawing As SldWo
     Set swSelectMgr = swDrawing.SelectionManager
 
     Set SelectAndAddOrdinateOrigin = swSelectMgr.GetSelectedObject6(1, -1)
+
+End Function
+
+Sub AddToOrdinateDimension(OrdDim As SldWorks.DisplayDimension, swEnt As SldWorks.Entity, _
+                Qty As Integer, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+    
+    Dim PrevDimCount As Integer
+    PrevDimCount = swView.GetDisplayDimensionCount
+    
+    Dim swDimAnn As SldWorks.Annotation
+    Set swDimAnn = OrdDim.GetAnnotation
+    swDimAnn.Select3 False, Nothing
+
+    swView.SelectEntity swEnt, True
+    swDrawing.EditOrdinate
+    
+    If Qty > 1 Then
+    
+        If PrevDimCount + 1 = swView.GetDisplayDimensionCount Then
+            
+            Dim vDisplayDims As Variant
+            vDisplayDims = swView.GetDisplayDimensions
+            
+            Dim swDisplayDim As SldWorks.DisplayDimension
+            Set swDisplayDim = GetLastAddDisplayDimension(swView)
+
+            If Not swDisplayDim Is Nothing Then
+        
+                Call AddQtyBracketsAndSuffixToDimension(swDisplayDim, Qty)
+                
+            End If
+            
+        End If
+        
+    End If
+
+    swDrawing.SetPickMode
+    swDrawing.ClearSelection2 True
+    
+End Sub
+
+Sub SelectComponentOriginAndAddToOrdinateDimension(OrdDim As SldWorks.DisplayDimension, swComp As SldWorks.Component2, _
+                Qty As Integer, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+    
+    Dim PrevDimCount As Integer
+    PrevDimCount = swView.GetDisplayDimensionCount
+    
+    Dim swDimAnn As SldWorks.Annotation
+    Set swDimAnn = OrdDim.GetAnnotation
+    swDimAnn.Select3 False, Nothing
+
+    Call SelectComponentOrigin(swComp, swDrawing, swView, True)
+    swDrawing.EditOrdinate
+    
+    If Qty > 1 Then
+    
+        If PrevDimCount + 1 = swView.GetDisplayDimensionCount Then
+            
+            Dim vDisplayDims As Variant
+            vDisplayDims = swView.GetDisplayDimensions
+            
+            Dim swDisplayDim As SldWorks.DisplayDimension
+            Set swDisplayDim = GetLastAddDisplayDimension(swView)
+
+            If Not swDisplayDim Is Nothing Then
+        
+                Call AddQtyBracketsAndSuffixToDimension(swDisplayDim, Qty)
+                
+            End If
+            
+        End If
+        
+    End If
+
+    swDrawing.SetPickMode
+    swDrawing.ClearSelection2 True
+    
+End Sub
+
+Function SelectComponentOrigin(swComp As SldWorks.Component2, swDrawing As SldWorks.ModelDoc2, swView As SldWorks.View, Append As Boolean) As Boolean
+    
+    Dim assyComponentName As String
+    assyComponentName = swView.RootDrawingComponent.Component.Name2
+    
+    Dim assyDwgCompName As String
+    assyDwgCompName = swView.RootDrawingComponent.Name
+
+'Part.Extension.SelectByID2("Point1@Origin@D11516 WALL-B PANEL ASSY-1@Drawing View1/806-11377-1@D11516 WALL-B PANEL ASSY", "EXTSKETCHPOINT", 0, 0, 0, False, 0, Nothing, 0)
+    
+    Debug.Print "Point1@Origin@" & assyDwgCompName & "@" & swView.Name & "/" & swComp.Name2 & "@" & assyComponentName
+    SelectComponentOrigin = swDrawing.Extension.SelectByID2("Point1@Origin@" & assyDwgCompName & "@" & swView.Name _
+        & "/" & swComp.Name2 & "@" & assyComponentName, "EXTSKETCHPOINT", 0, 0, 0, Append, 0, Nothing, 0)
+        
+        
+
+End Function
+
+Function GetLastAddDisplayDimension(swView As SldWorks.View) As SldWorks.DisplayDimension
+
+    Dim vDisplayDims As Variant
+    vDisplayDims = swView.GetDisplayDimensions
+    
+    Dim DimNameToFind As String
+    DimNameToFind = "D" & swView.GetDisplayDimensionCount + 4
+    
+    Dim i As Integer
+    For i = UBound(vDisplayDims) To LBound(vDisplayDims) Step -1
+        
+        Dim swDisplayDim As SldWorks.DisplayDimension
+        Set swDisplayDim = vDisplayDims(i)
+        
+        Dim swDimAnn As SldWorks.Annotation
+        Set swDimAnn = swDisplayDim.GetAnnotation
+        
+        If swDimAnn.GetName = DimNameToFind Then
+        
+            Set GetLastAddDisplayDimension = swDisplayDim
+            Exit For
+            
+        End If
+    
+    Next i
 
 End Function
 Function SelectAndAddDimension(swEnt1 As SldWorks.Entity, swEnt2 As SldWorks.Entity, swDrawing As SldWorks.ModelDoc2, _

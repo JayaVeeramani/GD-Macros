@@ -171,8 +171,7 @@ End Function
 
 Function GetEdgeInViewForBody(swComp As SldWorks.Component2, oBody As IWeldBody, swView As SldWorks.View, _
     IsHorizontal As Boolean, IsMax As Boolean, Optional CheckAllVisibleEdgesOnly As Boolean = True) As SldWorks.Edge
-    
-    
+
     Dim xMin As Double
     Dim yMin As Double
     Dim xMax As Double

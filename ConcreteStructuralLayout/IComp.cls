@@ -16,6 +16,10 @@ Private cxMax As Double
 Private cyMax As Double
 Private cZMax As Double
 
+Private cxOrigin As Double
+Private cyOrigin As Double
+Private czOrigin As Double
+
 Private cView As SldWorks.View
 Private cModelMinPoint(2) As Double
 Private cModelMaxPoint(2) As Double
@@ -24,8 +28,6 @@ Private cBodiesList As IArrListObject
 Private Part As SldWorks.PartDoc
 
 Private IsBodiesDataFound As Boolean
-
-
 
 Private orgViewPosition As Variant
 Private orgScaleDecimal As Double
@@ -41,6 +43,24 @@ End Property
 Property Get Name() As String
 
     Name = cComp.Name2
+    
+End Property
+
+Property Get xOrgin() As Double
+ 
+    xOrgin = cxOrigin
+    
+End Property
+
+Property Get yOrgin() As Double
+ 
+    yOrgin = cyOrigin
+    
+End Property
+
+Property Get zOrgin() As Double
+ 
+    zOrgin = czOrigin
     
 End Property
 
@@ -110,6 +130,7 @@ Sub Initialize(swComp As IComponent2, swView As SldWorks.View)
         Dim vCompBounds As Variant
         vCompBounds = swCompModel.GetPartBox(True)
         
+        
         cModelMinPoint(0) = vCompBounds(0)
         cModelMinPoint(1) = vCompBounds(1)
         cModelMinPoint(2) = vCompBounds(2)
@@ -124,7 +145,8 @@ Sub Initialize(swComp As IComponent2, swView As SldWorks.View)
         orgScaleDecimal = cView.ScaleDecimal
         
         Call UpdateSheetMaxMinDimensions(cView)
-
+        Call GetOriginDimensions(swView)
+        
     End If
 
 End Sub
@@ -198,11 +220,28 @@ Private Sub UpdateSheetMaxMinDimensions(swView As SldWorks.View)
     
 End Sub
 
+Private Sub GetOriginDimensions(swView As SldWorks.View)
+    
+    Dim dOrginPoint(2) As Double
+    dOrginPoint(0) = 0
+    dOrginPoint(1) = 0
+    dOrginPoint(2) = 0
+    
+    Dim vPoint As Variant
+    vPoint = GetComponentPointInSheetSpace(cComp, dOrginPoint, swView)
+    
+    cxOrigin = vPoint(0)
+    cyOrigin = vPoint(1)
+    czOrigin = vPoint(2)
+    
+End Sub
+
 Sub CheckForUpdateInMaxMinDimensions(swView As SldWorks.View)
 
     If IsViewChanged(swView) Then
         
         Call UpdateSheetMaxMinDimensions(swView)
+        Call GetOriginDimensions(swView)
         Set cView = swView
         orgViewPosition = cView.Position
         orgScaleDecimal = cView.ScaleDecimal
