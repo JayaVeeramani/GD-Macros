@@ -46,21 +46,21 @@ Property Get Name() As String
     
 End Property
 
-Property Get xOrgin() As Double
+Property Get xOrigin() As Double
  
-    xOrgin = cxOrigin
+    xOrigin = cxOrigin
     
 End Property
 
-Property Get yOrgin() As Double
+Property Get yOrigin() As Double
  
-    yOrgin = cyOrigin
+    yOrigin = cyOrigin
     
 End Property
 
-Property Get zOrgin() As Double
+Property Get zOrigin() As Double
  
-    zOrgin = czOrigin
+    zOrigin = czOrigin
     
 End Property
 
@@ -222,13 +222,13 @@ End Sub
 
 Private Sub GetOriginDimensions(swView As SldWorks.View)
     
-    Dim dOrginPoint(2) As Double
-    dOrginPoint(0) = 0
-    dOrginPoint(1) = 0
-    dOrginPoint(2) = 0
+    Dim dOriginPoint(2) As Double
+    dOriginPoint(0) = 0
+    dOriginPoint(1) = 0
+    dOriginPoint(2) = 0
     
     Dim vPoint As Variant
-    vPoint = GetComponentPointInSheetSpace(cComp, dOrginPoint, swView)
+    vPoint = GetComponentPointInSheetSpace(cComp, dOriginPoint, swView)
     
     cxOrigin = vPoint(0)
     cyOrigin = vPoint(1)

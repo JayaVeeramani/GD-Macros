@@ -14,6 +14,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+
 Option Explicit
 
 Dim swSketchMgr As SldWorks.SketchManager
@@ -234,8 +235,8 @@ Private Sub CreateButton_Click()
     Dim wallName As String
     wallName = Me.WallNameComboBox.Value
     
-    Dim viewName As String
-    viewName = GetViewName(wallName)
+    Dim ViewName As String
+    ViewName = GetViewName(wallName)
     
     Dim WeldmentNo As String
     WeldmentNo = Me.WeldNoBox.Value
@@ -243,12 +244,12 @@ Private Sub CreateButton_Click()
     Set swMathUtility = swApp.GetMathUtility
     
     Dim swViewNormalVector As SldWorks.MathVector
-    Set swViewNormalVector = swMathUtility.CreateVector(GetViewVector(viewName))
+    Set swViewNormalVector = swMathUtility.CreateVector(GetViewVector(ViewName))
 
     swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
 '
     Dim swDrawing As SldWorks.DrawingDoc
-    Set swDrawing = swApp.NewDocument("C:\FBD\COMMON\FBD Templates\DEFAULT\METAL FAB DRAWING.DRWDOT", 0, 0, 0)
+    Set swDrawing = swApp.NewDocument("C:\FBD\COMMON\FBD Templates\DEFAULT\METAL FAB DRAWING.DRWDOT", 0, 0, 0) '"C:\FBD\COMMON\FBD Templates\DEFAULT\METAL FAB DRAWING.DRWDOT"
 '
     Set swSketchMgr = swDrawing.SketchManager
 
@@ -258,7 +259,7 @@ Private Sub CreateButton_Click()
     'Call InsertSketchBlock(swDrawing, swSheet, ProjectNo)
 
     Dim swView As SldWorks.View
-    Set swView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), viewName, ViewXPos, ViewYPos, 0)
+    Set swView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), ViewName, ViewXPos, ViewYPos, 0)
 
     Dim oConcreteComp As IComp
     Set oConcreteComp = New IComp
@@ -292,15 +293,16 @@ Private Sub CreateButton_Click()
     Dim configName As String
     configName = swConfig.Name
     
-    Dim TableEndPt As Double
+    Dim TableEndXPt As Double
     Dim swBomTableAnn As SldWorks.BomTableAnnotation
-    Set swBomTableAnn = InsertBOMAndOrderComponents(swDrawing, swView, configName, oConcreteComp.yMax + 0.01875, TableEndPt)
+    Set swBomTableAnn = InsertBOMAndOrderComponents(swDrawing, swView, configName, oConcreteComp.yMax + 0.01875, TableEndXPt)
     
     Call AddThkDimensionAndCastingBedNote(oProjectedConcreteComp, swDrawing, swProjectedView)
     Call ConvertAndGetExtremeEdges(swDrawing, swView, oConcreteComp, swViewNormalVector)
 
     Call HideDrawingComponent(swConcretePanel, swView)
-    Call SegregrateComponentsAndAddAnnotations(swBomTableAnn, configName, swDrawing, swView, swViewNormalVector, oConcreteComp)
+    Call SegregrateComponentsAndAddAnnotations(swBomTableAnn, configName, swDrawing, swView, swViewNormalVector, _
+                oConcreteComp, ViewName, oConcreteComp.yMax + 0.01875, TableEndXPt)
 
     Call SelectAndAddDimension(swBottomEdge, swTopEdge, swDrawing, oConcreteComp.xMin - 0.025, (oConcreteComp.yMax + oConcreteComp.yMin) / 2, swView, True)
     Call SelectAndAddDimension(swLeftEdge, swRightEdge, swDrawing, (oConcreteComp.xMax + oConcreteComp.xMin) / 2, oConcreteComp.yMin - 0.025, swView, True)
@@ -381,16 +383,26 @@ End Sub
 
 Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation, configName As String, _
          swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, swViewNormalVector As SldWorks.MathVector, _
-         oConcreteComp As IComp)
+         oConcreteComp As IComp, MainViewName As String, ViewMaxLoc As Double, TableEndXPt As Double)
 
     Dim i As Integer
+    
     Dim AllFoamBodyList As IArrListObject
     Set AllFoamBodyList = New IArrListObject
+    
+    Dim RebarBodiesList As IArrListObject
+    Set RebarBodiesList = New IArrListObject
+
+    Dim DummyViewYPos As Double
+    DummyViewYPos = SheetBorderTop + 0.02
+    
+    Dim TableEndYPt As Double
+    TableEndYPt = SheetBorderTop
     
     For i = 1 To swTableAnn.rowCount - 1
     
         Dim Desc As String
-        Desc = swTableAnn.DisplayedText(i, 2)
+        Desc = UCase(swTableAnn.DisplayedText(i, 2))
         
         Dim PartNo As String
         PartNo = swTableAnn.DisplayedText(i, 1)
@@ -399,30 +411,21 @@ Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation
         vComps = swTableAnn.GetComponents2(i, configName)
         
 
-        If InStr(Desc, "#3") > 0 And InStr(Desc, "REBAR") And Not (PartNo = "810-11450") Then
-            
-            
-                
-                
-        ElseIf InStr(Desc, "#4") > 0 And InStr(Desc, "REBAR") > 0 Then
-            
-                
-            
-        ElseIf InStr(Desc, "#5") > 0 And InStr(Desc, "REBAR") > 0 Then
+        If (InStr(Desc, "#3") > 0 And InStr(Desc, "REBAR") And Not (PartNo = "810-11450")) Or _
+            (InStr(Desc, "#4") > 0 And InStr(Desc, "REBAR") > 0) Or _
+            (InStr(Desc, "#5") > 0 And InStr(Desc, "REBAR") > 0) Or _
+            (InStr(Desc, "#6") > 0 And InStr(Desc, "REBAR") > 0) Then
 
-                
-            
-        ElseIf InStr(Desc, "#6") > 0 And InStr(Desc, "REBAR") > 0 Then
-                
-                
-            
+            Call AddTableAndGetRebarBodies(vComps, swDrawing, swView, RebarBodiesList, ViewMaxLoc, _
+                        DummyViewYPos, MainViewName, TableEndXPt, TableEndYPt)
+            DummyViewYPos = DummyViewYPos + 0.0075
+
         ElseIf InStr(Desc, "FOAM") > 0 Then
             
             Dim foamBodyList As IArrListObject
             Set foamBodyList = GetFoamBodiesList(vComps, swDrawing, swView, swViewNormalVector)
             
             Call AddCrossMarkHatchAndItemNoCallOuts(foamBodyList, swDrawing, swView)
-            
             Call AllFoamBodyList.AddItems(foamBodyList.Items)
   
         Else
@@ -448,8 +451,17 @@ Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation
                 Call AddDimensionToCompsNearEnd(TopF42List, swTopOrdinateDim, swDrawing, swView)
 
             ElseIf InStr(Desc, "POCKET") > 0 And InStr(Desc, "FORMER") > 0 Then
-            
-            
+                
+                Dim LeftPFList As IArrListObject
+                Dim RightPFList As IArrListObject
+                Dim TopPFList As IArrListObject
+                Dim BottomPFList As IArrListObject
+                
+                Call GetSegregatedPF(vComps, oConcreteComp, swView, LeftPFList, RightPFList, BottomPFList, TopPFList)
+                Call AddDimensionToCompsNearEnd(LeftPFList, swLeftOrdinateDim, swDrawing, swView)
+                Call AddDimensionToCompsNearEnd(RightPFList, swRightOrdinateDim, swDrawing, swView)
+                Call AddDimensionToCompsNearEnd(BottomPFList, swBottomOrdinateDim, swDrawing, swView)
+                Call AddDimensionToCompsNearEnd(TopPFList, swTopOrdinateDim, swDrawing, swView)
             
             ElseIf InStr(Desc, "DOWEL") > 0 And InStr(Desc, "BAR") > 0 Then
         
@@ -487,6 +499,146 @@ Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation
 
 End Sub
 
+Sub AddTableAndGetRebarBodies(vComps As Variant, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
+        ByRef RebarBodiesList As IArrListObject, ViewMaxLoc As Double, DummyViewYPos As Double, MainViewName As String, _
+        ByRef TableEndXPt As Double, ByRef TableEndYPt As Double)
+        
+    If Not IsEmpty(vComps) Then
+        
+        If UBound(vComps) = 0 Then
+        
+            Dim swComp As SldWorks.Component2
+            Set swComp = vComps(0)
+            
+            Dim swModel As SldWorks.PartDoc
+            Set swModel = swComp.GetModelDoc2()
+            
+            If swModel.IsWeldment Then
+            
+                Dim DummyViewName As String
+                Dim ToRotateView As Boolean
+                DummyViewName = GetDummyViewName(MainViewName, ToRotateView)
+            
+                Dim swDummyView As SldWorks.View
+                Set swDummyView = swDrawing.CreateDrawViewFromModelView3(swComp.GetModelDoc2().GetPathName(), DummyViewName, _
+                        (SheetBorderLeft + SheetBorderRight) / 2, DummyViewYPos, 0)
+                
+                Dim vDummyOutline As Variant
+                vDummyOutline = swDummyView.GetOutline
+                
+                If Abs(vDummyOutline(3) - vDummyOutline(1)) > Abs(vDummyOutline(2) - vDummyOutline(0)) Then
+                    swDummyView.Angle = 1.57079632679
+                End If
+                
+                Call AddWeldTable(swComp, swDrawing, swDummyView, ViewMaxLoc, TableEndXPt, TableEndYPt, RebarTableTemplate)
+            
+            End If
+            
+        End If
+    End If
+
+End Sub
+
+Function GetDummyViewName(MainViewName As String, ByRef ToRotateView As Boolean) As String
+    
+    ToRotateView = False
+    
+    Select Case True
+        
+        Case MainViewName = "*Front" Or MainViewName = "*Back"
+            
+            GetDummyViewName = "*Top"
+        
+        Case MainViewName = "*Left" Or MainViewName = "*Right"
+            
+            GetDummyViewName = "*Top"
+            ToRotateView = True
+        
+        Case MainViewName = "*Top"
+        
+            GetDummyViewName = "*Front"
+    
+    End Select
+
+End Function
+
+
+Sub GetSegregatedPF(vComps As Variant, oConcreteComp As IComp, swView As SldWorks.View, _
+             ByRef LeftPFList As IArrListObject, ByRef RightPFList As IArrListObject, ByRef BottomPFList As IArrListObject, _
+                ByRef TopPFList As IArrListObject)
+    
+    Dim PFCompList As IArrListObject
+    Set PFCompList = GetCompList(vComps, swView)
+       
+    Dim xMinPFDict As Scripting.Dictionary
+    Set xMinPFDict = GetConsolidatedDict(PFCompList, "xOrigin", swView)
+    
+    Dim yMinPFDict As Scripting.Dictionary
+    Set yMinPFDict = GetConsolidatedDict(PFCompList, "yOrigin", swView)
+    
+    Set LeftPFList = GetExtremePFArrList(xMinPFDict, True)
+    Set RightPFList = GetExtremePFArrList(xMinPFDict, False)
+    Set BottomPFList = GetExtremePFArrList(yMinPFDict, True)
+    Set TopPFList = GetExtremePFArrList(yMinPFDict, False)
+    
+    
+End Sub
+
+Function GetExtremePFArrList(Dict As Scripting.Dictionary, IsMin As Boolean)
+
+    Dim TempArrList As IArrListObject
+
+    If Dict.Count > 0 Then
+
+        If IsMin Then
+            
+            Set TempArrList = Dict.Items(LBound(Dict.Items))
+            
+        Else
+        
+            Set TempArrList = Dict.Items(UBound(Dict.Items))
+            
+        End If
+        
+    End If
+    
+    If TempArrList.Count > 2 Then
+    
+        Set GetExtremePFArrList = TempArrList
+        
+    Else
+    
+        Set GetExtremePFArrList = New IArrListObject
+    
+    End If
+ 
+End Function
+
+Function GetCompList(vComps As Variant, swView As SldWorks.View) As IArrListObject
+
+    Set GetCompList = New IArrListObject
+    
+    If Not IsEmpty(vComps) Then
+    
+        Dim i As Integer
+        For i = LBound(vComps) To UBound(vComps)
+        
+            Dim swComp As SldWorks.Component2
+            Set swComp = vComps(i)
+            
+            Dim oComp As IComp
+            Set oComp = New IComp
+            
+            oComp.Initialize swComp, swView
+            
+            GetCompList.AddtoList oComp
+
+        Next i
+
+    End If
+    
+End Function
+
 Sub GetF42WithMatchDim(vComps As Variant, oConcreteComp As IComp, swView As SldWorks.View, _
              ByRef LeftF42List As IArrListObject, ByRef RightF42List As IArrListObject, ByRef BottomF42List As IArrListObject, _
                 ByRef TopF42List As IArrListObject)
@@ -507,19 +659,19 @@ Sub GetF42WithMatchDim(vComps As Variant, oConcreteComp As IComp, swView As SldW
         
         oComp.Initialize swComp, swView
         
-        If Abs(oConcreteComp.xMin - oComp.xOrgin) <= 0.0001 Then
+        If Abs(oConcreteComp.xMin - oComp.xOrigin) <= 0.0001 Then
         
             LeftF42List.AddtoList oComp
             
-        ElseIf Abs(oConcreteComp.xMax - oComp.xOrgin) <= 0.0001 Then
+        ElseIf Abs(oConcreteComp.xMax - oComp.xOrigin) <= 0.0001 Then
         
             RightF42List.AddtoList oComp
             
-        ElseIf Abs(oConcreteComp.yMin - oComp.yOrgin) <= 0.0001 Then
+        ElseIf Abs(oConcreteComp.yMin - oComp.yOrigin) <= 0.0001 Then
             
             BottomF42List.AddtoList oComp
         
-        ElseIf Abs(oConcreteComp.yMax - oComp.yOrgin) <= 0.0001 Then
+        ElseIf Abs(oConcreteComp.yMax - oComp.yOrigin) <= 0.0001 Then
         
             TopF42List.AddtoList oComp
             
@@ -830,10 +982,10 @@ Sub SelectAndConvertEntities(swFace As SldWorks.Face2, swView As SldWorks.View)
  
 End Sub
 
-Function GetViewVector(viewName As String) As Double()
+Function GetViewVector(ViewName As String) As Double()
 
     Dim vViewRotation As Variant
-    vViewRotation = swTopLevelModel.Extension.GetNamedViewRotation(viewName)
+    vViewRotation = swTopLevelModel.Extension.GetNamedViewRotation(ViewName)
     
     Dim swMathVector As SldWorks.MathVector
     Set swMathVector = swMathUtility.CreateVector(zDirectionVector)
@@ -856,7 +1008,7 @@ Function GetViewVector(viewName As String) As Double()
     Set swMathVector = swMathVector.MultiplyTransform(swMathTransform.Inverse)
     
 
-    Select Case viewName
+    Select Case ViewName
         
         Case "*Back"
             
@@ -1630,7 +1782,7 @@ Sub UpdateViewLabelPosition(swView As SldWorks.View, yPos As Double)
     
 End Sub
 
-Function GetViewInASheetByName(swSheet As SldWorks.Sheet, viewName As String) As SldWorks.View
+Function GetViewInASheetByName(swSheet As SldWorks.Sheet, ViewName As String) As SldWorks.View
 
     Dim vViews As Variant
     vViews = swSheet.GetViews
@@ -1641,7 +1793,7 @@ Function GetViewInASheetByName(swSheet As SldWorks.Sheet, viewName As String) As
         Dim swView As SldWorks.View
         Set swView = vViews(i)
         
-        If swView.Name = viewName Then
+        If swView.Name = ViewName Then
             
             Set GetViewInASheetByName = swView
             Exit For

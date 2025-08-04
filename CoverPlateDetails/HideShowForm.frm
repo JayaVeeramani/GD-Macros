@@ -325,7 +325,9 @@ Private Sub CreateButton_Click()
 
     swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, False
     Call AddCrossMarks(vBlockOutList, swDrawing, swTopView, oFloorComp)
+    Call HideorShowComponentsInDrawingView(FloorPlateList.Items, swTopView, False)
     Call AddBalloonForCoverPlates(vCoverPlateList.Items, swTopView, swDrawing, oFloorComp)
+    Call HideorShowComponentsInDrawingView(FloorPlateList.Items, swTopView, True)
     Call AddFloorPlateCallouts(xMinFloorDict, swDrawing, swTopView, oFloorComp)
     Call AddViewAndWeldTable(swCoverPlate, swDrawing, oFloorComp.yMax + 0.01)
     
@@ -353,6 +355,24 @@ Private Sub CreateButton_Click()
 
 End Sub
 
+Sub HideorShowComponentsInDrawingView(vComps As Variant, swView As SldWorks.View, IsVisible As Boolean)
+
+    Dim i As Integer
+    For i = LBound(vComps) To UBound(vComps)
+    
+        Dim swComp As SldWorks.Component2
+        Set swComp = vComps(i)
+
+        
+        If Not swComp Is Nothing Then
+        
+            swComp.GetDrawingComponent(swView).Visible = IsVisible
+            
+        End If
+    
+    Next i
+    
+End Sub
 
 Sub ActivateAndRebuildComponent(swComp As Object, Optional ToClose As Boolean = True)
     
