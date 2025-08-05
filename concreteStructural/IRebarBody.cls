@@ -19,6 +19,15 @@ Private cZMax As Double
 
 Private cMid As Double
 
+
+Private cxMinSkPt As Double
+Private cyMinSkPt As Double
+Private cZMinSkPt As Double
+
+Private cxMaxSkPt As Double
+Private cyMaxSkPt As Double
+Private cZMaxSkPt As Double
+
 Private cIsHorizontal As Boolean
 
 Private cView As SldWorks.View
@@ -26,6 +35,7 @@ Private cBodyMinPoint(2) As Double
 Private cBodyMaxPoint(2) As Double
 
 'Private cCutlist As ICutlist
+
 
 
 Private cLeftEdge As SldWorks.Edge
@@ -40,18 +50,17 @@ Private cStructuralFeat As SldWorks.Feature
 Private cSketchSegment As SldWorks.SketchSegment
 
 
-
-
-
 Property Get SketchSegment() As SldWorks.SketchSegment
+
     Set SketchSegment = cSketchSegment
+    
 End Property
 
 Property Get IsHorizontal() As Boolean
+
     IsHorizontal = cIsHorizontal
+    
 End Property
-
-
 
 Property Get LeftEdge() As SldWorks.Edge
 
@@ -77,9 +86,6 @@ Property Get BottomEdge() As SldWorks.Edge
 
 End Property
 
-
-
-
 Property Get GetComponent() As SldWorks.Component2
 
     Set GetComponent = cComp
@@ -97,6 +103,30 @@ Property Get Mid() As Double
  
     Mid = cMid
     
+End Property
+
+Property Get xMinSketchPoint() As Double
+
+    xMinSketchPoint = cxMinSkPt
+
+End Property
+
+Property Get xMaxSketchPoint() As Double
+
+    xMaxSketchPoint = cxMaxSkPt
+
+End Property
+
+Property Get yMinSketchPoint() As Double
+
+    yMinSketchPoint = cyMinSkPt
+
+End Property
+
+Property Get yMaxSketchPoint() As Double
+
+    yMaxSketchPoint = cyMaxSkPt
+
 End Property
 
 Property Get xMin() As Double
@@ -155,8 +185,6 @@ Sub Initialize(swComp As SldWorks.Component2, swBody As SldWorks.Body2, swView A
     cBodyMaxPoint(1) = vBodyBounds(4)
     cBodyMaxPoint(2) = vBodyBounds(5)
 
-    
-
     Set cLeftEdge = GetEdgeInViewForThisBody(False, False)
     Set cRightEdge = GetEdgeInViewForThisBody(False, True)
     Set cTopEdge = GetEdgeInViewForThisBody(True, True)
@@ -170,6 +198,8 @@ Sub Initialize(swComp As SldWorks.Component2, swBody As SldWorks.Body2, swView A
         Set StructuralMemberData = cStructuralFeat.GetDefinition
         
         Set cSketchSegment = StructuralMemberData.GetPathSegmentAt(swBody)
+        
+        'cSketchSegment.Select4 False, Nothing
         
     End If
     
@@ -228,6 +258,9 @@ Private Sub UpdateSheetMaxMinDimensions(swView As SldWorks.View)
         
         Dim vEndPoint As Variant
         vEndPoint = GetPointDataInSheetSpace(swSketchLine.GetEndPoint2, cSketchSegment.GetSketch, cComp, swView)
+        
+        Call GetMaxMinPoint(vStartPoint(0), vEndPoint(0), cxMinSkPt, cxMaxSkPt)
+        Call GetMaxMinPoint(vStartPoint(1), vEndPoint(1), cyMinSkPt, cyMaxSkPt)
         
         If Abs(vStartPoint(0) - vEndPoint(0)) <= 0.0001 Then
         

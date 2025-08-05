@@ -308,8 +308,6 @@ Private Sub CreateButton_Click()
     Call SelectAndAddDimension(swBottomEdge, swTopEdge, swDrawing, oConcreteComp.xMin - 0.025, (oConcreteComp.yMax + oConcreteComp.yMin) / 2, swView, True)
     Call SelectAndAddDimension(swLeftEdge, swRightEdge, swDrawing, (oConcreteComp.xMax + oConcreteComp.xMin) / 2, oConcreteComp.yMin - 0.025, swView, True)
 
-
-
 '    Dim FloorPlateList As IArrListObject
 '    Set FloorPlateList = GetFloorPlateList(RebarCompDict.Items, swTopView)
 '
@@ -399,6 +397,9 @@ Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation
     
     Dim TableEndYPt As Double
     TableEndYPt = SheetBorderTop
+    
+    Dim DimDict As Scripting.Dictionary
+    Set DimDict = New Scripting.Dictionary
     
     For i = 1 To swTableAnn.rowCount - 1
     
@@ -558,9 +559,7 @@ Sub GetRebarBodies(ByRef ArrList As IArrListObject, swDrawing As SldWorks.Drawin
         oRebarBody.Initialize swComp, swBody, swView
         
         ArrList.AddtoList oRebarBody
-        
 
-        
     Next i
     
 End Sub
@@ -818,43 +817,80 @@ Sub AddRebarDimensions(Dict As Scripting.Dictionary, LowerOrdDim As SldWorks.Dis
             Dim RebarItems As Variant
             RebarItems = RebarList.Items
             
-            Dim oLowerRebar As Object
+            Dim oLowerRebar As IRebarBody
             Set oLowerRebar = RebarItems(0)
+            
+            Dim OrdRefDim As SldWorks.DisplayDimension
+            Dim RefRebar As IRebarBody
+            Dim SelXPoint As Double
+            Dim SelYPoint As Double
             
             If UBound(RebarItems) = 0 Then
             
-                If Abs(CallByName(oLowerRebar, MinParam, VbGet) - CallByName(oConcreteComp, MinParam, VbGet)) < _
+                If Abs(CallByName(oLowerRebar, MinParam, VbGet) - CallByName(oConcreteComp, MinParam, VbGet)) > _
                      Abs(CallByName(oLowerRebar, MaxParam, VbGet) - CallByName(oConcreteComp, MaxParam, VbGet)) Or _
                       (Abs(CallByName(oLowerRebar, MinParam, VbGet) - CallByName(oConcreteComp, MinParam, VbGet)) - _
                      Abs(CallByName(oLowerRebar, MaxParam, VbGet) - CallByName(oConcreteComp, MaxParam, VbGet))) <= 0.0001 Then
-                     
-                    Call AddToOrdinateDimension(LowerOrdDim, CallByName(oLowerRebar, "SketchSegment", VbGet), RebarList.Count, swDrawing, swView)
+                    
+                    Set OrdRefDim = HigherOrdDim
+                    Set RefRebar = oLowerRebar
+                    SelXPoint = oLowerRebar.xMaxSketchPoint
+                    SelYPoint = oLowerRebar.yMaxSketchPoint
                 
                 Else
-                    
-                    Call AddToOrdinateDimension(HigherOrdDim, CallByName(oLowerRebar, "SketchSegment", VbGet), RebarList.Count, swDrawing, swView)
                 
+                    Set OrdRefDim = LowerOrdDim
+                    Set RefRebar = oLowerRebar
+                    SelXPoint = oLowerRebar.xMinSketchPoint
+                    SelYPoint = oLowerRebar.yMinSketchPoint
+                    
                 End If
             
             Else
                 
-                Dim oHigherRebar As Object
+                Dim oHigherRebar As IRebarBody
                 Set oHigherRebar = RebarItems(UBound(RebarItems))
 
-                If Abs(CallByName(oLowerRebar, MinParam, VbGet) - CallByName(oConcreteComp, MinParam, VbGet)) < _
+                If Abs(CallByName(oLowerRebar, MinParam, VbGet) - CallByName(oConcreteComp, MinParam, VbGet)) > _
                      Abs(CallByName(oHigherRebar, MaxParam, VbGet) - CallByName(oConcreteComp, MaxParam, VbGet)) Or _
                       (Abs(CallByName(oLowerRebar, MinParam, VbGet) - CallByName(oConcreteComp, MinParam, VbGet)) - _
                      Abs(CallByName(oHigherRebar, MaxParam, VbGet) - CallByName(oConcreteComp, MaxParam, VbGet))) <= 0.0001 Then
-                     
-                    Call AddToOrdinateDimension(LowerOrdDim, CallByName(oLowerRebar, "SketchSegment", VbGet), RebarList.Count, swDrawing, swView)
-                
+                    
+                    Set OrdRefDim = HigherOrdDim
+                    Set RefRebar = oHigherRebar
+                    SelXPoint = oLowerRebar.xMaxSketchPoint
+                    SelYPoint = oLowerRebar.yMaxSketchPoint
+                    
                 Else
                 
-                    Call AddToOrdinateDimension(HigherOrdDim, CallByName(oHigherRebar, "SketchSegment", VbGet), RebarList.Count, swDrawing, swView)
+                    Set OrdRefDim = LowerOrdDim
+                    Set RefRebar = oLowerRebar
+                    SelXPoint = oLowerRebar.xMinSketchPoint
+                    SelYPoint = oLowerRebar.yMinSketchPoint
                     
                 End If
                 
             End If
+            
+            Dim assyComponentName As String
+            assyComponentName = swView.RootDrawingComponent.Component.Name2
+    
+            Dim assyDwgCompName As String
+            assyDwgCompName = swView.RootDrawingComponent.Name
+            
+            Debug.Print RefRebar.SketchSegment.GetID(0)
+            Debug.Print RefRebar.SketchSegment.GetID(1)
+            
+            
+            Dim BoolStatus As Boolean
+            BoolStatus = swDrawing.Extension.SelectByID2("Line" & RefRebar.SketchSegment.GetID(1) & "@" & _
+                    RefRebar.SketchSegment.GetSketch.Name & "@" & assyDwgCompName & "@" & swView.Name & "/" & _
+                    RefRebar.GetComponent.Name2 & "@" & assyDwgCompName, "EXTSKETCHSEGMENT", SelXPoint, SelYPoint, 0, False, 0, Nothing, 0)
+
+
+            Call AddToOrdinateDimension(OrdRefDim, RebarList.Count, swDrawing, swView)
+                
+
 
         Next i
         
@@ -885,18 +921,23 @@ Sub AddFoamDimensions(Dict As Scripting.Dictionary, LowerOrdDim As SldWorks.Disp
             Dim oLowerFoam As IWeldBody
             Set oLowerFoam = FoamItems(0)
             
+            Dim oRefFoam As IWeldBody
+            Dim RefDim As SldWorks.DisplayDimension
+            
             If UBound(FoamItems) = 0 Then
             
                 If Abs(CallByName(oLowerFoam, MinParam, VbGet) - CallByName(oConcreteComp, MinParam, VbGet)) < _
                      Abs(CallByName(oLowerFoam, MaxParam, VbGet) - CallByName(oConcreteComp, MaxParam, VbGet)) Or _
                       (Abs(CallByName(oLowerFoam, MinParam, VbGet) - CallByName(oConcreteComp, MinParam, VbGet)) - _
                      Abs(CallByName(oLowerFoam, MaxParam, VbGet) - CallByName(oConcreteComp, MaxParam, VbGet))) <= 0.0001 Then
-                     
-                    Call AddToOrdinateDimension(LowerOrdDim, CallByName(oLowerFoam, EdgeName, VbGet), FoamList.Count, swDrawing, swView)
+                    
+                    Set oRefFoam = oLowerFoam
+                    Set RefDim = LowerOrdDim
                 
                 Else
-                    
-                    Call AddToOrdinateDimension(HigherOrdDim, CallByName(oLowerFoam, EdgeName, VbGet), FoamList.Count, swDrawing, swView)
+                
+                    Set oRefFoam = oLowerFoam
+                    Set RefDim = LowerOrdDim
                 
                 End If
             
@@ -909,16 +950,21 @@ Sub AddFoamDimensions(Dict As Scripting.Dictionary, LowerOrdDim As SldWorks.Disp
                      Abs(CallByName(oHigherFoam, MaxParam, VbGet) - CallByName(oConcreteComp, MaxParam, VbGet)) Or _
                       (Abs(CallByName(oLowerFoam, MinParam, VbGet) - CallByName(oConcreteComp, MinParam, VbGet)) - _
                      Abs(CallByName(oHigherFoam, MaxParam, VbGet) - CallByName(oConcreteComp, MaxParam, VbGet))) <= 0.0001 Then
-                     
-                    Call AddToOrdinateDimension(LowerOrdDim, CallByName(oLowerFoam, EdgeName, VbGet), FoamList.Count, swDrawing, swView)
+                    
+                    Set oRefFoam = oLowerFoam
+                    Set RefDim = LowerOrdDim
                 
                 Else
                 
-                    Call AddToOrdinateDimension(HigherOrdDim, CallByName(oHigherFoam, EdgeName, VbGet), FoamList.Count, swDrawing, swView)
-                    
+                    Set oRefFoam = oHigherFoam
+                    Set RefDim = HigherOrdDim
+                                        
                 End If
                 
             End If
+            
+            swView.SelectEntity CallByName(oRefFoam, EdgeName, VbGet), False
+            Call AddToOrdinateDimension(RefDim, FoamList.Count, swDrawing, swView)
 
         Next i
         

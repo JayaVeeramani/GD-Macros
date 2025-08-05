@@ -806,7 +806,7 @@ Function SelectAndAddOrdinateOrigin(swEnt As SldWorks.Entity, swDrawing As SldWo
 
 End Function
 
-Sub AddToOrdinateDimension(OrdDim As SldWorks.DisplayDimension, swEnt As Object, _
+Sub AddToOrdinateDimension(OrdDim As SldWorks.DisplayDimension, _
                 Qty As Integer, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
     
     Dim PrevDimCount As Integer
@@ -814,13 +814,7 @@ Sub AddToOrdinateDimension(OrdDim As SldWorks.DisplayDimension, swEnt As Object,
     
     Dim swDimAnn As SldWorks.Annotation
     Set swDimAnn = OrdDim.GetAnnotation
-    swDimAnn.Select3 False, Nothing
-    
-    Dim swSelectData As SldWorks.SelectData
-    Set swSelectData = CreateSelectData(swView, swDrawing, 0, 0)
-        
-    Dim Bool As Boolean
-    Bool = swEnt.Select4(True, swSelectData)
+    swDimAnn.Select3 True, Nothing
     
     swDrawing.EditOrdinate
     
@@ -900,10 +894,9 @@ Function SelectComponentOrigin(swComp As SldWorks.Component2, swDrawing As SldWo
     Debug.Print "Point1@Origin@" & assyDwgCompName & "@" & swView.Name & "/" & swComp.Name2 & "@" & assyComponentName
     SelectComponentOrigin = swDrawing.Extension.SelectByID2("Point1@Origin@" & assyDwgCompName & "@" & swView.Name _
         & "/" & swComp.Name2 & "@" & assyComponentName, "EXTSKETCHPOINT", 0, 0, 0, Append, 0, Nothing, 0)
-        
-        
 
 End Function
+
 
 Function GetLastAddDisplayDimension(swView As SldWorks.View) As SldWorks.DisplayDimension
 
