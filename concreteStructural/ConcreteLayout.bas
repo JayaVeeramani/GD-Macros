@@ -24,8 +24,6 @@ Sub main()
 
         HideShowForm.WeldNoBox.Value = Mid(swTopLevelModel.GetPathName, InStrRev(swTopLevelModel.GetPathName, "\") + 1, 6)
         HideShowForm.Show vbModeless
-        'DrawingForm.ProjectNoBox.Value = Mid(swTopLevelModel.GetPathName, InStrRev(swTopLevelModel.GetPathName, "\") + 1, 6)
-        'DrawingForm.Show vbModeless
 
     End If
     
