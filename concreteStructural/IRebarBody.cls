@@ -250,31 +250,34 @@ Private Sub UpdateSheetMaxMinDimensions(swView As SldWorks.View)
     
     If Not cSketchSegment Is Nothing Then
     
-        Dim swSketchLine As SldWorks.SketchLine
-        Set swSketchLine = cSketchSegment
-        
-        Dim vStartPoint As Variant
-        vStartPoint = GetPointDataInSheetSpace(swSketchLine.GetStartPoint2, cSketchSegment.GetSketch, cComp, swView)
-        
-        Dim vEndPoint As Variant
-        vEndPoint = GetPointDataInSheetSpace(swSketchLine.GetEndPoint2, cSketchSegment.GetSketch, cComp, swView)
-        
-        Call GetMaxMinPoint(vStartPoint(0), vEndPoint(0), cxMinSkPt, cxMaxSkPt)
-        Call GetMaxMinPoint(vStartPoint(1), vEndPoint(1), cyMinSkPt, cyMaxSkPt)
-        
-        If Abs(vStartPoint(0) - vEndPoint(0)) <= 0.0001 Then
-        
-            cIsHorizontal = False
-            cMid = vStartPoint(0)
-            
+        If cSketchSegment.GetType = swSketchSegments_e.swSketchLine Then
     
-        ElseIf Abs(vStartPoint(1) - vEndPoint(1)) <= 0.0001 Then
+            Dim swSketchLine As SldWorks.SketchLine
+            Set swSketchLine = cSketchSegment
+            
+            Dim vStartPoint As Variant
+            vStartPoint = GetPointDataInSheetSpace(swSketchLine.GetStartPoint2, cSketchSegment.GetSketch, cComp, swView)
+            
+            Dim vEndPoint As Variant
+            vEndPoint = GetPointDataInSheetSpace(swSketchLine.GetEndPoint2, cSketchSegment.GetSketch, cComp, swView)
+            
+            Call GetMaxMinPoint(vStartPoint(0), vEndPoint(0), cxMinSkPt, cxMaxSkPt)
+            Call GetMaxMinPoint(vStartPoint(1), vEndPoint(1), cyMinSkPt, cyMaxSkPt)
+            
+            If Abs(vStartPoint(0) - vEndPoint(0)) <= 0.0001 Then
+            
+                cIsHorizontal = False
+                cMid = vStartPoint(0)
+                
         
-            cIsHorizontal = True
-            cMid = vStartPoint(1)
+            ElseIf Abs(vStartPoint(1) - vEndPoint(1)) <= 0.0001 Then
+            
+                cIsHorizontal = True
+                cMid = vStartPoint(1)
+                
+            End If
             
         End If
-
     End If
     
 End Sub
