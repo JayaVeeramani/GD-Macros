@@ -169,7 +169,7 @@ Function CombineArr(ByVal MainArr As Variant, ArrToAdd As Variant)
 End Function
 
 
-Function GetEdgeInViewForBody(swComp As SldWorks.Component2, oBody As IWeldBody, swView As SldWorks.View, _
+Function GetEdgeInViewForBody(swComp As SldWorks.Component2, oBody As Object, swView As SldWorks.View, _
     IsHorizontal As Boolean, IsMax As Boolean, Optional CheckAllVisibleEdgesOnly As Boolean = True) As SldWorks.Edge
 
     Dim xMin As Double
@@ -252,6 +252,9 @@ Function GetEdgeInViewForBody(swComp As SldWorks.Component2, oBody As IWeldBody,
                 Dim swCurve As SldWorks.Curve
                 Set swCurve = swEdge.GetCurve
                 
+                Dim Bool As Boolean
+                Bool = swView.SelectEntity(swEdge, False)
+                
                 If swCurve.IsLine Then
                 
                     Dim vStartPoint As Variant
@@ -288,20 +291,24 @@ End Function
 
  Function SelectEntityWithSelectData(swEnt As Object, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc, _
                 SelXPos As Double, SelYPos As Double) As Boolean
+                
+    If Not swEnt Is Nothing Then
 
-    Dim swSelectData As SldWorks.SelectData
-    Set swSelectData = CreateSelectData(swView, swDrawing, SelXPos, SelYPos)
-
-    Dim swEntity As SldWorks.Entity
-    Set swEntity = swEnt
-
-    SelectEntityWithSelectData = swEntity.Select4(False, swSelectData)
+        Dim swSelectData As SldWorks.SelectData
+        Set swSelectData = CreateSelectData(swView, swDrawing, SelXPos, SelYPos)
+    
+        Dim swEntity As SldWorks.Entity
+        Set swEntity = swEnt
+    
+        SelectEntityWithSelectData = swEntity.Select4(False, swSelectData)
+        
+    End If
     
 End Function
 
 Function CreateSelectData(swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc, _
                 SelXPos As Double, SelYPos As Double) As SldWorks.SelectData
-
+ 
     Dim swSelectMgr As SldWorks.SelectionMgr
     Set swSelectMgr = swDrawing.SelectionManager
     

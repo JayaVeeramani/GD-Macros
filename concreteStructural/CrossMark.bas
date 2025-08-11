@@ -51,7 +51,6 @@ Sub AddCrossMarkHatchAndItemNoCallOuts(BlockOutList As IArrListObject, swDrawing
                     CDbl(vViewMinPoint(1)), oBlockOut.LeftTopVertex, oBlockOut.RightBottomVertex, swDrawing, swView)
                     
 
-                
                 Dim SelXPos As Double
                 Dim SelYPos As Double
                 Dim AnnXPos As Double
