@@ -28,13 +28,30 @@ Private cCGPoint(2) As Double
 Private orgViewPosition As Variant
 Private orgScaleDecimal As Double
 
+Private cIsBalloonRight As Boolean
+Private cIsBalloonTop As Boolean
+
+Property Get IsBalloonRight() As Boolean
+
+    IsBalloonRight = cIsBalloonRight
+    
+End Property
+
+Property Get IsBalloonTop() As Boolean
+
+    IsBalloonTop = cIsBalloonTop
+    
+End Property
+
 Sub Initialize(swComp As SldWorks.Component2, swView As SldWorks.View) ' oCutlist As ICutlist,
     
     Set cComp = swComp
     Set cCompModel = ResolveAndGetModelDoc(swComp)
     Set cBody = swComp.GetBody()
     Set cView = swView
-
+    cIsBalloonRight = False
+    cIsBalloonTop = False
+    
     Set cToroidalFace = GetToroidalFace()
     
     If Not cToroidalFace Is Nothing Then
@@ -42,9 +59,26 @@ Sub Initialize(swComp As SldWorks.Component2, swView As SldWorks.View) ' oCutlis
         Call GetTorusCenters
         Call GetCGPoint
         Call UpdateSheetMaxMinDimensions(swView)
+        Call GetBallPosBoolean
         
     End If
     
+End Sub
+
+Sub GetBallPosBoolean()
+    
+    If cxCenter > cxCG Then
+    
+        cIsBalloonRight = True
+    
+    End If
+    
+    If cyCenter > cyCG Then
+    
+        cIsBalloonTop = True
+        
+    End If
+
 End Sub
 
 Sub GetTorusCenters()
@@ -111,41 +145,20 @@ Private Sub UpdateSheetMaxMinDimensions(swView As SldWorks.View)
     Dim CGPoint As Variant
     CGPoint = GetComponentPointInSheetSpace(cComp, cCGPoint, swView)
     
-    Call GetMaxMinPoint(CenterPoint(0), CGPoint(0), cxCenter, cxCG)
-    Call GetMaxMinPoint(CenterPoint(1), CGPoint(1), cyCenter, cyCG)
-    Call GetMaxMinPoint(CenterPoint(2), CGPoint(2), czCenter, czCG)
+    cxCG = CGPoint(0)
+    cyCG = CGPoint(1)
+    czCG = CGPoint(2)
     
-    If Not cSketchSegment Is Nothing Then
+    cxCenter = CenterPoint(0)
+    cyCenter = CenterPoint(1)
+    czCenter = CenterPoint(2)
+
+    Debug.Print cxCG
+    Debug.Print cComp.Name2
+    Debug.Print cyCG
     
-        If cSketchSegment.GetType = swSketchSegments_e.swSketchLine Then
-    
-            Dim swSketchLine As SldWorks.SketchLine
-            Set swSketchLine = cSketchSegment
-            
-            Dim vStartPoint As Variant
-            vStartPoint = GetPointDataInSheetSpace(swSketchLine.GetStartPoint2, cSketchSegment.GetSketch, cComp, swView)
-            
-            Dim vEndPoint As Variant
-            vEndPoint = GetPointDataInSheetSpace(swSketchLine.GetEndPoint2, cSketchSegment.GetSketch, cComp, swView)
-            
-            Call GetMaxMinPoint(vStartPoint(0), vEndPoint(0), cxMinSkPt, cxMaxSkPt)
-            Call GetMaxMinPoint(vStartPoint(1), vEndPoint(1), cyMinSkPt, cyMaxSkPt)
-            
-            If Abs(vStartPoint(0) - vEndPoint(0)) <= 0.0001 Then
-            
-                cIsHorizontal = False
-                cMid = vStartPoint(0)
-                
-        
-            ElseIf Abs(vStartPoint(1) - vEndPoint(1)) <= 0.0001 Then
-            
-                cIsHorizontal = True
-                cMid = vStartPoint(1)
-                
-            End If
-            
-        End If
-    End If
+    Debug.Print cxCenter
+    Debug.Print cyCenter
     
 End Sub
 

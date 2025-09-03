@@ -277,7 +277,6 @@ Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation
         
         Dim vComps As Variant
         vComps = swTableAnn.GetComponents2(i, configName)
-        
 
         If (InStr(Desc, "#3") > 0 And InStr(Desc, "REBAR") And Not (PartNo = "810-11450")) Or _
             (InStr(Desc, "#4") > 0 And InStr(Desc, "REBAR") > 0) Or _
@@ -299,8 +298,9 @@ Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation
         Else
 
             If PartNo = "810-11450" Then '#3 Rebar Bend
-        
-            
+                
+                Call AddBalloonsToRebarBends(vComps, swView, swDrawing)
+                
             
             ElseIf PartNo = "806-11377" Or (InStr(Desc, "DOWEL") > 0 And InStr(Desc, "BAR") > 0) Or PartNo = "198228" _
                 Or (InStr(Desc, "POCKET") > 0 And InStr(Desc, "FORMER") > 0) Then 'F-42
@@ -574,6 +574,59 @@ Function GetCompList(vComps As Variant, swView As SldWorks.View) As IArrListObje
     
 End Function
 
+Sub AddBalloonsToRebarBends(vComps As Variant, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc)
+    
+    If Not IsEmpty(vComps) Then
+    
+        Dim i As Integer
+        For i = LBound(vComps) To UBound(vComps)
+        
+            Dim swComp As SldWorks.Component2
+            Set swComp = vComps(i)
+            
+            If False = swComp.IsSuppressed Then
+            
+                Dim oRebarBend As IRebarBends
+                Set oRebarBend = New IRebarBends
+                
+                oRebarBend.Initialize swComp, swView
+                
+                Dim AnnXPos As Double
+                Dim AnnYPos As Double
+                
+                If oRebarBend.IsBalloonRight Then
+                    
+                    AnnXPos = oRebarBend.xCG + 0.005
+                    
+                Else
+                    
+                    AnnXPos = oRebarBend.xCG - 0.005
+                    
+                End If
+                
+                
+                If oRebarBend.IsBalloonTop Then
+                    
+                    AnnYPos = oRebarBend.yCG + 0.005
+                    
+                Else
+                
+                    AnnYPos = oRebarBend.yCG - 0.005
+                
+                End If
+                    
+                
+                Call SelectAndAddAnnotation(oRebarBend.GetToroidalFace, swDrawing, swView, 0, 0, AnnXPos, AnnYPos)
+                
+                
+            End If
+
+        Next i
+
+    End If
+    
+End Sub
+
 Sub GetF42OrDowelBarWithMatchDim(vComps As Variant, oConcreteComp As IComp, swView As SldWorks.View, _
              ByRef LeftCompList As IArrListObject, ByRef RightCompList As IArrListObject, ByRef BottomCompList As IArrListObject, _
                 ByRef TopCompList As IArrListObject)
@@ -800,8 +853,6 @@ Sub ConsolidateFoamsAndAddDimensions(ArrList As IArrListObject, swDrawing As Sld
             oConcreteComp, "xMin", "xMax", "BottomEdge", swDrawing, swView, DimDict)
     
 End Sub
-
-
 
 Sub AddThkDimensionAndCastingBedNote(oComp As IComp, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
 
