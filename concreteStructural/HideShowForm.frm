@@ -324,9 +324,24 @@ Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation
                     Call AddCountDimensionForPF(BottomCompList, swLeftOrdinateDim, swDrawing, swView, DimDict, False)
                     Call AddCountDimensionForPF(TopCompList, swLeftOrdinateDim, swDrawing, swView, DimDict, True)
                     
+                    Call AddBalloonForPForF42(LeftCompList, RightCompList, BottomCompList, TopCompList, _
+                                            "yOrigin", "xOrigin", False, True, oConcreteComp, swDrawing, swView)
+                    
                 Else
 
                     Call GetF42OrDowelBarWithMatchDim(vComps, oConcreteComp, swView, LeftCompList, RightCompList, BottomCompList, TopCompList)
+                    If PartNo = "806-11377" Then
+                    
+                        Call AddBalloonForPForF42(TopCompList, BottomCompList, RightCompList, LeftCompList, _
+                                        "xOrigin", "yOrigin", True, False, oConcreteComp, swDrawing, swView)
+                    Else
+                    
+                        Call AddBalloonForEndComponentsExcludingPForF42(LeftCompList, oConcreteComp, "yOrigin", False, swDrawing, swView)
+                        Call AddBalloonForEndComponentsExcludingPForF42(RightCompList, oConcreteComp, "yOrigin", True, swDrawing, swView)
+                        Call AddBalloonForEndComponentsExcludingPForF42(BottomCompList, oConcreteComp, "xOrigin", False, swDrawing, swView)
+                        Call AddBalloonForEndComponentsExcludingPForF42(TopCompList, oConcreteComp, "xOrigin", True, swDrawing, swView)
+                    
+                    End If
                     
                 End If
                 
@@ -380,6 +395,138 @@ Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation
     Call SortDimDictArrList(DimDict)
     Call ConsolidateRebarsAndAddDimensions(RebarBodiesList, swDrawing, swView, oConcreteComp, DimDict)
 
+End Sub
+
+Sub AddBalloonForEndComponentsExcludingPForF42(CompList As IArrListObject, oConcreteComp As IComp, Param As String, _
+        IsRightorTop As Boolean, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+
+    If CompList.Count > 0 Then
+    
+        Dim vComps As Variant
+        vComps = CompList.Items
+        
+        Dim i As Integer
+        For i = LBound(vComps) To UBound(vComps)
+        
+            Dim oComp As IComp
+            Set oComp = vComps(i)
+            
+            Call AddAnnotationsForEndConcreteComps(oComp, oConcreteComp, Param, IsRightorTop, swDrawing, swView)
+
+        Next i
+    
+    End If
+    
+End Sub
+
+Sub AddBalloonForPForF42(FirstPriorityList As IArrListObject, SecondPriorityList As IArrListObject, _
+        ThirdPriorityList As IArrListObject, LastPriorityList As IArrListObject, FirstPriorityParam As String, _
+        LastPriorityParam As String, IsAfterFirst As Boolean, IsAfterSecond As Boolean, oConcreteComp As IComp, _
+        swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+
+    If FirstPriorityList.Count > 0 Then
+    
+        Call FindMidCompAndAddAnnotations(FirstPriorityList, IsAfterFirst, FirstPriorityParam, _
+                    oConcreteComp, swDrawing, swView)
+
+    ElseIf SecondPriorityList.Count > 0 Then
+    
+        Call FindMidCompAndAddAnnotations(SecondPriorityList, IsAfterSecond, FirstPriorityParam, _
+                    oConcreteComp, swDrawing, swView)
+    
+    ElseIf ThirdPriorityList.Count > 0 Then
+    
+        Call FindMidCompAndAddAnnotations(ThirdPriorityList, IsAfterFirst, LastPriorityParam, _
+                    oConcreteComp, swDrawing, swView)
+                    
+    Else
+        
+        Call FindMidCompAndAddAnnotations(LastPriorityList, IsAfterSecond, LastPriorityParam, _
+                    oConcreteComp, swDrawing, swView)
+    End If
+
+End Sub
+
+Sub FindMidCompAndAddAnnotations(CompList As IArrListObject, IsRightorTop As Boolean, Param As String, _
+        oConcreteComp As IComp, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+    
+    Dim vComps As Variant
+    vComps = CompList.Items
+
+    Dim Idx As Integer
+    Dim oComp As IComp
+    
+    If CompList.Count >= 3 Then
+        
+        If (CompList.Count) Mod 2 = 0 Then
+        
+            Idx = (CompList.Count / 2) - 1
+            
+        Else
+        
+            Idx = Int(CompList.Count / 2)
+            
+        End If
+        
+        Set oComp = vComps(Idx)
+
+    Else
+
+        Set oComp = vComps(0)
+        
+    End If
+    
+    Call AddAnnotationsForEndConcreteComps(oComp, oConcreteComp, Param, IsRightorTop, swDrawing, swView)
+
+End Sub
+
+Sub AddAnnotationsForEndConcreteComps(oComp As IComp, oConcreteComp As IComp, Param As String, IsRightorTop As Boolean, _
+               swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+
+    Dim MidVal As Double
+    MidVal = CallByName(oComp, Param, VbGet)
+    
+    Dim AnnXPos As Double
+    Dim AnnYPos As Double
+    
+    If Left(Param, 1) = "y" Then
+        
+        If IsRightorTop Then
+        
+            AnnXPos = oConcreteComp.xMax + 0.005
+            
+        Else
+            
+            AnnXPos = oConcreteComp.xMin - 0.005
+            
+        End If
+
+        AnnYPos = MidVal + 0.005
+
+    Else
+
+        If IsRightorTop Then
+        
+            AnnYPos = oConcreteComp.yMax + 0.005
+            
+        Else
+            
+            AnnYPos = oConcreteComp.yMin - 0.005
+            
+        End If
+
+        AnnXPos = MidVal + 0.005
+    
+    End If
+
+    Dim visibleEdges As Variant
+    visibleEdges = swView.GetVisibleEntities2(oComp.GetComponent, swViewEntityType_e.swViewEntityType_Edge)
+    
+    Dim swSelEdge As SldWorks.Edge
+    Set swSelEdge = visibleEdges(0)
+    
+    Call SelectAndAddAnnotation(swSelEdge, swDrawing, swView, 0, 0, AnnXPos, AnnYPos)
+    
 End Sub
 
 Sub SortDimDictArrList(ByRef Dict As Scripting.Dictionary)
