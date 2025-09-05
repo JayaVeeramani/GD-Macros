@@ -121,6 +121,82 @@ Function GetEdgeInView(oComp As IComp, swView As SldWorks.View, _
 
 End Function
 
+Function GetPointInView(oComp As IComp, swView As SldWorks.View, _
+    IsHorizontal As Boolean, IsMax As Boolean) As SldWorks.Vertex
+
+    Dim SortParam As String
+    If IsHorizontal Then
+        
+        SortParam = "xVal"
+
+    Else
+    
+        SortParam = "yVal"
+
+    End If
+    
+    Dim VertexPointList As IArrListObject
+    Set VertexPointList = GetVertexPointList(oComp, swView)
+    
+    If VertexPointList.Count > 0 Then
+        
+        VertexPointList.SortItems SortParam, IsMax
+        Set GetPointInView = VertexPointList.Items(0).Vertex
+    
+    End If
+
+End Function
+
+Function GetVertexPointList(oComp As IComp, swView As SldWorks.View) As IArrListObject
+    
+    Set GetVertexPointList = New IArrListObject
+    
+    Dim swComp As SldWorks.Component2
+    Set swComp = oComp.GetComponent
+
+    Dim vEnts As Variant
+    vEnts = swView.GetVisibleEntities2(swComp, swViewEntityType_e.swViewEntityType_Vertex)
+    
+   If Not IsEmpty(vEnts) Then
+        
+        Dim i As Integer
+        For i = LBound(vEnts) To UBound(vEnts)
+        
+            Dim swVertex As SldWorks.Vertex
+            Set swVertex = vEnts(i)
+            
+            Dim oVertex As IVertexPt
+            Set oVertex = New IVertexPt
+            
+            oVertex.Initialize swVertex, swComp, swView
+            
+            GetVertexPointList.AddtoList oVertex
+
+        Next i
+
+    End If
+    
+End Function
+
+Function GetExtremePointInView(oComp As IComp, swView As SldWorks.View, _
+    IsTop As Boolean, IsRight As Boolean) As SldWorks.Vertex
+    
+    Dim VertexPointList As IArrListObject
+    Set VertexPointList = GetVertexPointList(oComp, swView)
+    
+    If VertexPointList.Count > 0 Then
+        
+        VertexPointList.SortItems "xVal", IsRight
+        VertexPointList.SortItems "yVal", IsTop
+        
+        Set GetExtremePointInView = VertexPointList.Items(0).Vertex
+        
+    
+    End If
+
+End Function
+
+
 Function GetComponentEdges(swComp As SldWorks.Component2)
     
     Dim TempEdges As Variant

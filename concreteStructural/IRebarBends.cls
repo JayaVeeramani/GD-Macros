@@ -13,7 +13,6 @@ Private cCompModel As SldWorks.ModelDoc2
 Private cToroidalFace As SldWorks.Face2
 Private cView As SldWorks.View
 
-
 Private cxCenter As Double
 Private cyCenter As Double
 Private czCenter As Double
@@ -43,6 +42,24 @@ Property Get IsBalloonTop() As Boolean
     
 End Property
 
+Property Get ToroidalFace() As SldWorks.Face2
+
+    Set ToroidalFace = cToroidalFace
+    
+End Property
+
+Property Get xCG() As Double
+
+    xCG = cxCG
+    
+End Property
+
+Property Get yCG() As Double
+
+    yCG = cyCG
+    
+End Property
+
 Sub Initialize(swComp As SldWorks.Component2, swView As SldWorks.View) ' oCutlist As ICutlist,
     
     Set cComp = swComp
@@ -67,13 +84,13 @@ End Sub
 
 Sub GetBallPosBoolean()
     
-    If cxCenter > cxCG Then
+    If cxCG > cxCenter Then
     
         cIsBalloonRight = True
     
     End If
     
-    If cyCenter > cyCG Then
+    If cyCG > cyCenter Then
     
         cIsBalloonTop = True
         

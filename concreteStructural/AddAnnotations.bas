@@ -92,10 +92,11 @@ Function AddRebarAnnotations(Dict As Scripting.Dictionary, swDrawing As SldWorks
                                 RightDimKey, SelXPos, SelYPos, AnnXPos, AnnYPos, IsLowerSide, True, ClearanaceX, ClearanaceY, Percent)
                 
                 End If
-                
+              
+On Error GoTo NextIteration
                 Set SelFace = GetLargestVisibleFaceCorrespondingToABody(oRebar.GetComponent, oRebar.GetBody, swView)
                 Call SelectAndAddItemNoAnnotation(SelFace, swDrawing, swView, SelXPos, SelYPos, AnnXPos, AnnYPos, True)
-
+NextIteration:
             Next j
 
         Next i
@@ -359,11 +360,11 @@ Function SelectAndAddAnnotation(swEnt As Object, swDrawing As SldWorks.DrawingDo
         Dim BalloonContent As swBalloonTextContent_e
     
         If CustomTextTop = "" And CustomTextBottom = "" Then
-            BalloonContent = swBalloonTextPartNumberBOM
+            BalloonContent = swBalloonTextItemNumber
         End If
         
         Dim swNote As SldWorks.Note
-        Set swNote = swDrawing.InsertBOMBalloon2(swBS_Inspection, swBF_Tightest, BalloonContent, _
+        Set swNote = swDrawing.InsertBOMBalloon2(swBalloonStyle_e.swBS_Circular, swBF_Tightest, BalloonContent, _
                                 CustomTextTop, BalloonContent, CustomTextBottom)
             
         If Not swNote Is Nothing Then
@@ -372,7 +373,11 @@ Function SelectAndAddAnnotation(swEnt As Object, swDrawing As SldWorks.DrawingDo
             Set swAnnotation = swNote.GetAnnotation()
         
             swAnnotation.SetPosition AnnXPos, AnnYPos, 0
-    
+            
+            Dim HeadStyle As Integer
+            swAnnotation.SetLeader3 swLeaderStyle_e.swAlwaysAttachToBalloon + swLeaderStyle_e.swSTRAIGHT, swLeaderSide_e.swLS_SMART, False, False, True, False
+            HeadStyle = swAnnotation.SetArrowHeadStyleAtIndex(0, swArrowStyle_e.swCLOSED_ARROWHEAD)
+            
             Set SelectAndAddAnnotation = swAnnotation
         
         End If

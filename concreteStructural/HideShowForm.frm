@@ -338,8 +338,8 @@ Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation
                     
                         Call AddBalloonForEndComponentsExcludingPForF42(LeftCompList, oConcreteComp, "yOrigin", False, swDrawing, swView)
                         Call AddBalloonForEndComponentsExcludingPForF42(RightCompList, oConcreteComp, "yOrigin", True, swDrawing, swView)
-                        Call AddBalloonForEndComponentsExcludingPForF42(BottomCompList, oConcreteComp, "xOrigin", False, swDrawing, swView)
-                        Call AddBalloonForEndComponentsExcludingPForF42(TopCompList, oConcreteComp, "xOrigin", True, swDrawing, swView)
+                        Call AddBalloonForEndComponentsExcludingPForF42(BottomCompList, oConcreteComp, "xOrigin", False, swDrawing, swView, False)
+                        Call AddBalloonForEndComponentsExcludingPForF42(TopCompList, oConcreteComp, "xOrigin", True, swDrawing, swView, False)
                     
                     End If
                     
@@ -398,7 +398,7 @@ Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation
 End Sub
 
 Sub AddBalloonForEndComponentsExcludingPForF42(CompList As IArrListObject, oConcreteComp As IComp, Param As String, _
-        IsRightorTop As Boolean, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+        IsRightorTop As Boolean, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, Optional IsBalloonAfter As Boolean = True)
 
     If CompList.Count > 0 Then
     
@@ -411,7 +411,7 @@ Sub AddBalloonForEndComponentsExcludingPForF42(CompList As IArrListObject, oConc
             Dim oComp As IComp
             Set oComp = vComps(i)
             
-            Call AddAnnotationsForEndConcreteComps(oComp, oConcreteComp, Param, IsRightorTop, swDrawing, swView)
+            Call AddAnnotationsForEndConcreteComps(oComp, oConcreteComp, Param, IsRightorTop, swDrawing, swView, IsBalloonAfter)
 
         Next i
     
@@ -481,7 +481,7 @@ Sub FindMidCompAndAddAnnotations(CompList As IArrListObject, IsRightorTop As Boo
 End Sub
 
 Sub AddAnnotationsForEndConcreteComps(oComp As IComp, oConcreteComp As IComp, Param As String, IsRightorTop As Boolean, _
-               swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+               swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, Optional IsBalloonAfter As Boolean = True)
 
     Dim MidVal As Double
     MidVal = CallByName(oComp, Param, VbGet)
@@ -500,8 +500,16 @@ Sub AddAnnotationsForEndConcreteComps(oComp As IComp, oConcreteComp As IComp, Pa
             AnnXPos = oConcreteComp.xMin - 0.005
             
         End If
-
-        AnnYPos = MidVal + 0.005
+        
+        If IsBalloonAfter Then
+        
+            AnnYPos = MidVal + 0.005
+            
+        Else
+        
+            AnnYPos = MidVal - 0.005
+            
+        End If
 
     Else
 
@@ -514,9 +522,17 @@ Sub AddAnnotationsForEndConcreteComps(oComp As IComp, oConcreteComp As IComp, Pa
             AnnYPos = oConcreteComp.yMin - 0.005
             
         End If
+        
+        If IsBalloonAfter Then
+        
+            AnnXPos = MidVal + 0.005
+            
+        Else
+        
+            AnnXPos = MidVal - 0.0075
+            
+        End If
 
-        AnnXPos = MidVal + 0.005
-    
     End If
 
     Dim visibleEdges As Variant
@@ -1030,9 +1046,35 @@ Sub AddThkDimensionAndCastingBedNote(oComp As IComp, swDrawing As SldWorks.Drawi
     
     Dim swLeftEdge As SldWorks.Edge
     Set swLeftEdge = GetEdgeInView(oComp, swView, False, False)
-        
+    
     Call AddCollinearRelation(swDrawing, swRightEdge, swSketchSegment, swView)
-    Call SelectAndAddDimension(swRightEdge, swLeftEdge, swDrawing, oComp.xMax + 0.01, (oComp.yMax + oComp.yMin) / 2, swView, False)
+    
+    If swLeftEdge Is Nothing Then
+    
+        Dim swLeftPoint As SldWorks.Vertex
+        Set swLeftPoint = GetPointInView(oComp, swView, True, False)
+        Call SelectAndAddDimension(swRightEdge, swLeftPoint, swDrawing, oComp.xMax + 0.01, (oComp.yMax + oComp.yMin) / 2, swView, False)
+        
+        Dim swBottomLeftPoint As SldWorks.Vertex
+        Set swBottomLeftPoint = GetExtremePointInView(oComp, swView, False, False)
+
+        Call SelectAndAddDimension(swRightEdge, swBottomLeftPoint, swDrawing, oComp.xMax + 0.01, oComp.yMin - 0.005, swView, False)
+
+        Dim swTopLeftPoint As SldWorks.Vertex
+        Set swTopLeftPoint = GetExtremePointInView(oComp, swView, True, False)
+
+        If swTopLeftPoint.GetPoint(1) <> swLeftPoint.GetPoint(1) Then
+
+            Call SelectAndAddDimension(swRightEdge, swTopLeftPoint, swDrawing, oComp.xMax + 0.01, oComp.yMax + 0.005, swView, False)
+
+        End If
+    Else
+    
+        Call SelectAndAddDimension(swRightEdge, swLeftEdge, swDrawing, oComp.xMax + 0.01, (oComp.yMax + oComp.yMin) / 2, swView, False)
+    
+    End If
+        
+
     
      swView.FocusLocked = False
 

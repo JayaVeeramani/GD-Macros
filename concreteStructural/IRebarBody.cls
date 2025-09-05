@@ -36,8 +36,6 @@ Private cBodyMaxPoint(2) As Double
 
 'Private cCutlist As ICutlist
 
-
-
 Private cLeftEdge As SldWorks.Edge
 Private cRightEdge As SldWorks.Edge
 Private cBottomEdge As SldWorks.Edge
