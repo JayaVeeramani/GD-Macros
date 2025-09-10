@@ -110,6 +110,12 @@ Property Get IsCircular() As Boolean
     
 End Property
 
+Property Get CircularEdge() As SldWorks.Edge
+
+    Set CircularEdge = cCircularEdge
+    
+End Property
+
 Property Get IsRectangular() As Boolean
     
     IsRectangular = cIsRectangular

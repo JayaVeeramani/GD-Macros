@@ -13,8 +13,14 @@ Private cComp As SldWorks.Component2
 Private vCircleCenter As Variant
 Private vViewCenter As Variant
 
+Private cRadius As Double
 
 
+Property Get ViewRadius() As Double
+
+    ViewRadius = cRadius
+    
+End Property
 
 
 Property Get GetEdge() As SldWorks.Edge
@@ -24,36 +30,43 @@ Property Get GetEdge() As SldWorks.Edge
 End Property
 
 
-Property Get xMin() As Double
+Property Get xCenter() As Double
 
-    xMin = vCircleCenter(0)
+    xCenter = vCircleCenter(0)
     
 End Property
 
-Property Get yMin() As Double
+Property Get yCenter() As Double
 
-    yMin = vCircleCenter(1)
+    yCenter = vCircleCenter(1)
     
 End Property
 
-Property Get xViewMin() As Double
+Property Get xViewCenter() As Double
 
-    xViewMin = vViewCenter(0)
+    xViewCenter = vViewCenter(0)
+    
+End Property
+
+Property Get yViewCenter() As Double
+
+    yViewCenter = vViewCenter(1)
     
 End Property
 
 
-Property Get yViewMin() As Double
-
-    yViewMin = vViewCenter(1)
-    
-End Property
-
-
-Sub Initialize(swEdge As SldWorks.Edge, vCircleParams As Variant, swView As SldWorks.View, swComp As SldWorks.Component2)
+Sub Initialize(swEdge As SldWorks.Edge, swView As SldWorks.View, swComp As SldWorks.Component2)
 
     Set cEdge = swEdge
     Set cComp = swComp
+    
+    Dim swCurve As SldWorks.Curve
+    Set swCurve = cEdge.GetCurve
+
+    Dim vCircleParams As Variant
+    vCircleParams = swCurve.CircleParams
+    
+    cRadius = vCircleParams(6) * swView.ScaleDecimal
     
     Dim dCenterPt(2) As Double
     dCenterPt(0) = vCircleParams(0)
@@ -61,11 +74,8 @@ Sub Initialize(swEdge As SldWorks.Edge, vCircleParams As Variant, swView As SldW
     dCenterPt(2) = vCircleParams(2)
     
     vCircleCenter = dCenterPt
-    vCircleCenter = GetComponentPointInSheetSpace(swComp, vCircleCenter, swView)
-    
+    vViewCenter = GetComponentPointInSheetSpace(swComp, vCircleCenter, swView)
 
-    vViewCenter = GetSheetPointInViewSpace(swView, vCircleCenter)
-    
 
 End Sub
 

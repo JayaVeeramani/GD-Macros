@@ -28,11 +28,30 @@ Sub AddCrossMarkHatchAndItemNoCallOuts(BlockOutList As IArrListObject, swDrawing
         
             Dim oBlockOut As IWeldBody
             Set oBlockOut = vBlockOuts(i)
+            
+            Dim SelXPos As Double
+            Dim SelYPos As Double
+            Dim AnnXPos As Double
+            Dim AnnYPos As Double
 
             If oBlockOut.IsCircular Then
             
-
+                Dim oCircularEdge As ICircularEdge
+                Set oCircularEdge = New ICircularEdge
+                
+                oCircularEdge.Initialize oBlockOut.CircularEdge, swView, oBlockOut.GetComponent
+                
+                SelXPos = oCircularEdge.xViewCenter
+                SelYPos = oCircularEdge.yViewCenter
+                
+                AnnXPos = SelXPos + 0.70710678118 * (oCircularEdge.ViewRadius - 0.005)
+                AnnYPos = SelYPos + 0.70710678118 * (oCircularEdge.ViewRadius - 0.005)
             
+                Call SelectAndAddItemNoAnnotation(oBlockOut.NormalFace, swDrawing, swView, SelXPos, SelYPos, AnnXPos, AnnYPos, False)
+                
+                swView.SelectEntity oBlockOut.CircularEdge, False
+                swDrawing.InsertCenterMark3 swCenterMarkStyle_e.swCenterMark_Single, False, False
+                
             ElseIf oBlockOut.IsRectangular Then
             
                 Dim swSketchManager As SldWorks.SketchManager
@@ -51,11 +70,6 @@ Sub AddCrossMarkHatchAndItemNoCallOuts(BlockOutList As IArrListObject, swDrawing
                     CDbl(vViewMinPoint(1)), oBlockOut.LeftTopVertex, oBlockOut.RightBottomVertex, swDrawing, swView)
                     
 
-                Dim SelXPos As Double
-                Dim SelYPos As Double
-                Dim AnnXPos As Double
-                Dim AnnYPos As Double
-                
                 Dim IsLeaderReq As Boolean
                 IsLeaderReq = False
                 
