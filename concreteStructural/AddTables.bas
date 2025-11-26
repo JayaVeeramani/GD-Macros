@@ -27,6 +27,10 @@ End Function
 Private Sub OrderBOMTable(swTableAnn As SldWorks.TableAnnotation)
     
     Dim i As Integer
+    
+    Dim IdxDict As Scripting.Dictionary
+    Set IdxDict = New Scripting.Dictionary
+    
     For i = 1 To swTableAnn.rowCount - 1
     
         Dim Desc As String
@@ -36,37 +40,37 @@ Private Sub OrderBOMTable(swTableAnn As SldWorks.TableAnnotation)
          
             Case InStr(Desc, "WIRE") > 0 And InStr(Desc, "MESH") > 0
             
-                Call MoveTableRow(swTableAnn, i, 1)
+                Call MoveTableRow(swTableAnn, i, 1, IdxDict)
                 
             Case InStr(Desc, "#3") > 0 And InStr(Desc, "REBAR") And InStr(Desc, "BEND") > 0
                 
-                Call MoveTableRow(swTableAnn, i, 2)
+                Call MoveTableRow(swTableAnn, i, 2, IdxDict)
                 
             Case InStr(Desc, "#3") > 0 And InStr(Desc, "REBAR") And Not (InStr(Desc, "BEND") > 0)
                 
-                Call MoveTableRow(swTableAnn, i, 3)
+                Call MoveTableRow(swTableAnn, i, 3, IdxDict)
 
             Case InStr(Desc, "#4") > 0 And InStr(Desc, "REBAR") > 0
             
-                Call MoveTableRow(swTableAnn, i, 4)
+                Call MoveTableRow(swTableAnn, i, 4, IdxDict)
             
             Case InStr(Desc, "#5") > 0 And InStr(Desc, "REBAR") > 0
 
-                Call MoveTableRow(swTableAnn, i, 5)
+                Call MoveTableRow(swTableAnn, i, 5, IdxDict)
             
             Case InStr(Desc, "#6") > 0 And InStr(Desc, "REBAR") > 0
                 
-                Call MoveTableRow(swTableAnn, i, 6)
+                Call MoveTableRow(swTableAnn, i, 6, IdxDict)
             
             Case InStr(Desc, "FOAM") > 0
                 
                 If InStr(Desc, "4" & Chr(34)) > 0 Then
                 
-                    Call MoveTableRow(swTableAnn, i, 8)
+                    Call MoveTableRow(swTableAnn, i, 8, IdxDict)
                 
                 Else
                 
-                    Call MoveTableRow(swTableAnn, i, 7)
+                    Call MoveTableRow(swTableAnn, i, 7, IdxDict)
                     
                 End If
 
@@ -76,25 +80,33 @@ Private Sub OrderBOMTable(swTableAnn As SldWorks.TableAnnotation)
     
 End Sub
 
-Private Sub MoveTableRow(swTableAnn As SldWorks.TableAnnotation, ByRef CurRow As Integer, DestRow As Integer)
+Private Sub MoveTableRow(swTableAnn As SldWorks.TableAnnotation, ByRef CurRow As Integer, DestRow As Integer, ByRef IdxDict As Scripting.Dictionary)
 
     If swTableAnn.rowCount - 1 >= DestRow Then
     
         If Not (DestRow = CurRow) Then
-        
+            
             Dim Bool As Boolean
             
+            If IdxDict.Exists(DestRow) Then
             
-            If DestRow > CurRow Then
-            
-                Bool = swTableAnn.MoveRow(CurRow, swTableItemInsertPosition_e.swTableItemInsertPosition_After, DestRow)
-                CurRow = CurRow - 1
+                Exit Sub
                 
-            ElseIf DestRow < CurRow Then
+            Else
             
-                Bool = swTableAnn.MoveRow(CurRow, swTableItemInsertPosition_e.swTableItemInsertPosition_Before, DestRow)
-                Bool = swTableAnn.MoveRow(DestRow + 1, swTableItemInsertPosition_e.swTableItemInsertPosition_After, CurRow)
-    
+                IdxDict.Add DestRow, DestRow
+                If DestRow > CurRow Then
+                
+                    Bool = swTableAnn.MoveRow(CurRow, swTableItemInsertPosition_e.swTableItemInsertPosition_After, DestRow)
+                    CurRow = CurRow - 1
+                    
+                ElseIf DestRow < CurRow Then
+                
+                    Bool = swTableAnn.MoveRow(CurRow, swTableItemInsertPosition_e.swTableItemInsertPosition_Before, DestRow)
+                    Bool = swTableAnn.MoveRow(DestRow + 1, swTableItemInsertPosition_e.swTableItemInsertPosition_After, CurRow)
+        
+                    
+                End If
                 
             End If
             

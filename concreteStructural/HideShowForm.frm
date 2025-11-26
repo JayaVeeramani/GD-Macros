@@ -149,10 +149,14 @@ Private Sub CreateButton_Click()
     wallName = Me.WallNameComboBox.Value
     
     Dim ViewName As String
-    ViewName = GetViewName(wallName)
+    Dim ViewLabel As String
+    ViewName = GetViewName(wallName, ViewLabel)
     
-    Dim WeldmentNo As String
-    WeldmentNo = Me.WeldNoBox.Value
+    Dim AssyNo As String
+    AssyNo = Me.WeldNoBox.Value
+    
+    Dim ProjectNo As String
+    ProjectNo = Me.ProjectNoBox.Value
 
     Set swMathUtility = swApp.GetMathUtility
     
@@ -169,7 +173,7 @@ Private Sub CreateButton_Click()
     Dim swSheet As SldWorks.Sheet
     Set swSheet = swDrawing.GetCurrentSheet
 
-    'Call InsertSketchBlock(swDrawing, swSheet, ProjectNo)
+    Call InsertSketchBlock(swDrawing, swSheet, ProjectNo)
 
     Dim swView As SldWorks.View
     Set swView = swDrawing.CreateDrawViewFromModelView3(swTopLevelModel.GetPathName(), ViewName, ViewXPos, ViewYPos, 0)
@@ -209,49 +213,66 @@ Private Sub CreateButton_Click()
     Dim TableEndXPt As Double
     Dim swBomTableAnn As SldWorks.BomTableAnnotation
     Set swBomTableAnn = InsertBOMAndOrderComponents(swDrawing, swView, configName, oConcreteComp.yMax + 0.01875, TableEndXPt)
-    
+
     Call AddThkDimensionAndCastingBedNote(oProjectedConcreteComp, swDrawing, swProjectedView)
     Call ConvertAndGetExtremeEdges(swDrawing, swView, oConcreteComp, swViewNormalVector)
-
+    
+    Dim swDiagonalDim As SldWorks.DisplayDimension
+    Set swDiagonalDim = AddDiagonalDimension(oConcreteComp, swDrawing, swView)
+    
     Call HideDrawingComponent(swConcretePanel, swView)
+    
+    Dim IsDoor As Boolean
+    IsDoor = False
     Call SegregrateComponentsAndAddAnnotations(swBomTableAnn, configName, swDrawing, swView, swViewNormalVector, _
-                oConcreteComp, ViewName, oConcreteComp.yMax + 0.01875, TableEndXPt)
+                oConcreteComp, ViewName, oConcreteComp.yMax + 0.01875, TableEndXPt, IsDoor)
 
     Call SelectAndAddDimension(swBottomEdge, swTopEdge, swDrawing, oConcreteComp.xMin - 0.025, (oConcreteComp.yMax + oConcreteComp.yMin) / 2, swView, True)
     Call SelectAndAddDimension(swLeftEdge, swRightEdge, swDrawing, (oConcreteComp.xMax + oConcreteComp.xMin) / 2, oConcreteComp.yMin - 0.025, swView, True)
-'
-'
+    
+
     swDrawing.ClearSelection2 True
-'    swTopView.FocusLocked = True
-'    Call AddNoteToView(swDrawing, "<FONT size=10PTS style=B>TOP VIEW WITH FLOOR PLATES", _
-'        ((oFloorComp.xMax + oFloorComp.xMin) / 2) - 0.025, oFloorComp.yMin - 0.02875)
-'
-'
-'    Dim BottomFloorList As IArrListObject
-'    Set BottomFloorList = yMinFloorDict.Items(0)
-'    Call AddLocatingHoleDetailView(swDrawing, swTopView, BottomFloorList)
-'
-'    swTopView.FocusLocked = False
-'
-'    Call EditTemplate(swDrawing, swDrawing.GetCurrentSheet, WeldmentNo, "FLOOR PLATE LAYOUT")
-'    Call AddStructuralNotes(swDrawing)
+    
+    swView.FocusLocked = True
+    
+    Dim AreaInSqFt As Double
+    AreaInSqFt = ((oConcreteComp.xMax - oConcreteComp.xMin) * (oConcreteComp.yMax - oConcreteComp.yMin) * 10.7639) / (swView.ScaleDecimal * swView.ScaleDecimal)
+     
+    Dim ViewNote As SldWorks.Note
+    Set ViewNote = AddNoteToView(swDrawing, "", _
+        ((oConcreteComp.xMax + oConcreteComp.xMin) / 2), oConcreteComp.yMin - 0.02875, True)
+        
+    ViewNote.SetTextJustification swTextJustification_e.swTextJustificationCenter
+    ViewNote.SetText "<FONT size=10PTS style=B>STRUCTURAL LAYOUT, " & ViewLabel & vbCrLf & "<FONT size=8PTS style=R>" & Format(Round(AreaInSqFt, 2), "0.00") & " sq.ft"
+    
+    Call SetNoteWidth(ViewNote, 0.15)
+    
+    swView.FocusLocked = False
+
+    Call EditTemplate(swDrawing, swDrawing.GetCurrentSheet, AssyNo, "STRUCTURAL LAYOUT, " & ViewLabel)
+    Call AddStructuralNotes(swDrawing, wallName, IsDoor, (oConcreteComp.xMax - oConcreteComp.xMin), _
+            (oProjectedConcreteComp.xMax - oProjectedConcreteComp.xMin), swView, swDiagonalDim)
 '    Call swDrawing.Extension.Rebuild(swRebuildOptions_e.swCurrentSheetDisp)
 '
-'    Set oFloorComp = Nothing
-'    Set swConcretePanel = Nothing
-'
-'    swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, True
+
+    swApp.SetUserPreferenceToggle swUserPreferenceToggle_e.swSketchInference, True
     
     Unload Me
 
 End Sub
 
+Function ConvertViewSizeToActualInches(Val As Double, swView As SldWorks.View)
+
+    ConvertViewSizeToActualInches = (Val / (swView.ScaleDecimal * 0.0254))
+
+End Function
+
 Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation, configName As String, _
          swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, swViewNormalVector As SldWorks.MathVector, _
-         oConcreteComp As IComp, MainViewName As String, ViewMaxLoc As Double, TableEndXPt As Double)
+         oConcreteComp As IComp, MainViewName As String, ViewMaxLoc As Double, TableEndXPt As Double, ByRef IsDoor As Boolean)
 
     Dim i As Integer
-    
+
     Dim AllFoamBodyList As IArrListObject
     Set AllFoamBodyList = New IArrListObject
     
@@ -373,8 +394,15 @@ Sub SegregrateComponentsAndAddAnnotations(swTableAnn As SldWorks.TableAnnotation
                     IsOrigin = True
                     
                 End If
+                
+                If (InStr(Desc, "DOOR") > 0 And InStr(Desc, "FRAME") > 0) Then
+                
+                    IsDoor = True
+                    
+                End If
+                
 
-                Call ConsolidateCompsAndAddDimensions(CompList, swDrawing, swView, oConcreteComp, DimDict, IsOrigin)
+                Call ConsolidateCompsAndAddDimensions(CompList, swDrawing, swView, oConcreteComp, DimDict, IsOrigin, SuffixString)
 
             ElseIf InStr(Desc, "WIRE") > 0 And InStr(Desc, "MESH") > 0 Then 'WireMesh
 
@@ -969,7 +997,7 @@ End Sub
 
 Sub ConsolidateCompsAndAddDimensions(ArrList As IArrListObject, swDrawing As SldWorks.DrawingDoc, _
                 swView As SldWorks.View, oConcreteComp As IComp, DimDict As Scripting.Dictionary, _
-                Optional ConsolidateByOrigin As Boolean = False)
+                Optional ConsolidateByOrigin As Boolean = False, Optional SuffixString As String = "")
                 
     Dim xString As String
     Dim yString As String
@@ -990,13 +1018,19 @@ Sub ConsolidateCompsAndAddDimensions(ArrList As IArrListObject, swDrawing As Sld
     Set xCompDict = GetConsolidatedDict(ArrList, xString, swView)
     
     Call AddCompDimensions(xCompDict, swBottomOrdinateDim, swTopOrdinateDim, _
-            oConcreteComp, False, "yMin", "yMax", swDrawing, swView, DimDict, ConsolidateByOrigin)
+            oConcreteComp, False, "yMin", "yMax", swDrawing, swView, DimDict, ConsolidateByOrigin, SuffixString)
+    
+    If ConsolidateByOrigin Then
+    
+        Call AddAnnotationsForPVC(xCompDict, swDrawing, swView, oConcreteComp)
+    
+    End If
     
     Dim yCompDict As Scripting.Dictionary
     Set yCompDict = GetConsolidatedDict(ArrList, yString, swView)
     
     Call AddCompDimensions(yCompDict, swLeftOrdinateDim, swRightOrdinateDim, _
-            oConcreteComp, True, "xMin", "xMax", swDrawing, swView, DimDict, ConsolidateByOrigin)
+            oConcreteComp, True, "xMin", "xMax", swDrawing, swView, DimDict, ConsolidateByOrigin, SuffixString)
     
 End Sub
 
@@ -1390,33 +1424,39 @@ Sub GetListOfComponentsWithMatchingVal(PFList As IArrListObject, F42OrDowelBarLi
     
 End Sub
 
-Function GetViewName(wallName As String)
+Function GetViewName(wallName As String, ByRef ViewLabel As String)
 
     Select Case wallName
         
         Case "Wall-A"
             
             GetViewName = "*Front"
+            ViewLabel = "SIDE PANEL-A"
         
         Case "Wall-B"
             
             GetViewName = "*Left"
+            ViewLabel = "END PANEL-B"
         
         Case "Wall-C"
         
             GetViewName = "*Back"
+            ViewLabel = "SIDE PANEL-C"
         
         Case "Wall-D"
             
             GetViewName = "*Right"
+            ViewLabel = "END PANEL-D"
             
         Case "Roof"
             
             GetViewName = "*Top"
+            ViewLabel = "ROOF"
             
         Case "Floor"
             
             GetViewName = "*Top"
+            ViewLabel = "FLOOR"
     
     End Select
     
@@ -1634,7 +1674,7 @@ Private Sub GetViewMaxMinPoints(oComp As IComp, swView As SldWorks.View, ByRef x
     
 End Sub
 
-Function EditTemplate(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Sheet, WeldmentNo As String, SheetName As String)
+Function EditTemplate(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Sheet, AssyNo As String, SheetName As String)
     
     Dim swSelect As SldWorks.SelectionMgr
     Set swSelect = swDrawing.SelectionManager()
@@ -1652,7 +1692,7 @@ Function EditTemplate(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Shee
         
     BoolStatus = swDrawing.Extension.SelectByID2("DetailItem1229@" & SheetFormatName, "NOTE", 0.355252206998469, 3.32049059009041E-02, 0, False, 0, Nothing, 0)
     Set swNote = swSelect.GetSelectedObject6(1, -1)
-    swNote.SetText (WeldmentNo)
+    swNote.SetText (AssyNo)
     
     BoolStatus = swDrawing.Extension.SelectByID2("DetailItem1262@" & SheetFormatName, "NOTE", 4.69556851111171E-02, 3.48062939323501E-02, 0, False, 0, Nothing, 0)
     swDrawing.EditDelete
@@ -1683,7 +1723,12 @@ Private Sub UpdateViewPosition(oConcreteComp As IComp, swDrawing As SldWorks.Dra
 
 End Sub
 
-Private Function AddStructuralNotes(swDrawing As SldWorks.DrawingDoc) As SldWorks.Note
+Private Function AddStructuralNotes(swDrawing As SldWorks.DrawingDoc, wallName As String, _
+        IsDoor As Boolean, WallWidth As Double, Thk As Double, swView As SldWorks.View, _
+            swDiagonalDim As SldWorks.DisplayDimension) As SldWorks.Note
+        
+    WallWidth = ConvertViewSizeToActualInches(WallWidth, swView)
+    Thk = ConvertViewSizeToActualInches(Thk, swView)
     
     Dim swSheet As SldWorks.Sheet
     Set swSheet = swDrawing.GetCurrentSheet
@@ -1691,17 +1736,60 @@ Private Function AddStructuralNotes(swDrawing As SldWorks.DrawingDoc) As SldWork
     swDrawing.ActivateSheet swSheet.GetName
 
     Dim swStructuralNote As SldWorks.Note
-    Dim Note As String
     
-    Note = "<FONT size=10PTS style=B>NOTES:" & vbCrLf & _
-            "<FONT size=8PTS style=R>1. DIMENSION ORIGIN STARTING AT LOWER LEFT CORNER OF FLOOR BEAM." & vbCrLf & _
-            "2. MAKE SURE THE 1/4" & Chr(34) & " LOCATING HOLES AT WALL-A LOWER LEFT CORNER FOR EACH FLOOR TOP PLATES."
+    Dim Note As String
+    Note = "<FONT size=10PTS style=B>NOTES:" & vbCrLf & "<FONT size=8PTS style=R>"
+    
+    Dim SheetNo As String
+    SheetNo = "6-7 STRUCTURAL ROOF SECTION DETAILS"
 
+    Dim NoteCount As Integer
+    NoteCount = 1
+    
+    If InStr(wallName, "Wall") > 0 Then
+    
+        Call AddToNotes(Note, NoteCount, " TYPICAL " & CInt(Thk) & Chr(34) & " WALL PANEL; SEE STRUCTURAL MISC. DETAIL SHEET.")
+        SheetNo = "6-9 STRUCTURAL WALL SECTION DETAILS"
+        
+        If wallName = "Wall-A" Or wallName = "Wall-C" Then
+        
+            Call AddToNotes(Note, NoteCount, "SIDE PANEL CAST EXTERIOR SIDE UP.")
+            
+        Else
+        
+            Call AddToNotes(Note, NoteCount, "END PANEL CAST EXTERIOR SIDE UP.")
+            
+        End If
+        
+    ElseIf InStr(wallName, "Floor") > 0 Then
+        
+        Call AddToNotes(Note, NoteCount, "TYPICAL " & CInt(Thk) & Chr(34) & " FLOOR; SEE STRUCTURAL MISC. DETAIL SHEET.")
+        SheetNo = "6-8 STRUCTURAL FLOOR SECTION DETAILS"
+        
+    End If
+    
+    Call AddToNotes(Note, NoteCount, "ALL REBAR GRADE 60 TYPICAL. SEE STRUCTURAL MISC.DETAIL SHEET FOR REBAR SIZE & SPLICE LENGTHS.")
+    Call AddToNotes(Note, NoteCount, "DIAGONAL DIMENSION:" & Chr(34) & swDiagonalDim.GetDimension2(0).Name & "@" & swView.Name & Chr(34))
+    Call AddToNotes(Note, NoteCount, "ALL REBAR TO BE TIED AT EACH CROSS OVER.")
+    Call AddToNotes(Note, NoteCount, "REFER " & SheetNo & " FOR CASTING DETAILS.")
+    
+    If InStr(wallName, "Wall") > 0 And (IsDoor Or WallWidth >= 192) Then
+        Call AddToNotes(Note, NoteCount, "FOR ALL AGGREGATE FINISHES; FLOAT IN CONTROL JOINT FB#816-22500. CAULK SEAM. FOR ALL OTHER FINISHES; SAW CUT 1/8" & Chr(34) & " WIDE X 1/4" & Chr(34) & " DEEP CONTROL JOINT.")
+        
+    End If
+    
     Set swStructuralNote = swDrawing.CreateText2(Note, 1.99241243641486E-02, 6.92464210842187E-02, 0, 0, 0)
     swStructuralNote.SetTextJustification swTextJustification_e.swTextJustificationLeft
 
 End Function
-'
+
+Sub AddToNotes(ByRef Note As String, ByRef NoteCount As Integer, NoteToAdd As String)
+
+    Note = Note & NoteCount & ". " & NoteToAdd & vbCrLf
+    NoteCount = NoteCount + 1
+    
+End Sub
+
 Private Sub InsertSketchBlock(swDrawing As SldWorks.DrawingDoc, swSheet As SldWorks.Sheet, ProjectNo As String)
 
     swDrawing.ActivateSheet swSheet.GetName

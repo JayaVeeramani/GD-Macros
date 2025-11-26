@@ -365,6 +365,64 @@ Function GetEdgeInViewForBody(swComp As SldWorks.Component2, oBody As Object, sw
 
 End Function
 
+Function GetOuterMostCircularEdge(oComp As IComp, swView As SldWorks.View) As SldWorks.Edge
+
+    Dim swComp As SldWorks.Component2
+    Set swComp = oComp.GetComponent
+    
+    Dim vEnts As Variant
+    vEnts = swView.GetVisibleEntities2(swComp, swViewEntityType_e.swViewEntityType_Edge)
+    
+    If Not IsEmpty(vEnts) Then
+    
+        Dim i As Integer
+        
+        Dim radius As Double
+        radius = 0
+        
+        Dim swOuterMostEdge As SldWorks.Edge
+        
+        For i = LBound(vEnts) To UBound(vEnts)
+            
+            Dim swEdge As SldWorks.Edge
+            Set swEdge = vEnts(i)
+            
+            Dim swCurve As SldWorks.Curve
+            Set swCurve = swEdge.GetCurve
+            
+            If swCurve.IsCircle Then
+            
+                Dim oCircularEdge As ICircularEdge
+                Set oCircularEdge = New ICircularEdge
+                
+                oCircularEdge.Initialize swEdge, swView, swComp
+                
+                If oCircularEdge.ViewRadius > radius Then
+                
+                    radius = oCircularEdge.ViewRadius
+                    Set swOuterMostEdge = oCircularEdge.GetEdge
+                    
+                End If
+            
+            End If
+        
+        Next i
+        
+        If swOuterMostEdge Is Nothing Then
+        
+            Set GetOuterMostCircularEdge = vEnts(0)
+            
+        Else
+            
+            Set GetOuterMostCircularEdge = swOuterMostEdge
+            
+        End If
+        
+    End If
+    
+    
+End Function
+
  Function SelectEntityWithSelectData(swEnt As Object, swView As SldWorks.View, swDrawing As SldWorks.DrawingDoc, _
                 SelXPos As Double, SelYPos As Double) As Boolean
                 

@@ -1,5 +1,156 @@
 Attribute VB_Name = "AddAnnotations"
+
 Dim AllowableRebarGap As Double
+
+Sub SetNoteWidth(swNote As SldWorks.Note, NoteWidth As Double)
+
+    Dim swAnn As SldWorks.Annotation
+    Set swAnn = swNote.GetAnnotation
+    
+    swAnn.Width = NoteWidth
+    
+End Sub
+
+Sub AddAnnotationsForPVC(xCompDict As Scripting.Dictionary, swDrawing As SldWorks.DrawingDoc, _
+            swView As SldWorks.View, oConcreteComp As IComp)
+
+    If xCompDict.Count > 0 Then
+    
+        Dim vItems As Variant
+        vItems = xCompDict.Items
+        
+        Dim i As Integer
+        For i = LBound(vItems) To UBound(vItems)
+            
+            Dim CompList As IArrListObject
+            Set CompList = vItems(i)
+            
+            CompList.SortItems "yMin", False
+            
+            Dim CompItems As Variant
+            CompItems = CompList.Items
+            
+            Dim j As Integer
+            For j = LBound(CompItems) To UBound(CompItems)
+            
+                Dim oComp As IComp
+                Set oComp = CompItems(j)
+                
+                Dim swCircularEdge As SldWorks.Edge
+                Set swCircularEdge = GetOuterMostCircularEdge(oComp, swView)
+                
+                Dim xPos As Double
+                xPos = oComp.xOrigin - 0.005
+                
+                Dim yPos As Double
+                
+                Dim AnnXPos As Double
+                Dim AnnYPos As Double
+                
+                If j = LBound(CompItems) Then
+                    
+                    If Abs(oComp.yMin - oConcreteComp.yMin) >= 0.01 Then
+                    
+                        yPos = oComp.yMin
+                        AnnXPos = xPos
+                        AnnYPos = yPos - 0.00375
+                        
+                    Else
+                    
+                        Call GetPVCAnnPosition(oComp, xPos, yPos, AnnXPos, AnnYPos)
+                        
+                    End If
+                
+                ElseIf j = UBound(CompItems) Then
+                
+                    If Abs(oComp.yMax - oConcreteComp.yMax) >= 0.01 Then
+                    
+                        yPos = oComp.yMax
+                        AnnXPos = xPos
+                        AnnYPos = yPos + 0.005
+                        
+                    Else
+                    
+                        Call GetPVCAnnPosition(oComp, xPos, yPos, AnnXPos, AnnYPos)
+                    
+                    End If
+                
+                
+                Else
+                
+                    Call GetPVCAnnPosition(oComp, xPos, yPos, AnnXPos, AnnYPos)
+                
+                End If
+                
+                Call SelectAndAddAnnotation(swCircularEdge, swDrawing, swView, xPos, yPos, AnnXPos, AnnYPos)
+                swView.SelectEntity swCircularEdge, False
+                
+                swDrawing.InsertCenterMark3 swCenterMarkStyle_e.swCenterMark_Single, False, False
+            
+            Next j
+            
+
+        Next i
+        
+    End If
+        
+End Sub
+
+Private Sub GetPVCAnnPosition(oComp As IComp, ByRef xPos As Double, ByRef yPos As Double, _
+            ByRef AnnXPos As Double, ByRef AnnYPos As Double)
+            
+    xPos = oComp.xMin
+    yPos = oComp.yOrigin
+    AnnXPos = xPos - 0.00375
+    AnnYPos = yPos + 0.00375
+            
+End Sub
+
+Sub AddAnnotationsForWeldPlateOrDoor(xCompDict As Scripting.Dictionary, swDrawing As SldWorks.DrawingDoc, _
+            swView As SldWorks.View, oConcreteComp As IComp)
+            
+    If xCompDict.Count > 0 Then
+    
+        Dim vItems As Variant
+        vItems = xCompDict.Items
+        
+        Dim i As Integer
+        For i = LBound(vItems) To UBound(vItems)
+            
+            Dim CompList As IArrListObject
+            Set CompList = vItems(i)
+            
+            Dim xPos As Double
+            Dim yPos As Double
+                
+            Dim AnnXPos As Double
+            Dim AnnYPos As Double
+            
+            If CompList.Count = 1 Then
+                
+                xPos = v
+                
+            
+            Else
+            
+                CompList.SortItems "yMin", False
+                
+                
+                Dim CompItems As Variant
+                CompItems = CompList.Items
+                
+                Dim j As Integer
+                For j = LBound(CompItems) To UBound(CompItems)
+                
+                Next j
+                
+            End If
+        
+        Next i
+        
+    End If
+
+End Sub
 
 Function AddRebarAnnotations(Dict As Scripting.Dictionary, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, _
             DimDict As Scripting.Dictionary, TopDimKey As String, BottomDimKey As String, LeftDimKey As String, _
@@ -432,9 +583,21 @@ Function SelectAndAddItemNoAnnotation(swEnt As Object, swDrawing As SldWorks.Dra
     End If
 End Function
 
-Function AddNoteToView(swDrawing As SldWorks.DrawingDoc, NoteText As String, xPos As Double, yPos As Double) As SldWorks.Note
+Function AddNoteToView(swDrawing As SldWorks.DrawingDoc, NoteText As String, xPos As Double, yPos As Double, Optional ToCenter As Boolean) As SldWorks.Note
             
     Set AddNoteToView = swDrawing.InsertNote(NoteText)
+    
+    Dim OffSetVal As Double
+    OffSetVal = 0
+    
+    If ToCenter Then
+    
+        Dim vNoteExtents As Variant
+        vNoteExtents = AddNoteToView.GetExtent
+        OffSetVal = (vNoteExtents(3) - vNoteExtents(0)) / 2
+        
+    End If
+    
             
     If Not AddNoteToView Is Nothing Then
 
@@ -443,7 +606,7 @@ Function AddNoteToView(swDrawing As SldWorks.DrawingDoc, NoteText As String, xPo
 
         If Not swAnnotation Is Nothing Then
 
-            swAnnotation.SetPosition xPos, yPos, 0
+            swAnnotation.SetPosition xPos - OffSetVal, yPos, 0
 
         End If
 

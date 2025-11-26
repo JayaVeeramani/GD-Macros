@@ -22,7 +22,7 @@ Sub main()
     
     If swTopLevelModel.GetType = swDocumentTypes_e.swDocASSEMBLY Then
 
-        HideShowForm.WeldNoBox.Value = Mid(swTopLevelModel.GetPathName, InStrRev(swTopLevelModel.GetPathName, "\") + 1, 6)
+        HideShowForm.ProjectNoBox.Value = Mid(swTopLevelModel.GetPathName, InStrRev(swTopLevelModel.GetPathName, "\") + 1, 6)
         HideShowForm.Show vbModeless
 
     End If

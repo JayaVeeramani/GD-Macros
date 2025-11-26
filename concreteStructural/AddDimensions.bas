@@ -1,5 +1,59 @@
 Attribute VB_Name = "AddDimensions"
+Function AddDiagonalDimension(oConcreteComp As IComp, _
+    swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View) As SldWorks.DisplayDimension
+    
+    Dim BottomVertex As SldWorks.Vertex
+    Set BottomVertex = GetExtremePointInView(oConcreteComp, swView, False, False)
+    
+    Dim TopVertex As SldWorks.Vertex
+    Set TopVertex = GetExtremePointInView(oConcreteComp, swView, True, True)
 
+    Set AddDiagonalDimension = SelectAndAddDimension(BottomVertex, TopVertex, swDrawing, oConcreteComp.xMax + 0.005, oConcreteComp.yMax + 0.005, swView, False)
+
+End Function
+
+'Function GetIntersectingVertex(swEdge1 As SldWorks.Edge, swEdge2 As SldWorks.Edge) As SldWorks.Vertex
+'
+'    Dim swVertex1Start As SldWorks.Vertex
+'    Dim swVertex1End As SldWorks.Vertex
+'
+'    Dim vVertex1StartPt As Variant
+'    Dim vVertex1EndPt As Variant
+'
+'    Call GetStartAndEndVertexPoints(swEdge1, swVertex1Start, swVertex1End, vVertex1StartPt, vVertex1EndPt)
+'
+'    Dim swVertex2Start As SldWorks.Vertex
+'    Dim swVertex2End As SldWorks.Vertex
+'
+'    Dim vVertex2StartPt As Variant
+'    Dim vVertex2EndPt As Variant
+'
+'    Call GetStartAndEndVertexPoints(swEdge2, swVertex2Start, swVertex2End, vVertex2StartPt, vVertex2EndPt)
+'
+'    If (vVertex1StartPt(0) = vVertex2StartPt(0) And vVertex1StartPt(1) = vVertex2StartPt(1) And vVertex1StartPt(2) = vVertex2StartPt(2)) Or _
+'        (vVertex1StartPt(0) = vVertex2EndPt(0) And vVertex1StartPt(1) = vVertex2EndPt(1) And vVertex1StartPt(2) = vVertex2EndPt(2)) Then
+'
+'        Set GetIntersectingVertex = swVertex1Start
+'
+'    ElseIf (vVertex1EndPt(0) = vVertex2StartPt(0) And vVertex1EndPt(1) = vVertex2StartPt(1) And vVertex1EndPt(2) = vVertex2StartPt(2)) Or _
+'        (vVertex1EndPt(0) = vVertex2EndPt(0) And vVertex1EndPt(1) = vVertex2EndPt(1) And vVertex1EndPt(2) = vVertex2EndPt(2)) Then
+'
+'        Set GetIntersectingVertex = swVertex1End
+'
+'    End If
+'
+'End Function
+'
+'Sub GetStartAndEndVertexPoints(swEdge As SldWorks.Edge, ByRef swVertexStart As SldWorks.Vertex, ByRef swVertexEnd As SldWorks.Vertex, _
+'            vVertexStartPt As Variant, vVertexEndPt As Variant)
+'
+'    Set swVertexStart = swEdge.GetStartVertex
+'    vVertexStartPt = swVertexStart.GetPoint
+'
+'    Set swVertexEnd = swEdge.GetEndVertex
+'    vVertexEndPt = swVertexEnd.GetPoint
+'
+'End Sub
 Sub AddRebarDimensions(Dict As Scripting.Dictionary, LowerOrdDim As SldWorks.DisplayDimension, _
             HigherOrdDim As SldWorks.DisplayDimension, oConcreteComp As IComp, _
             MinParam As String, MaxParam As String, EdgeName As String, _
@@ -121,7 +175,7 @@ End Sub
 Sub AddCompDimensions(Dict As Scripting.Dictionary, LowerOrdDim As SldWorks.DisplayDimension, _
             HigherOrdDim As SldWorks.DisplayDimension, oConcreteComp As IComp, _
             IsHorizontal As Boolean, MinParam As String, MaxParam As String, swDrawing As SldWorks.DrawingDoc, _
-            swView As SldWorks.View, DimDict As Scripting.Dictionary, IsOrigin As Boolean)
+            swView As SldWorks.View, DimDict As Scripting.Dictionary, IsOrigin As Boolean, Optional SuffixString As String = "")
     
     If Dict.Count > 0 Then
     
@@ -203,7 +257,7 @@ Sub AddCompDimensions(Dict As Scripting.Dictionary, LowerOrdDim As SldWorks.Disp
                 Set swEdge = GetEdgeInView(oRefComp, swView, IsHorizontal, False)
                 
                 swView.SelectEntity swEdge, False
-                Call AddToOrdinateDimension(RefDim, CompList.Count, swDrawing, swView)
+                Call AddToOrdinateDimension(RefDim, CompList.Count, swDrawing, swView, SuffixString)
                 
                 xVal = oRefComp.xMin
                 yVal = oRefComp.yMin
@@ -449,7 +503,7 @@ Function SelectAndAddOrdinateOrigin(swEnt As SldWorks.Entity, swDrawing As SldWo
 End Function
 
 Sub AddToOrdinateDimension(OrdDim As SldWorks.DisplayDimension, _
-                Qty As Integer, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View)
+                Qty As Integer, swDrawing As SldWorks.DrawingDoc, swView As SldWorks.View, Optional SuffixString As String = "")
     
     Dim PrevDimCount As Integer
     PrevDimCount = swView.GetDisplayDimensionCount
@@ -472,7 +526,7 @@ Sub AddToOrdinateDimension(OrdDim As SldWorks.DisplayDimension, _
 
             If Not swDisplayDim Is Nothing Then
         
-                Call AddQtyBracketsAndSuffixToDimension(swDisplayDim, Qty)
+                Call AddQtyBracketsAndSuffixToDimension(swDisplayDim, Qty, suffixNote:=SuffixString)
                 
             End If
             
